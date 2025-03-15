@@ -20,53 +20,76 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { IoColorPalette } from "react-icons/io5";
-import { FaMoon, FaSun } from "react-icons/fa";
+import { FaCalendarCheck, FaHome, FaMoon, FaSun } from "react-icons/fa";
+import { IoIosTimer } from "react-icons/io";
 import { FaGear } from "react-icons/fa6";
 import { useTheme } from "next-themes";
 import EditConfig from "./sidebar/EditConfig";
+import { usePathname } from "next/navigation";
+import Link from "next/link";
+import { useConfig } from "@/hooks/useConfig";
+import { useEffect } from "react";
 
 const items = [
   {
     title: "Home",
-    url: "#",
-    icon: "",
+    url: "/",
+    icon: <FaHome />,
   },
   {
-    title: "Inbox",
-    url: "#",
-    icon: "",
+    title: "Tasks",
+    url: "/tasks",
+    icon: <FaCalendarCheck />,
+  },
+  {
+    title: "Focus",
+    url: "/focus",
+    icon: <IoIosTimer />,
   },
 ];
 
 export function AppSidebar() {
+  const pathname = usePathname();
+  const { loadConfig } = useConfig();
+  useEffect(() => {
+    loadConfig();
+  }, [loadConfig]);
+
   return (
-    <Sidebar>
-      <SidebarHeader>
-        <EditConfig />
-      </SidebarHeader>
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Application</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {items.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <a href={item.url}>
-                      {/* <item.icon /> */}
-                      <span>{item.title}</span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-      <SidebarFooter>
-        <ThemeSelector />
-      </SidebarFooter>
-    </Sidebar>
+    <>
+      <Sidebar>
+        <SidebarHeader>
+          <EditConfig />
+        </SidebarHeader>
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarGroupLabel>BIT Focus</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {items.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      className="gap-2"
+                      style={{ padding: "1.5rem 0.5rem" }}
+                      isActive={pathname === item.url}
+                    >
+                      <Link href={item.url}>
+                        {item.icon}
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+        <SidebarFooter>
+          <ThemeSelector />
+        </SidebarFooter>
+      </Sidebar>
+    </>
   );
 }
 

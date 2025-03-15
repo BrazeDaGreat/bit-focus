@@ -1,19 +1,16 @@
 "use client";
 
-import { Toaster } from "@/components/ui/sonner";
-import { useConfig } from "@/hooks/useConfig";
-import { useEffect } from "react";
-
+import { useTheme } from "next-themes";
+import { Toaster } from "sonner";
 
 
 export default function Home() {
 
-  const { loadConfig } = useConfig()
-  useEffect(() => { loadConfig() }, [loadConfig])
+  const { theme } = useTheme();
 
   return <div className="">
     what&apos;s up chat
 
-    <Toaster />
+    <Toaster theme={(theme ?? "system") as "system" | "light" | "dark"} />
   </div>
 }
