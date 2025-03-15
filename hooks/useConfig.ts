@@ -15,7 +15,13 @@ export const useConfig = create<ConfigState>((set) => ({
 
   setConfig: async (name, dob) => {
     console.log(name, dob);
-    await db.configuration.put({ name, dob });
+    const existingConfig = await db.configuration.toCollection().first();
+    if (existingConfig) {
+      await db.configuration.delete(existingConfig.name);
+      console.log("Previous entry deleted.");
+    }
+    await db.configuration.add({ name, dob });
+    console.log("Config added successfully.");
     set({ name, dob });
   },
 
