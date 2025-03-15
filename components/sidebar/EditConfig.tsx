@@ -66,7 +66,11 @@ const EditConfig = () => {
             {name === "NULL" ? (
               <span className="text-lg">Hello</span>
             ) : (
-              <span className="text-lg">Hello, {name}</span>
+              <div className="flex gap-2 items-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`https://api.dicebear.com/9.x/shapes/svg?seed=${name}`} alt="avatar" className="w-6 h-6 rounded-full shadow-md" />
+                <span className="text-lg"> Hello, {name}</span>
+              </div>
             )}
             <span className="text-xs">
               Age: {years}y {months}m {days}d
