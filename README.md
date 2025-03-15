@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# BIT Focus
 
-## Getting Started
+BIT Focus is really just a side-project, intended to become a simple productivity tracking solution.
 
-First, run the development server:
+## Installation
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Follow these steps to set up the project locally:
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+1. **Clone the repository:**
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+   ```bash
+   git clone https://github.com/BrazeDaGreat/bit-focus.git
+   cd bit-focus
+   ```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+2. **Install dependencies:**
 
-## Learn More
+   ```bash
+   npm install
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+3. **Start the development server:**
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+   ```bash
+   npm run dev
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+   This will launch the application at `http://localhost:3000`.
 
-## Deploy on Vercel
+## Usage
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Adding Tasks:** Navigate to the "Tasks" section to add new tasks, define subtasks, set due dates, and assign tags.
+- **Starting Focus Sessions:** In the "Focus" section, initiate a new focus session by specifying a tag and the start time. End the session when completed to log it.
+- **Configuring Settings:** Access the "Configuration" section to set your name and choose a theme that suits your preference.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Project Structure
+
+- **`components/`**: Contains reusable React components.
+- **`hooks/`**: Custom hooks for state management and data fetching.
+- **`pages/`**: Next.js pages that define the application's routes.
+- **`public/`**: Static assets like images and icons.
+
+## Technologies Used
+
+- **Next.js:** Framework for server-rendered React applications.
+- **React Hook Form:** For form management and validation.
+- **Zustand:** Lightweight state management library.
+- **Dexie.js:** Wrapper for IndexedDB to handle client-side data storage.
+- **shadcn/ui:** Component library for building accessible web interfaces.
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for more details.
+
+## Acknowledgements
+
+- [React Hook Form](https://react-hook-form.com/) for efficient form handling.
+- [Zustand](https://github.com/pmndrs/zustand) for simplified state management.
+- [Dexie.js](https://dexie.org/) for seamless IndexedDB interactions.
+- [shadcn/ui](https://shadcn.dev/) for a robust component library.
