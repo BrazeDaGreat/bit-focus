@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/popover";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const items = [
   {
@@ -83,6 +84,7 @@ export function AppSidebar() {
 
 const EditConfig = () => {
   const { name, dob, setConfig } = useConfig();
+  const isMobile = useIsMobile();
   const {
     register,
     handleSubmit,
@@ -147,7 +149,7 @@ const EditConfig = () => {
           {/* <FaPencil /> */}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-72 m-2" side="right" sideOffset={10}>
+      <PopoverContent className="w-72 m-2" side={isMobile ? "bottom" : "right"} sideOffset={10}>
         <div className="grid gap-4">
           <div className="space-y-2">
             <h4 className="font-medium leading-none">Edit Details</h4>

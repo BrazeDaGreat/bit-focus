@@ -12,7 +12,7 @@ export default function Home() {
   useEffect(() => { loadConfig() }, [loadConfig])
 
   return <div className="">
-    Hi
+    what&apos;s up chat
 
     <Toaster />
   </div>
