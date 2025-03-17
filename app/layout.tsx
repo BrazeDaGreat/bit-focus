@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/lib/theme-provider";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { PomoProvider } from "@/hooks/PomoContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -44,13 +45,15 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <SidebarProvider>
-          <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-            <AppSidebar />
-            <SidebarTrigger />
-            {children}
-          </ThemeProvider>
-        </SidebarProvider>
+        <PomoProvider>
+          <SidebarProvider>
+            <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+              <AppSidebar />
+              <SidebarTrigger />
+              {children}
+            </ThemeProvider>
+          </SidebarProvider>
+        </PomoProvider>
       </body>
     </html>
   );

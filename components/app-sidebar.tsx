@@ -29,6 +29,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useConfig } from "@/hooks/useConfig";
 import { useEffect } from "react";
+import PomoFooterTimer from "./sidebar/PomoFooterTimer";
 
 const items = [
   {
@@ -86,6 +87,7 @@ export function AppSidebar() {
           </SidebarGroup>
         </SidebarContent>
         <SidebarFooter>
+          <PomoFooterTimer />
           <ThemeSelector />
         </SidebarFooter>
       </Sidebar>

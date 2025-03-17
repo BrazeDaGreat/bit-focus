@@ -16,7 +16,6 @@ class BitFocusDB extends Dexie {
     },
     number
   >;
-
   constructor() {
     super("BitFocusDB");
 
