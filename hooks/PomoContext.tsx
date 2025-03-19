@@ -2,18 +2,34 @@
 import { createContext, useContext, useReducer, useEffect } from "react";
 import { IoIosTimer } from "react-icons/io";
 import { toast } from "sonner";
+import { useFocus } from "./useFocus";
 
-const handleFinish = () => {
+const handleFinish = (
+  addFocusSession: (
+    tag: string,
+    startTime: Date,
+    endTime: Date
+  ) => Promise<void>
+) => {
   const seconds = Number(localStorage.getItem("pomoTime") ?? 0);
-
   console.log("Focused for", seconds);
-  toast(`Focused for ${seconds} seconds.`, { icon: <IoIosTimer />});
+  addFocusSession(
+    "Focus",
+    new Date(Date.now() - seconds * 1000),
+    new Date(Date.now())
+  )
+  toast(`Focused for ${seconds} seconds.`, { icon: <IoIosTimer /> });
 };
 
 // Types
 interface PomoState {
   isRunning: boolean;
   elapsedSeconds: number;
+  addFocusSession: (
+    tag: string,
+    startTime: Date,
+    endTime: Date
+  ) => Promise<void>;
 }
 
 type Action =
@@ -30,8 +46,8 @@ function pomoReducer(state: PomoState, action: Action): PomoState {
     case "PAUSE":
       return { ...state, isRunning: false };
     case "RESET":
-      if (state.elapsedSeconds > 0) handleFinish();
-      return { isRunning: false, elapsedSeconds: action.payload ?? 0 };
+      if (state.elapsedSeconds > 0) handleFinish(state.addFocusSession);
+      return { isRunning: false, elapsedSeconds: action.payload ?? 0, addFocusSession: state.addFocusSession };
     case "TICK":
       return state.isRunning
         ? { ...state, elapsedSeconds: state.elapsedSeconds + 1 }
@@ -51,10 +67,21 @@ const PomoContext = createContext<{
 
 // Provider Component
 export function PomoProvider({ children }: { children: React.ReactNode }) {
+  const { loadFocusSessions, addFocusSession, focusSessions } = useFocus();
   const [state, dispatch] = useReducer(pomoReducer, {
     isRunning: false,
     elapsedSeconds: 0, // Default value
+    addFocusSession: addFocusSession
   });
+
+  useEffect(() => {
+    loadFocusSessions();
+    console.log("Loaded Focus Sessions");
+  }, [loadFocusSessions]);
+
+  useEffect(() => {
+    console.log("Focus Sessions initialized", focusSessions);
+  }, [focusSessions]);
 
   // Load saved time from localStorage (client-side only)
   useEffect(() => {
