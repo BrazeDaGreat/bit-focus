@@ -5,11 +5,17 @@ import { FaPencil } from "react-icons/fa6";
 import { toast } from "sonner";
 import { LuChevronsUpDown } from "react-icons/lu";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "../ui/button";
 import { Label } from "../ui/label";
 import { Input } from "../ui/input";
 
 
+export const EditConfigSkeleton = () => {
+  return <div className="h-[74px] flex flex-col items-center justify-center">
+    <Skeleton className="w-full h-full" />
+  </div>
+}
 
 const EditConfig = () => {
   const { name, dob, setConfig } = useConfig();

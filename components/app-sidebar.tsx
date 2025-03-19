@@ -1,5 +1,4 @@
 "use client";
-
 import {
   Sidebar,
   SidebarContent,
@@ -24,12 +23,13 @@ import { FaCalendarCheck, FaHome, FaMoon, FaSun } from "react-icons/fa";
 import { IoIosTimer } from "react-icons/io";
 import { FaGear } from "react-icons/fa6";
 import { useTheme } from "next-themes";
-import EditConfig from "./sidebar/EditConfig";
+import EditConfig, { EditConfigSkeleton } from "./sidebar/EditConfig";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useConfig } from "@/hooks/useConfig";
 import { useEffect } from "react";
 import PomoFooterTimer from "./sidebar/PomoFooterTimer";
+import { Skeleton } from "./ui/skeleton";
 
 const items = [
   {
@@ -51,7 +51,7 @@ const items = [
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const { loadConfig } = useConfig();
+  const { loadConfig, loadingConfig } = useConfig();
   useEffect(() => {
     loadConfig();
   }, [loadConfig]);
@@ -60,7 +60,10 @@ export function AppSidebar() {
     <>
       <Sidebar>
         <SidebarHeader>
-          <EditConfig />
+          {
+            loadingConfig ? (<EditConfigSkeleton />) : (<EditConfig />)
+          }
+          {/* <EditConfig /> */}
         </SidebarHeader>
         <SidebarContent>
           <SidebarGroup>
@@ -88,13 +91,16 @@ export function AppSidebar() {
         </SidebarContent>
         <SidebarFooter>
           <PomoFooterTimer />
-          <ThemeSelector />
+          { loadingConfig ? <ThemeSelectorSkeleton /> : <ThemeSelector />}
         </SidebarFooter>
       </Sidebar>
     </>
   );
 }
 
+const ThemeSelectorSkeleton = () => {
+  return <Skeleton className="h-9" />
+}
 const ThemeSelector = () => {
   const { setTheme, theme } = useTheme();
   return (

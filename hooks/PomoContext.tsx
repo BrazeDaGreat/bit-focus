@@ -1,5 +1,14 @@
 "use client";
 import { createContext, useContext, useReducer, useEffect } from "react";
+import { IoIosTimer } from "react-icons/io";
+import { toast } from "sonner";
+
+const handleFinish = () => {
+  const seconds = Number(localStorage.getItem("pomoTime") ?? 0);
+
+  console.log("Focused for", seconds);
+  toast(`Focused for ${seconds} seconds.`, { icon: <IoIosTimer />});
+};
 
 // Types
 interface PomoState {
@@ -21,9 +30,12 @@ function pomoReducer(state: PomoState, action: Action): PomoState {
     case "PAUSE":
       return { ...state, isRunning: false };
     case "RESET":
+      if (state.elapsedSeconds > 0) handleFinish();
       return { isRunning: false, elapsedSeconds: action.payload ?? 0 };
     case "TICK":
-      return state.isRunning ? { ...state, elapsedSeconds: state.elapsedSeconds + 1 } : state;
+      return state.isRunning
+        ? { ...state, elapsedSeconds: state.elapsedSeconds + 1 }
+        : state;
     default:
       return state;
   }

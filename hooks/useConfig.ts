@@ -5,6 +5,7 @@ import db from "@/lib/db";
 interface ConfigState {
   name: string;
   dob: Date;
+  loadingConfig: boolean;
   setConfig: (name: string, dob: Date) => Promise<void>;
   loadConfig: () => Promise<void>;
 }
@@ -12,6 +13,7 @@ interface ConfigState {
 export const useConfig = create<ConfigState>((set) => ({
   name: "NULL",
   dob: new Date(),
+  loadingConfig: true,
 
   setConfig: async (name, dob) => {
     console.log(name, dob);
@@ -26,9 +28,16 @@ export const useConfig = create<ConfigState>((set) => ({
   },
 
   loadConfig: async () => {
-    const config = await db.configuration.toCollection().first();
-    if (config) {
-      set({ name: config.name, dob: config.dob });
+    set({ loadingConfig: true });
+    try {
+      const config = await db.configuration.toCollection().first();
+      if (config) {
+        set({ name: config.name, dob: config.dob });
+      }
+    } catch (error) {
+      console.error("Failed to load configuration:", error);
+    } finally {
+      set({ loadingConfig: false });
     }
   },
 }));
