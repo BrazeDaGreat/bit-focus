@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/theme-provider";
-import { SidebarProvider, /*SidebarTrigger*/ } from "@/components/ui/sidebar";
+import { SidebarProvider /*SidebarTrigger*/ } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { PomoProvider } from "@/hooks/PomoContext";
+import TopBar from "@/components/TopBar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -50,9 +51,12 @@ export default function RootLayout({
             <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
               <AppSidebar />
               {/* <SidebarTrigger /> */}
+              <div className="flex-1 flex flex-col max-h-screen overflow-y-auto">
+              <TopBar />
               {children}
+              </div>
             </ThemeProvider>
-          </SidebarProvider>
+        </SidebarProvider>
         </PomoProvider>
       </body>
     </html>

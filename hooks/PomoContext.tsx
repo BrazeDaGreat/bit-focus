@@ -14,7 +14,7 @@ const handleFinish = (
   const seconds = Number(localStorage.getItem("pomoTime") ?? 0);
   console.log("Focused for", seconds);
   addFocusSession(
-    "Study",
+    "Code",
     new Date(Date.now() - seconds * 1000),
     new Date(Date.now())
   )
