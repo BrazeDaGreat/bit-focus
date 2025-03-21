@@ -120,3 +120,24 @@
   }
 }
 
+
+
+/* width */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+/* Track */
+::-webkit-scrollbar-track {
+  background: #fdfdfd; 
+}
+ 
+/* Handle */
+::-webkit-scrollbar-thumb {
+  background: #606060; 
+}
+
+/* Handle on hover */
+::-webkit-scrollbar-thumb:hover {
+  background: #373737; 
+}

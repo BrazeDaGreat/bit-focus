@@ -2,7 +2,7 @@ import { create } from "zustand";
 import db from "@/lib/db";
 
 // Define Zustand store
-interface FocusSession {
+export interface FocusSession {
   id?: number;
   tag: string;
   startTime: Date;
@@ -25,12 +25,12 @@ export const useFocus = create<FocusState>((set) => ({
   addFocusSession: async (tag, startTime, endTime) => {
     const id = await db.focus.add({ tag, startTime, endTime });
     set((state) => ({
-      focusSessions: [...state.focusSessions, { id, tag, startTime, endTime }],
+      focusSessions: [{ id, tag, startTime, endTime }, ...state.focusSessions], // Keep state ordered
     }));
   },
 
   loadFocusSessions: async () => {
     const sessions = await db.focus.toArray();
-    set({ focusSessions: sessions });
+    set({ focusSessions: sessions.reverse() });
   },
 }));

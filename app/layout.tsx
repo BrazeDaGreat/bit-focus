@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/theme-provider";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarProvider, /*SidebarTrigger*/ } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { PomoProvider } from "@/hooks/PomoContext";
 
@@ -49,7 +49,7 @@ export default function RootLayout({
           <SidebarProvider>
             <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
               <AppSidebar />
-              <SidebarTrigger />
+              {/* <SidebarTrigger /> */}
               {children}
             </ThemeProvider>
           </SidebarProvider>
