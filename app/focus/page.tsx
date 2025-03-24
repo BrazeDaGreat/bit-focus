@@ -38,6 +38,7 @@ import TagBadge from "@/components/TagBadge";
 import { useState } from "react";
 import { EditFocusSession } from "./EditFocusSection";
 import TagSelector from "@/components/TagSelector";
+import Graph from "./Graph";
 
 
 export default function Focus() {
@@ -110,6 +111,10 @@ export default function Focus() {
           </CardDescription>
         </Card>
       </div>
+      <div className="border bg-white text-black border-white w-[50%]">
+        <h1>Graph</h1>
+        <Graph />
+      </div>
       {/* Toaster */}
       <Toaster theme={(theme ?? "system") as "system" | "light" | "dark"} />
     </div>
@@ -141,7 +146,7 @@ function FocusOption({ item }: FocusOptionProps) {
           <div className="flex gap-2 items-center">
             <FaRegClock />
             <span className="font-semibold">
-              {formatTime(elapsedSeconds, -1, 1)}
+              {formatTime(elapsedSeconds / 60, -1, 1)}
             </span>
           </div>
           <div className="flex gap-4 items-center">

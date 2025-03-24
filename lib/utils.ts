@@ -14,15 +14,23 @@ export const formatTime = (
     return `${minutes.toString().padStart(2, "0")}:${seconds
       .toString()
       .padStart(2, "0")}`;
+
   if (mode === 1) {
-    if (Math.floor(minutes / 60) === 0) return `${minutes}s`;
-    return `${Math.floor(minutes / 60)}m ${minutes % 60}s`;
+    const totalSeconds = minutes * 60 + seconds;
+    const hrs = Math.round(Math.floor(totalSeconds / 3600));
+    const mins = Math.round(Math.floor((totalSeconds % 3600) / 60));
+    const secs = Math.round(totalSeconds % 60);
+
+    if (hrs > 0) return `${hrs}h ${mins}m ${secs}s`;
+    if (mins > 0) return `${mins}m ${secs}s`;
+    return `${secs}s`;
   }
 };
 
 export function stringToHexColor(
   str: string,
-  alpha?: number
+  alpha?: number,
+  lighten?: number
 ): [string, boolean] {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -34,17 +42,23 @@ export function stringToHexColor(
   const hexColor = "#" + "000000".substring(0, 6 - color.length) + color;
 
   // Convert hex to RGB
-  const r = parseInt(hexColor.substring(1, 3), 16);
-  const g = parseInt(hexColor.substring(3, 5), 16);
-  const b = parseInt(hexColor.substring(5, 7), 16);
+  let r = parseInt(hexColor.substring(1, 3), 16);
+  let g = parseInt(hexColor.substring(3, 5), 16);
+  let b = parseInt(hexColor.substring(5, 7), 16);
+
+  // Apply lightening if provided
+  if (lighten !== undefined) {
+    const factor = Math.min(100, Math.max(0, lighten)) / 100;
+    r = Math.round(r + (255 - r) * factor);
+    g = Math.round(g + (255 - g) * factor);
+    b = Math.round(b + (255 - b) * factor);
+  }
 
   // Calculate luminance (perceived brightness)
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-
-  // Determine text color: if luminance is low, use white text; otherwise, use black text
   const useWhiteText = luminance < 0.5;
 
-  // If alpha is provided, return RGBA color instead of HEX
+  // If alpha is provided, return RGBA
   if (alpha !== undefined) {
     const rgbaColor = `rgba(${r}, ${g}, ${b}, ${Math.max(
       0,
@@ -53,5 +67,10 @@ export function stringToHexColor(
     return [rgbaColor, useWhiteText];
   }
 
-  return [hexColor, useWhiteText];
+  // Convert lightened RGB back to hex
+  const finalHex = `#${r.toString(16).padStart(2, "0")}${g
+    .toString(16)
+    .padStart(2, "0")}${b.toString(16).padStart(2, "0")}`.toUpperCase();
+
+  return [finalHex, useWhiteText];
 }
