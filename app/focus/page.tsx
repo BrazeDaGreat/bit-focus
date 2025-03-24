@@ -121,6 +121,7 @@ interface FocusOptionProps {
 }
 
 function FocusOption({ item }: FocusOptionProps) {
+  const { removeFocusSession } = useFocus()
   const elapsedSeconds = Math.floor(
     (item.endTime.getTime() - item.startTime.getTime()) / 1000
   );
@@ -155,7 +156,7 @@ function FocusOption({ item }: FocusOptionProps) {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <EditFocusSession item={item} setIsDropdownOpen={setIsDropdownOpen} />
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={() => removeFocusSession(item.id!)}>
           <FaTrash />
           <span>Delete</span>
         </DropdownMenuItem>
