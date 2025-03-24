@@ -3,6 +3,7 @@ import { createContext, useContext, useReducer, useEffect } from "react";
 import { IoIosTimer } from "react-icons/io";
 import { toast } from "sonner";
 import { useFocus } from "./useFocus";
+import { formatTime } from "@/lib/utils";
 
 const handleFinish = (
   addFocusSession: (
@@ -17,8 +18,10 @@ const handleFinish = (
     "Code",
     new Date(Date.now() - seconds * 1000),
     new Date(Date.now())
-  )
-  toast(`Focused for ${seconds} seconds.`, { icon: <IoIosTimer /> });
+  );
+  toast(`Focused for ${formatTime(seconds, -1, 1)} seconds.`, {
+    icon: <IoIosTimer />,
+  });
 };
 
 // Types
@@ -47,7 +50,11 @@ function pomoReducer(state: PomoState, action: Action): PomoState {
       return { ...state, isRunning: false };
     case "RESET":
       if (state.elapsedSeconds > 0) handleFinish(state.addFocusSession);
-      return { isRunning: false, elapsedSeconds: action.payload ?? 0, addFocusSession: state.addFocusSession };
+      return {
+        isRunning: false,
+        elapsedSeconds: action.payload ?? 0,
+        addFocusSession: state.addFocusSession,
+      };
     case "TICK":
       return state.isRunning
         ? { ...state, elapsedSeconds: state.elapsedSeconds + 1 }
@@ -71,7 +78,7 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(pomoReducer, {
     isRunning: false,
     elapsedSeconds: 0, // Default value
-    addFocusSession: addFocusSession
+    addFocusSession: addFocusSession,
   });
 
   useEffect(() => {
