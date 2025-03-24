@@ -12,7 +12,6 @@ import { formatTime } from "@/lib/utils";
 import { useTheme } from "next-themes";
 import {
   FaCalendar,
-  FaChartBar,
   FaFileCsv,
   FaPause,
   FaPlay,
@@ -38,7 +37,7 @@ import TagBadge from "@/components/TagBadge";
 import { useState } from "react";
 import { EditFocusSession } from "./EditFocusSection";
 import TagSelector from "@/components/TagSelector";
-import Graph from "./Graph";
+import GraphDialog from "./Graph";
 
 
 export default function Focus() {
@@ -99,9 +98,7 @@ export default function Focus() {
               <Button size={"sm"} variant={"ghost"}>
                 <FaFileCsv /> Export
               </Button>
-              <Button size={"sm"} variant={"outline"}>
-                <FaChartBar /> Details
-              </Button>
+              <GraphDialog />
             </div>
           </CardTitle>
           <CardDescription className="max-h-64 overflow-y-auto flex flex-col gap-2 py-2 px-12">
@@ -110,10 +107,6 @@ export default function Focus() {
             ))}
           </CardDescription>
         </Card>
-      </div>
-      <div className="border bg-white text-black border-white w-[50%]">
-        <h1>Graph</h1>
-        <Graph />
       </div>
       {/* Toaster */}
       <Toaster theme={(theme ?? "system") as "system" | "light" | "dark"} />

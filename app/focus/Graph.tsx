@@ -13,6 +13,16 @@ import dayjs from "dayjs";
 import isoWeek from "dayjs/plugin/isoWeek";
 import { FocusSession, useFocus } from "@/hooks/useFocus";
 import { stringToHexColor, formatTime } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { FaChartBar } from "react-icons/fa6";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { FaArrowLeft, FaArrowRight } from "react-icons/fa";
 
 dayjs.extend(isoWeek);
 
@@ -82,22 +92,34 @@ const Graph: React.FC = () => {
   return (
     <div>
       <div className="flex justify-between mb-4">
-        <button
+        {/* <button
           onClick={() => setOffset(offset + unitToShow)}
           className="px-4 py-2 bg-gray-300 rounded"
         >
           Previous
-        </button>
-        <button
+        </button> */}
+        <Button
+          variant={"secondary"}
+          onClick={() => setOffset(offset + unitToShow)}
+        >
+          <FaArrowLeft />
+        </Button>
+        <Button
+          variant={"secondary"}
+          onClick={() => setOffset(Math.max(0, offset - unitToShow))}
+        >
+          <FaArrowRight />
+        </Button>
+        {/* <button
           onClick={() => setOffset(Math.max(0, offset - unitToShow))}
           className="px-4 py-2 bg-gray-300 rounded"
         >
           Next
-        </button>
+        </button> */}
       </div>
       <ResponsiveContainer width="100%" height={400}>
-        <BarChart data={processedData} stackOffset="sign" >
-        <CartesianGrid strokeDasharray="" stroke="#eee" />
+        <BarChart data={processedData} stackOffset="sign">
+          <CartesianGrid strokeDasharray="5" stroke="#bbb" x={48} />
           <XAxis
             dataKey="date"
             stroke="#8884d8"
@@ -116,8 +138,8 @@ const Graph: React.FC = () => {
             formatter={(value) => formatTime((value as number), 0, 1)}
           /> */}
           <Tooltip
-          wrapperStyle={{ outline: "none" }}
-          cursor={{ fill: "transparent" }}
+            wrapperStyle={{ outline: "none" }}
+            cursor={{ fill: "transparent" }}
             formatter={(value, name, props) => {
               if (name === "total") return null; // Hide the total as a separate item
               const total = props.payload?.total ?? 0;
@@ -144,14 +166,6 @@ const Graph: React.FC = () => {
             }}
           />
           <Legend />
-          {/* <Bar
-            dataKey="total"
-            stackId="a"
-            fill="#8884d8"
-            name="Total Focused Time"
-            //   barSize={10} // Slightly thinner bar for total
-            opacity={0.5} // Make it semi-transparent for distinction
-          /> */}
           {tags.map((tag: string) => (
             <Bar
               key={String(tag)}
@@ -163,7 +177,20 @@ const Graph: React.FC = () => {
         </BarChart>
       </ResponsiveContainer>
       <div className="flex justify-center mt-4 space-x-4">
-        <button
+        <Button
+          variant={view === "day" ? "secondary" : "ghost"}
+          onClick={() => setView("day")}
+        >
+          Days
+        </Button>
+        <Button
+          variant={view === "month" ? "secondary" : "ghost"}
+          onClick={() => setView("month")}
+        >
+          Months
+        </Button>
+        {/* <Button></Button> */}
+        {/* <button
           onClick={() => setView("day")}
           className={`px-4 py-2 ${
             view === "day" ? "bg-blue-500 text-white" : "bg-gray-300"
@@ -186,10 +213,31 @@ const Graph: React.FC = () => {
           } rounded`}
         >
           Months
-        </button>
+        </button> */}
       </div>
     </div>
   );
 };
 
-export default Graph;
+export default function GraphDialog() {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button size={"sm"} variant={"outline"}>
+          <FaChartBar /> Details
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="bg-gray-200 text-gray-800">
+        <DialogTitle>Detailed View</DialogTitle>
+        <DialogDescription asChild>
+          <Graph />
+        </DialogDescription>
+      </DialogContent>
+    </Dialog>
+  );
+  //     return <Button size={"sm"} variant={"outline"}>
+  //     <FaChartBar /> Details
+  //   </Button>
+}
+
+// export default Graph;
