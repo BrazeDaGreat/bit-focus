@@ -8,7 +8,6 @@ export interface FocusSession {
   startTime: Date;
   endTime: Date;
 }
-
 interface FocusState {
   focusSessions: FocusSession[];
   addFocusSession: (
@@ -17,6 +16,11 @@ interface FocusState {
     endTime: Date
   ) => Promise<void>;
   loadFocusSessions: () => Promise<void>;
+  removeFocusSession: (id: number) => Promise<void>;
+  editFocusSession: (
+    id: number,
+    updatedSession: Partial<FocusSession>
+  ) => Promise<void>;
 }
 
 export const useFocus = create<FocusState>((set) => ({
@@ -32,5 +36,24 @@ export const useFocus = create<FocusState>((set) => ({
   loadFocusSessions: async () => {
     const sessions = await db.focus.toArray();
     set({ focusSessions: sessions.reverse() });
+  },
+
+  removeFocusSession: async (id: number) => {
+    await db.focus.delete(id);
+    set((state) => ({
+      focusSessions: state.focusSessions.filter((session) => session.id !== id),
+    }));
+  },
+
+  editFocusSession: async (
+    id: number,
+    updatedSession: Partial<FocusSession>
+  ) => {
+    await db.focus.update(id, updatedSession);
+    set((state) => ({
+      focusSessions: state.focusSessions.map((session) =>
+        session.id === id ? { ...session, ...updatedSession } : session
+      ),
+    }));
   },
 }));

@@ -2,20 +2,23 @@
 import { createContext, useContext, useReducer, useEffect } from "react";
 import { IoIosTimer } from "react-icons/io";
 import { toast } from "sonner";
-import { useFocus } from "./useFocus";
+import { useFocus } from "@/hooks/useFocus";
 import { formatTime } from "@/lib/utils";
+import { useTag } from "@/hooks/useTag"; // Adjust the import path
 
+// Updated handleFinish to use the tag from useTag
 const handleFinish = (
   addFocusSession: (
     tag: string,
     startTime: Date,
     endTime: Date
-  ) => Promise<void>
+  ) => Promise<void>,
+  tag: string // Add tag as an argument
 ) => {
   const seconds = Number(localStorage.getItem("pomoTime") ?? 0);
   console.log("Focused for", seconds);
   addFocusSession(
-    "Code",
+    tag, // Use the passed tag
     new Date(Date.now() - seconds * 1000),
     new Date(Date.now())
   );
@@ -23,7 +26,6 @@ const handleFinish = (
     icon: <IoIosTimer />,
   });
 };
-
 // Types
 interface PomoState {
   isRunning: boolean;
@@ -38,10 +40,9 @@ interface PomoState {
 type Action =
   | { type: "START" }
   | { type: "PAUSE" }
-  | { type: "RESET"; payload?: number }
+  | { type: "RESET"; payload?: { elapsedSeconds?: number; tag?: string } } // Add tag to payload
   | { type: "TICK" };
 
-// Reducer Function
 function pomoReducer(state: PomoState, action: Action): PomoState {
   switch (action.type) {
     case "START":
@@ -49,11 +50,13 @@ function pomoReducer(state: PomoState, action: Action): PomoState {
     case "PAUSE":
       return { ...state, isRunning: false };
     case "RESET":
-      if (state.elapsedSeconds > 0) handleFinish(state.addFocusSession);
+      if (state.elapsedSeconds > 0 && action.payload?.tag) {
+        handleFinish(state.addFocusSession, action.payload.tag); // Pass tag to handleFinish
+      }
       return {
+        ...state,
         isRunning: false,
-        elapsedSeconds: action.payload ?? 0,
-        addFocusSession: state.addFocusSession,
+        elapsedSeconds: action.payload?.elapsedSeconds ?? 0,
       };
     case "TICK":
       return state.isRunning
@@ -75,9 +78,10 @@ const PomoContext = createContext<{
 // Provider Component
 export function PomoProvider({ children }: { children: React.ReactNode }) {
   const { loadFocusSessions, addFocusSession, focusSessions } = useFocus();
+  const { tag } = useTag(); // Get the current tag
   const [state, dispatch] = useReducer(pomoReducer, {
     isRunning: false,
-    elapsedSeconds: 0, // Default value
+    elapsedSeconds: 0,
     addFocusSession: addFocusSession,
   });
 
@@ -94,7 +98,7 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const savedTime = Number(localStorage.getItem("pomoTime")) || 0;
-      dispatch({ type: "RESET", payload: savedTime });
+      dispatch({ type: "RESET", payload: { elapsedSeconds: savedTime } });
     }
   }, []);
 
@@ -124,7 +128,13 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
         state,
         start: () => dispatch({ type: "START" }),
         pause: () => dispatch({ type: "PAUSE" }),
-        reset: () => dispatch({ type: "RESET", payload: 0 }),
+        reset: () => {
+          console.log("Resetting with tag:", tag);
+          dispatch({
+            type: "RESET",
+            payload: { elapsedSeconds: 0, tag: tag ? tag : "Focus" }, // Pass the tag here
+          })
+        }
       }}
     >
       {children}

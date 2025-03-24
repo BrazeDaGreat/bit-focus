@@ -10,10 +10,16 @@ import { usePomo } from "@/hooks/PomoContext";
 import { FocusSession, useFocus } from "@/hooks/useFocus";
 import { formatTime } from "@/lib/utils";
 import { useTheme } from "next-themes";
-import { FaCalendar, FaChartBar, FaFileCsv, FaPause, FaPlay, FaTrash } from "react-icons/fa";
+import {
+  FaCalendar,
+  FaChartBar,
+  FaFileCsv,
+  FaPause,
+  FaPlay,
+  FaTrash,
+} from "react-icons/fa";
 import {
   FaForwardFast,
-  FaPencil,
   FaRegClock,
   FaTableList,
 } from "react-icons/fa6";
@@ -27,14 +33,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
 import TagBadge from "@/components/TagBadge";
+import { useState } from "react";
+import { EditFocusSession } from "./EditFocusSection";
+import TagSelector from "@/components/TagSelector";
+
 
 export default function Focus() {
   const { theme } = useTheme();
   const { state, start, pause, reset } = usePomo();
   const minutes = Math.floor(state.elapsedSeconds / 60);
   const seconds = state.elapsedSeconds % 60;
-
   const { focusSessions } = useFocus();
 
   return (
@@ -46,9 +56,13 @@ export default function Focus() {
             <RiFocus2Line />
             <span>Focus Session</span>
           </CardTitle>
-          <CardDescription className="text-8xl font-semibold text-center">
-            {formatTime(minutes, seconds)}
+          <CardDescription className="text-center flex flex-col gap-6">
+            <span className="text-8xl font-semibold">
+              {formatTime(minutes, seconds)}
+            </span>
+            <TagSelector />
           </CardDescription>
+
           <CardFooter className="flex items-center justify-center gap-2">
             <Button
               size={"lg"}
@@ -81,8 +95,12 @@ export default function Focus() {
               <span>Focus Report</span>
             </div>
             <div className="flex gap-1">
-                <Button size={"sm"} variant={"ghost"}><FaFileCsv  /> Export</Button>
-                <Button size={"sm"} variant={"outline"}><FaChartBar /> Details</Button>
+              <Button size={"sm"} variant={"ghost"}>
+                <FaFileCsv /> Export
+              </Button>
+              <Button size={"sm"} variant={"outline"}>
+                <FaChartBar /> Details
+              </Button>
             </div>
           </CardTitle>
           <CardDescription className="max-h-64 overflow-y-auto flex flex-col gap-2 py-2 px-12">
@@ -101,16 +119,22 @@ export default function Focus() {
 interface FocusOptionProps {
   item: FocusSession;
 }
-function FocusOption(props: FocusOptionProps) {
+
+function FocusOption({ item }: FocusOptionProps) {
   const elapsedSeconds = Math.floor(
-    (props.item.endTime.getTime() - props.item.startTime.getTime()) / 1000
+    (item.endTime.getTime() - item.startTime.getTime()) / 1000
   );
-  const onDate = props.item.startTime.toLocaleDateString("en-GB");
+  const onDate = item.startTime.toLocaleDateString("en-GB");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const handleOpenChange = (open: boolean) => {
+    setIsDropdownOpen(open);
+  };
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild={true}>
+    <DropdownMenu open={isDropdownOpen} onOpenChange={handleOpenChange}>
+      <DropdownMenuTrigger asChild>
         <Button
-          variant={"secondary"}
+          variant="secondary"
           className="w-full flex justify-between items-center h-12"
         >
           <div className="flex gap-2 items-center">
@@ -120,7 +144,7 @@ function FocusOption(props: FocusOptionProps) {
             </span>
           </div>
           <div className="flex gap-4 items-center">
-            <TagBadge tag={props.item.tag} />
+            <TagBadge tag={item.tag} />
             <RiExpandUpDownLine />
           </div>
         </Button>
@@ -130,10 +154,7 @@ function FocusOption(props: FocusOptionProps) {
           <FaCalendar /> {onDate}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>
-          <FaPencil />
-          <span>Edit</span>
-        </DropdownMenuItem>
+        <EditFocusSession item={item} setIsDropdownOpen={setIsDropdownOpen} />
         <DropdownMenuItem>
           <FaTrash />
           <span>Delete</span>
@@ -141,5 +162,4 @@ function FocusOption(props: FocusOptionProps) {
       </DropdownMenuContent>
     </DropdownMenu>
   );
-  // return <div className="">{props.item.tag}</div>
 }

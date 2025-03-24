@@ -4,6 +4,7 @@ import { persist, PersistStorage } from "zustand/middleware";
 interface TagState {
   tag: string;
   setTag: (tag: string) => void;
+  removeTag: () => void; // Add removeTag function
 }
 
 const storage: PersistStorage<TagState> = {
@@ -27,6 +28,7 @@ export const useTag = create<TagState>()(
     (set) => ({
       tag: "",
       setTag: (tag: string) => set({ tag }),
+      removeTag: () => set({ tag: "" }), // Reset tag to an empty string
     }),
     {
       name: "tag-storage",
