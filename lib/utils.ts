@@ -16,7 +16,7 @@ export const formatTime = (
       .padStart(2, "0")}`;
 
   if (mode === 1) {
-    const totalSeconds = minutes * 60 + seconds;
+    const totalSeconds = minutes * 60 + seconds + 1;
     const hrs = Math.round(Math.floor(totalSeconds / 3600));
     const mins = Math.round(Math.floor((totalSeconds % 3600) / 60));
     const secs = Math.round(totalSeconds % 60);

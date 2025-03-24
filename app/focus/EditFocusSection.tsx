@@ -1,5 +1,14 @@
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,12 +33,18 @@ interface EditFocusSessionProps {
   setIsDropdownOpen: (state: boolean) => void;
 }
 
-export function EditFocusSession({ item, setIsDropdownOpen }: EditFocusSessionProps) {
+export function EditFocusSession({
+  item,
+  setIsDropdownOpen,
+}: EditFocusSessionProps) {
   const { editFocusSession } = useFocus();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const defaultMinutes = Math.floor((item.endTime.getTime() - item.startTime.getTime()) / 60000);
-  const defaultSeconds = Math.floor((item.endTime.getTime() - item.startTime.getTime()) / 1000) % 60;
+  const defaultMinutes = Math.floor(
+    (item.endTime.getTime() - item.startTime.getTime()) / 60000
+  );
+  const defaultSeconds =
+    Math.floor((item.endTime.getTime() - item.startTime.getTime()) / 1000) % 60;
 
   const {
     control,
@@ -47,7 +62,9 @@ export function EditFocusSession({ item, setIsDropdownOpen }: EditFocusSessionPr
 
   const onSubmit = (data: FormData) => {
     const newStartTime = new Date(data.startDate);
-    const newEndTime = new Date(newStartTime.getTime() + data.minutes * 60000 + data.seconds * 1000);
+    const newEndTime = new Date(
+      newStartTime.getTime() + data.minutes * 60000 + data.seconds * 1000
+    );
 
     editFocusSession(item.id!, {
       id: item.id,
@@ -76,7 +93,9 @@ export function EditFocusSession({ item, setIsDropdownOpen }: EditFocusSessionPr
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Edit Focus Session</DialogTitle>
-          <DialogDescription>Modify your focus session details below.</DialogDescription>
+          <DialogDescription>
+            Modify your focus session details below.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className="space-y-4 py-2 pb-4">
@@ -95,7 +114,9 @@ export function EditFocusSession({ item, setIsDropdownOpen }: EditFocusSessionPr
                   />
                 )}
               />
-              {errors.tag && <p className="text-sm text-red-500">{errors.tag.message}</p>}
+              {errors.tag && (
+                <p className="text-sm text-red-500">{errors.tag.message}</p>
+              )}
             </div>
 
             {/* Start Date Field */}
@@ -113,43 +134,57 @@ export function EditFocusSession({ item, setIsDropdownOpen }: EditFocusSessionPr
                   />
                 )}
               />
-              {errors.startDate && <p className="text-sm text-red-500">{errors.startDate.message}</p>}
+              {errors.startDate && (
+                <p className="text-sm text-red-500">
+                  {errors.startDate.message}
+                </p>
+              )}
             </div>
 
-            {/* Minutes Field */}
-            <div className="space-y-2">
-              <Label htmlFor="minutes">Minutes</Label>
-              <Controller
-                name="minutes"
-                control={control}
-                render={({ field }) => (
-                  <Input
-                    id="minutes"
-                    type="number"
-                    {...field}
-                    className={errors.minutes ? "border-red-500" : ""}
-                  />
+            <div className="flex items-center gap-4">
+              {/* Minutes Field */}
+              <div className="space-y-2 flex-1">
+                <Label htmlFor="minutes">Minutes</Label>
+                <Controller
+                  name="minutes"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      id="minutes"
+                      type="number"
+                      {...field}
+                      className={errors.minutes ? "border-red-500" : ""}
+                    />
+                  )}
+                />
+                {errors.minutes && (
+                  <p className="text-sm text-red-500">
+                    {errors.minutes.message}
+                  </p>
                 )}
-              />
-              {errors.minutes && <p className="text-sm text-red-500">{errors.minutes.message}</p>}
-            </div>
+              </div>
 
-            {/* Seconds Field */}
-            <div className="space-y-2">
-              <Label htmlFor="seconds">Seconds</Label>
-              <Controller
-                name="seconds"
-                control={control}
-                render={({ field }) => (
-                  <Input
-                    id="seconds"
-                    type="number"
-                    {...field}
-                    className={errors.seconds ? "border-red-500" : ""}
-                  />
+              {/* Seconds Field */}
+              <div className="space-y-2 flex-1">
+                <Label htmlFor="seconds">Seconds</Label>
+                <Controller
+                  name="seconds"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      id="seconds"
+                      type="number"
+                      {...field}
+                      className={errors.seconds ? "border-red-500" : ""}
+                    />
+                  )}
+                />
+                {errors.seconds && (
+                  <p className="text-sm text-red-500">
+                    {errors.seconds.message}
+                  </p>
                 )}
-              />
-              {errors.seconds && <p className="text-sm text-red-500">{errors.seconds.message}</p>}
+              </div>
             </div>
           </div>
           <DialogFooter>
