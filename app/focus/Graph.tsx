@@ -72,7 +72,7 @@ const processData = (
       100;
     groupedData[date][tag] =
       ((groupedData[date][tag] as number) || 0) + duration;
-    groupedData[date].total += duration;
+    groupedData[date].total += duration ;
   });
 
   return Object.values(groupedData);

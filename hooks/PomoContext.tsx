@@ -1,34 +1,39 @@
 "use client";
-import { createContext, useContext, useReducer, useEffect } from "react";
+import {
+  createContext,
+  useContext,
+  useReducer,
+  useEffect,
+  useRef,
+} from "react";
 import { IoIosTimer } from "react-icons/io";
 import { toast } from "sonner";
 import { useFocus } from "@/hooks/useFocus";
 import { formatTime } from "@/lib/utils";
-import { useTag } from "@/hooks/useTag"; // Adjust the import path
+import { useTag } from "@/hooks/useTag";
 
-// Updated handleFinish to use the tag from useTag
+// Function to handle the end of a focus session
 const handleFinish = (
   addFocusSession: (
     tag: string,
     startTime: Date,
     endTime: Date
   ) => Promise<void>,
-  tag: string // Add tag as an argument
+  tag: string,
+  startTime: number
 ) => {
-  const seconds = Number(localStorage.getItem("pomoTime") ?? 0);
-  console.log("Focused for", seconds);
-  addFocusSession(
-    tag, // Use the passed tag
-    new Date(Date.now() - seconds * 1000),
-    new Date(Date.now())
-  );
-  toast(`Focused for ${formatTime(seconds, -1, 1)} seconds.`, {
+  const endTime = Date.now();
+  const elapsedSeconds = Math.floor((endTime - startTime) / 1000);
+  addFocusSession(tag, new Date(startTime), new Date(endTime));
+  toast(`Focused for ${formatTime(elapsedSeconds, -1, 1)} seconds.`, {
     icon: <IoIosTimer />,
   });
 };
+
 // Types
 interface PomoState {
   isRunning: boolean;
+  startTime: number | null;
   elapsedSeconds: number;
   addFocusSession: (
     tag: string,
@@ -38,30 +43,41 @@ interface PomoState {
 }
 
 type Action =
-  | { type: "START" }
-  | { type: "PAUSE" }
-  | { type: "RESET"; payload?: { elapsedSeconds?: number; tag?: string } } // Add tag to payload
-  | { type: "TICK" };
+  | { type: "START"; payload: { startTime: number } }
+  | { type: "PAUSE"; payload: { elapsedSeconds: number } }
+  | { type: "RESET"; payload?: { elapsedSeconds?: number; tag?: string } }
+  | { type: "UPDATE"; payload: { elapsedSeconds: number } };
 
 function pomoReducer(state: PomoState, action: Action): PomoState {
   switch (action.type) {
     case "START":
-      return { ...state, isRunning: true };
+      return { ...state, isRunning: true, startTime: action.payload.startTime };
     case "PAUSE":
-      return { ...state, isRunning: false };
+      return {
+        ...state,
+        isRunning: false,
+        elapsedSeconds: action.payload.elapsedSeconds,
+        startTime: null,
+      };
     case "RESET":
-      if (state.elapsedSeconds > 0 && action.payload?.tag) {
-        handleFinish(state.addFocusSession, action.payload.tag); // Pass tag to handleFinish
+      if (state.elapsedSeconds > 0 && action.payload?.tag && state.startTime) {
+        handleFinish(
+          state.addFocusSession,
+          action.payload.tag,
+          state.startTime
+        );
       }
       return {
         ...state,
         isRunning: false,
         elapsedSeconds: action.payload?.elapsedSeconds ?? 0,
+        startTime: null,
       };
-    case "TICK":
-      return state.isRunning
-        ? { ...state, elapsedSeconds: state.elapsedSeconds + 1 }
-        : state;
+    case "UPDATE":
+      return {
+        ...state,
+        elapsedSeconds: action.payload.elapsedSeconds,
+      };
     default:
       return state;
   }
@@ -77,24 +93,23 @@ const PomoContext = createContext<{
 
 // Provider Component
 export function PomoProvider({ children }: { children: React.ReactNode }) {
-  const { loadFocusSessions, addFocusSession, focusSessions } = useFocus();
-  const { tag } = useTag(); // Get the current tag
+  const { loadFocusSessions, addFocusSession } = useFocus();
+  const { tag } = useTag();
   const [state, dispatch] = useReducer(pomoReducer, {
     isRunning: false,
+    startTime: null,
     elapsedSeconds: 0,
     addFocusSession: addFocusSession,
   });
+
+  const requestRef = useRef<number | null>(null);
 
   useEffect(() => {
     loadFocusSessions();
     console.log("Loaded Focus Sessions");
   }, [loadFocusSessions]);
 
-  useEffect(() => {
-    console.log("Focus Sessions initialized", focusSessions);
-  }, [focusSessions]);
-
-  // Load saved time from localStorage (client-side only)
+  // Load saved time from localStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
       const savedTime = Number(localStorage.getItem("pomoTime")) || 0;
@@ -109,32 +124,59 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state.elapsedSeconds]);
 
-  // Auto increment time when running
+  // Function to update elapsed time
+  const updateElapsedTime = () => {
+    if (state.isRunning && state.startTime) {
+      const currentTime = Date.now();
+      const newElapsedSeconds = Math.floor(
+        (currentTime - state.startTime) / 1000
+      );
+      if (newElapsedSeconds !== state.elapsedSeconds) {
+        dispatch({
+          type: "UPDATE",
+          payload: { elapsedSeconds: newElapsedSeconds },
+        });
+      }
+    }
+    requestRef.current = requestAnimationFrame(updateElapsedTime);
+  };
+
+  // Start the animation frame loop when the timer is running
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
     if (state.isRunning) {
-      interval = setInterval(() => {
-        dispatch({ type: "TICK" });
-      }, 1000);
+      requestRef.current = requestAnimationFrame(updateElapsedTime);
     }
     return () => {
-      if (interval) clearInterval(interval);
+      if (requestRef.current) {
+        cancelAnimationFrame(requestRef.current);
+      }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.isRunning]);
 
   return (
     <PomoContext.Provider
       value={{
         state,
-        start: () => dispatch({ type: "START" }),
-        pause: () => dispatch({ type: "PAUSE" }),
+        start: () => {
+          const startTime = Date.now() - state.elapsedSeconds * 1000;
+          dispatch({ type: "START", payload: { startTime } });
+        },
+        pause: () => {
+          if (state.startTime) {
+            const currentTime = Date.now();
+            const elapsedSeconds = Math.floor(
+              (currentTime - state.startTime) / 1000
+            );
+            dispatch({ type: "PAUSE", payload: { elapsedSeconds } });
+          }
+        },
         reset: () => {
-          console.log("Resetting with tag:", tag);
           dispatch({
             type: "RESET",
-            payload: { elapsedSeconds: 0, tag: tag ? tag : "Focus" }, // Pass the tag here
-          })
-        }
+            payload: { elapsedSeconds: 0, tag: tag || "Focus" },
+          });
+        },
       }}
     >
       {children}

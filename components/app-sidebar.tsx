@@ -21,7 +21,7 @@ import {
 import { IoColorPalette } from "react-icons/io5";
 import { FaCalendarCheck, FaHome, FaMoon, FaSun } from "react-icons/fa";
 import { IoIosTimer } from "react-icons/io";
-import { FaGear } from "react-icons/fa6";
+import { FaGear, FaReadme } from "react-icons/fa6";
 import { useTheme } from "next-themes";
 import EditConfig, { EditConfigSkeleton } from "./sidebar/EditConfig";
 import { usePathname } from "next/navigation";
@@ -46,6 +46,11 @@ const items = [
     title: "Focus",
     url: "/focus",
     icon: <IoIosTimer />,
+  },
+  {
+    title: "Changelog",
+    url: "/changelog",
+    icon: <FaReadme />,
   },
 ];
 

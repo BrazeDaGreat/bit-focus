@@ -141,3 +141,23 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #373737; 
 }
+
+
+.md {
+  @apply text-lg px-3 py-2.5;
+}
+.md h1 {
+  @apply text-3xl font-bold my-2;
+}
+.md h2 {
+  @apply text-2xl font-semibold my-1;
+}
+.md h3 {
+  @apply text-xl font-semibold my-1;
+}
+.md ul {
+  @apply list-disc list-inside space-y-1 my-1.5;
+}
+.md code {
+  @apply px-1 py-0.5 bg-secondary rounded text-sidebar-primary font-mono;
+}

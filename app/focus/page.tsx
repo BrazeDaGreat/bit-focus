@@ -120,9 +120,12 @@ interface FocusOptionProps {
 
 function FocusOption({ item }: FocusOptionProps) {
   const { removeFocusSession } = useFocus()
-  const elapsedSeconds = Math.floor(
-    (item.endTime.getTime() - item.startTime.getTime()) / 1000
-  );
+  // const elapsedSeconds = Math.floor(
+  //   (item.endTime.getTime() - item.startTime.getTime()) / 1000
+  // );
+  const elapsedSeconds =
+      Math.round(((item.endTime.getTime() - item.startTime.getTime()) / 60000) * 100) /
+      100;
   const onDate = item.startTime.toLocaleDateString("en-GB");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const handleOpenChange = (open: boolean) => {
@@ -139,7 +142,7 @@ function FocusOption({ item }: FocusOptionProps) {
           <div className="flex gap-2 items-center">
             <FaRegClock />
             <span className="font-semibold">
-              {formatTime(elapsedSeconds / 60, -1, 1)}
+              {formatTime(elapsedSeconds as number, 0, 1)}
             </span>
           </div>
           <div className="flex gap-4 items-center">
