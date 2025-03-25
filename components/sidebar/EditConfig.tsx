@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "../ui/button";
 import { Label } from "../ui/label";
 import { Input } from "../ui/input";
+import dayjs from "dayjs";
 
 
 export const EditConfigSkeleton = () => {
@@ -34,21 +35,13 @@ const EditConfig = () => {
   });
 
   const calculateAge = () => {
-    const today = new Date();
-    const birthDate = new Date(dob);
-
-    let years = today.getFullYear() - birthDate.getFullYear();
-    let months = today.getMonth() - birthDate.getMonth();
-    let days = today.getDate() - birthDate.getDate();
-
-    if (months < 0 || (months === 0 && days < 0)) {
-      years--;
-      months += 12;
-      const lastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
-      days += lastMonth.getDate();
-    }
-
-    return { years, months, days };
+    const today = dayjs();
+    const birthDate = dayjs(dob);
+  
+    const years = today.diff(birthDate, 'year');
+    const months = today.diff(birthDate.add(years, 'year'), 'month');
+    const days = today.diff(birthDate.add(years, 'year').add(months, 'month'), 'day');
+    return { years, months, days}
   };
 
   const { years, months, days } = calculateAge();
