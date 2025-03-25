@@ -23,7 +23,7 @@ import {
   FaTableList,
 } from "react-icons/fa6";
 import { RiExpandUpDownLine, RiFocus2Line } from "react-icons/ri";
-import { Toaster } from "sonner";
+import { toast, Toaster } from "sonner";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -95,7 +95,7 @@ export default function Focus() {
               <span>Focus Report</span>
             </div>
             <div className="flex gap-1">
-              <Button size={"sm"} variant={"ghost"}>
+              <Button size={"sm"} variant={"ghost"} onClick={() => toast("This feature is under development.")}>
                 <FaFileCsv /> Export
               </Button>
               <GraphDialog />

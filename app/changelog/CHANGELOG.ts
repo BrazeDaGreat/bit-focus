@@ -1,8 +1,5 @@
 const CHANGELOG = `
 
-## \`v0.1.1-alpha\` (WiP)
-### Changed
-
 ## \`v0.1.0-alpha\` (2025-03-25)
 ### Fixed
 - Fixed timer desyncing due to use of setInterval.
