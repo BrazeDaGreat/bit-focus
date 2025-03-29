@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/theme-provider";
-import { SidebarProvider /*SidebarTrigger*/ } from "@/components/ui/sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { PomoProvider } from "@/hooks/PomoContext";
 import TopBar from "@/components/TopBar";
@@ -23,16 +23,9 @@ export const metadata: Metadata = {
   openGraph: {
     title: "BIT Focus",
     description: "Plz focus... for a bit. ha ha ha.",
-    // url: "https://example.com",
+    url: "https://bitfocus.vercel.app/",
     type: "website",
-    images: [
-      // {
-      //   url: "https://example.com/image.jpg",
-      //   width: 800,
-      //   height: 600,
-      //   alt: "Og Image Alt",
-      // },
-    ],
+    images: [],
   },
 };
 

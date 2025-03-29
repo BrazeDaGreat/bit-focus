@@ -161,3 +161,6 @@
 .md code {
   @apply px-1 py-0.5 bg-secondary rounded text-sidebar-primary font-mono;
 }
+.md hr {
+  @apply my-3;
+}
