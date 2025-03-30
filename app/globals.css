@@ -164,3 +164,18 @@
 .md hr {
   @apply my-3;
 }
+
+
+._animate_in {
+  animation: _animate_in 0.15s ease-in-out;
+}
+@keyframes _animate_in {
+  from {
+    opacity: 0;
+    scale: 0;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}

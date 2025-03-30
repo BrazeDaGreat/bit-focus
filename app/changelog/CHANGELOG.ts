@@ -14,6 +14,7 @@ const CHANGELOG = `
 ### \`v0.2.1-alpha\` (2025-03-30)
 - Added version number to sidebar footer.
 - Added Skeletons in Home focus summary stats.
+- Added Focus Mode in Sidebar Timer.
 ***
 
 ## \`v0.1.0-alpha\` (2025-03-25)
