@@ -25,6 +25,7 @@ export const formatTime = (
     if (hrs > 0) str += `${hrs}h `;
     if (mins > 0) str += `${mins}m `;
     if (secs > 0) str += `${secs}s`;
+    if (str === "") str = `0s`;
     return str;
   }
 };
