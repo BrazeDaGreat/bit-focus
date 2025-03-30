@@ -16,6 +16,20 @@ class BitFocusDB extends Dexie {
     },
     number
   >;
+  notes: Dexie.Table<
+    {
+      id?: number;
+      title: string;
+      type: "document" | "board";
+      parentId?: number | null;
+      content?: string;
+      boardData?: { category: string; children: number[] }[];
+      createdAt: Date;
+      updatedAt: Date;
+    },
+    number
+  >;
+
   constructor() {
     super("BitFocusDB");
 
@@ -23,11 +37,13 @@ class BitFocusDB extends Dexie {
       configuration: "name",
       focus: "++id, tag, startTime, endTime",
       tasks: "++id, task, duedate, tags",
+      notes: "++id, title, type, parentId, createdAt, updatedAt",
     });
 
     this.configuration = this.table("configuration");
     this.focus = this.table("focus");
     this.tasks = this.table("tasks");
+    this.notes = this.table("notes");
   }
 }
 

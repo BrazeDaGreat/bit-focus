@@ -21,9 +21,11 @@ export const formatTime = (
     const mins = Math.floor((totalSeconds % 3600) / 60);
     const secs = Math.round(totalSeconds % 60);
 
-    if (hrs > 0) return `${hrs}h ${mins}m ${secs}s`;
-    if (mins > 0) return `${mins}m ${secs}s`;
-    return `${secs}s`;
+    let str = ``;
+    if (hrs > 0) str += `${hrs}h `;
+    if (mins > 0) str += `${mins}m `;
+    if (secs > 0) str += `${secs}s`;
+    return str;
   }
 };
 

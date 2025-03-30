@@ -133,6 +133,7 @@ const Graph: React.FC = () => {
               angle: -90,
               position: "insideLeft",
             }}
+            tickFormatter={(value) => `${formatTime(value as number, 0, 1)}`}
           />
           {/* <Tooltip
             formatter={(value) => formatTime((value as number), 0, 1)}
