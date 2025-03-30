@@ -10,6 +10,7 @@ export interface FocusSession {
 }
 interface FocusState {
   focusSessions: FocusSession[];
+  loadingFocusSessions: boolean;
   addFocusSession: (
     tag: string,
     startTime: Date,
@@ -25,6 +26,7 @@ interface FocusState {
 
 export const useFocus = create<FocusState>((set) => ({
   focusSessions: [],
+  loadingFocusSessions: true,
 
   addFocusSession: async (tag, startTime, endTime) => {
     const id = await db.focus.add({ tag, startTime, endTime });
@@ -34,8 +36,15 @@ export const useFocus = create<FocusState>((set) => ({
   },
 
   loadFocusSessions: async () => {
-    const sessions = await db.focus.toArray();
-    set({ focusSessions: sessions.reverse() });
+    set({ loadingFocusSessions: true });
+    try {
+      const sessions = await db.focus.toArray();
+      set({ focusSessions: sessions.reverse() });
+    } catch (error) {
+      console.error("Failed to load focus sessions:", error);
+    } finally {
+      set({ loadingFocusSessions: false });
+    }
   },
 
   removeFocusSession: async (id: number) => {

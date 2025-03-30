@@ -30,6 +30,7 @@ import { useConfig } from "@/hooks/useConfig";
 import { useEffect } from "react";
 import PomoFooterTimer from "./sidebar/PomoFooterTimer";
 import { Skeleton } from "./ui/skeleton";
+import { VERSION } from "@/app/changelog/CHANGELOG";
 
 const items = [
   { title: "Home", url: "/", icon: <FaHome /> },
@@ -79,6 +80,7 @@ export function AppSidebar() {
         </SidebarContent>
 
         <SidebarFooter>
+          <span className="text-center text-xs opacity-40 select-none">{VERSION}</span>
           <PomoFooterTimer />
           {loadingConfig ? <ThemeSelectorSkeleton /> : <ThemeSelector />}
         </SidebarFooter>

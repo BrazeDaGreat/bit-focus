@@ -10,6 +10,7 @@ import { TbClockHeart } from "react-icons/tb";
 import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
 import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 dayjs.extend(isBetween);
 
 export default function Home() {
@@ -37,7 +38,7 @@ export default function Home() {
 
 // Cards
 function CardTimeFocused() {
-  const { focusSessions } = useFocus();
+  const { focusSessions, loadingFocusSessions } = useFocus();
 
   const now = dayjs();
   const todayStart = now.startOf("day");
@@ -69,7 +70,7 @@ function CardTimeFocused() {
             <span className="text-xs opacity-70">(Today)</span>
           </div>
           <span className="text-3xl font-bold">
-            {formatTime(Math.floor(todayTotal / 60), todayTotal % 60, 1)}
+            {loadingFocusSessions ? <Skeleton className="h-10" /> : formatTime(Math.floor(todayTotal / 60), todayTotal % 60, 1)}
           </span>
         </div>
       </Card>
@@ -81,7 +82,7 @@ function CardTimeFocused() {
             <span className="text-xs opacity-70">(Last 7 days)</span>
           </div>
           <span className="text-3xl font-bold">
-            {formatTime(Math.floor(last7DaysTotal / 60), last7DaysTotal % 60, 1)}
+            {loadingFocusSessions ? <Skeleton className="h-10" /> : formatTime(Math.floor(last7DaysTotal / 60), last7DaysTotal % 60, 1)}
           </span>
         </div>
       </Card>
