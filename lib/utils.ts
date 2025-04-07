@@ -35,45 +35,57 @@ export function stringToHexColor(
   alpha?: number,
   lighten?: number
 ): [string, boolean] {
-  let hash = 0;
+  // DJB2 hash function
+  let hash = 5381;
   for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    hash = (hash * 33) ^ str.charCodeAt(i);
   }
 
-  // Generate a hex color
-  const color = (hash & 0xffffff).toString(16).toUpperCase();
-  const hexColor = "#" + "000000".substring(0, 6 - color.length) + color;
+  // Ensure positive hash
+  hash = Math.abs(hash);
 
-  // Convert hex to RGB
-  let r = parseInt(hexColor.substring(1, 3), 16);
-  let g = parseInt(hexColor.substring(3, 5), 16);
-  let b = parseInt(hexColor.substring(5, 7), 16);
+  // Map hash to hue (0-360)
+  const hue = hash % 360;
 
-  // Apply lightening if provided
+  // Saturation and lightness
+  const saturation = 65;
+  let lightness = 50;
+
+  // Apply lightening if requested
   if (lighten !== undefined) {
-    const factor = Math.min(100, Math.max(0, lighten)) / 100;
-    r = Math.round(r + (255 - r) * factor);
-    g = Math.round(g + (255 - g) * factor);
-    b = Math.round(b + (255 - b) * factor);
+    lightness = Math.min(100, lightness + lighten);
   }
 
-  // Calculate luminance (perceived brightness)
+  // Convert HSL to RGB
+  function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+    s /= 100;
+    l /= 100;
+    const k = (n: number) => (n + h / 30) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const f = (n: number) =>
+      l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+    return [
+      Math.round(255 * f(0)),
+      Math.round(255 * f(8)),
+      Math.round(255 * f(4)),
+    ];
+  }
+
+  const [r, g, b] = hslToRgb(hue, saturation, lightness);
+
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
   const useWhiteText = luminance < 0.5;
 
-  // If alpha is provided, return RGBA
   if (alpha !== undefined) {
-    const rgbaColor = `rgba(${r}, ${g}, ${b}, ${Math.max(
-      0,
-      Math.min(1, alpha)
-    )})`;
-    return [rgbaColor, useWhiteText];
+    return [
+      `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, alpha))})`,
+      useWhiteText,
+    ];
   }
 
-  // Convert lightened RGB back to hex
-  const finalHex = `#${r.toString(16).padStart(2, "0")}${g
+  const hex = `#${r.toString(16).padStart(2, "0")}${g
     .toString(16)
     .padStart(2, "0")}${b.toString(16).padStart(2, "0")}`.toUpperCase();
 
-  return [finalHex, useWhiteText];
+  return [hex, useWhiteText];
 }

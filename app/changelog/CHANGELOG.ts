@@ -1,4 +1,4 @@
-export const VERSION = "v0.2.2-alpha";
+export const VERSION = "v0.2.3-alpha";
 
 const CHANGELOG = `
 
@@ -18,6 +18,10 @@ const CHANGELOG = `
 ### \`v0.2.2-alpha\` (2025-04-07)
 - Added page's title showing elapsed time.
 - Fixed Toaster's time upon session end.
+### \`v0.2.3-alpha\` (2025-04-07)
+- Fixed Focus Mode's unnecessary updates that caused crashes.
+- Diversified \`stringToHexColor()\` function to return more diversified colors.
+- Fixed Graph showing Tags that do not have focused time the visible range.
 ***
 
 ## \`v0.1.0-alpha\` (2025-03-25)

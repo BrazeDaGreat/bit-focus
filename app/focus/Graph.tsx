@@ -86,18 +86,18 @@ const Graph: React.FC = () => {
   const dateRange = generateLastNUnits(unitToShow, view, offset);
   const processedData = processData(focusSessions, dateRange, view);
   const tags = Array.from(
-    new Set(focusSessions.map((item: FocusSession) => item.tag))
+    new Set(
+      processedData.flatMap((entry) =>
+        Object.entries(entry)
+          .filter(([key, value]) => key !== "date" && key !== "total" && Number(value) > 0)
+          .map(([key]) => key)
+      )
+    )
   );
 
   return (
     <div>
       <div className="flex justify-between mb-4">
-        {/* <button
-          onClick={() => setOffset(offset + unitToShow)}
-          className="px-4 py-2 bg-gray-300 rounded"
-        >
-          Previous
-        </button> */}
         <Button
           variant={"secondary"}
           onClick={() => setOffset(offset + unitToShow)}
@@ -110,12 +110,6 @@ const Graph: React.FC = () => {
         >
           <FaArrowRight />
         </Button>
-        {/* <button
-          onClick={() => setOffset(Math.max(0, offset - unitToShow))}
-          className="px-4 py-2 bg-gray-300 rounded"
-        >
-          Next
-        </button> */}
       </div>
       <ResponsiveContainer width="100%" height={400}>
         <BarChart data={processedData} stackOffset="sign">
@@ -172,7 +166,7 @@ const Graph: React.FC = () => {
               key={String(tag)}
               dataKey={tag}
               stackId="a"
-              fill={stringToHexColor(tag, undefined, 60)[0]}
+              fill={stringToHexColor(tag, 0.6)[0]}
             />
           ))}
         </BarChart>
