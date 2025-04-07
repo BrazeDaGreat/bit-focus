@@ -1,4 +1,4 @@
-export const VERSION = "v0.2.1-alpha";
+export const VERSION = "v0.2.2-alpha";
 
 const CHANGELOG = `
 
@@ -15,6 +15,9 @@ const CHANGELOG = `
 - Added version number to sidebar footer.
 - Added Skeletons in Home focus summary stats.
 - Added Focus Mode in Sidebar Timer.
+### \`v0.2.2-alpha\` (2025-04-07)
+- Added page's title showing elapsed time.
+- Fixed Toaster's time upon session end.
 ***
 
 ## \`v0.1.0-alpha\` (2025-03-25)

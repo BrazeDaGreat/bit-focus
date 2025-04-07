@@ -25,7 +25,7 @@ const handleFinish = (
   const endTime = Date.now();
   const elapsedSeconds = Math.floor((endTime - startTime) / 1000);
   addFocusSession(tag, new Date(startTime), new Date(endTime));
-  toast(`Focused for ${formatTime(elapsedSeconds, -1, 1)} seconds.`, {
+  toast(`Focused for ${formatTime(elapsedSeconds/60, 0, 1)} seconds.`, {
     icon: <IoIosTimer />,
   });
 };
@@ -121,6 +121,9 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem("pomoTime", String(state.elapsedSeconds));
+      if (state.elapsedSeconds > 0) {
+        document.title = `BIT Focus - ${formatTime(state.elapsedSeconds/60, 0, 1)}`;
+      } else document.title = `BIT Focus`;
     }
   }, [state.elapsedSeconds]);
 
@@ -145,6 +148,7 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (state.isRunning) {
       requestRef.current = requestAnimationFrame(updateElapsedTime);
+      // document.title = `BIT Focus - ${formatTime(state.elapsedSeconds/60, 0, 1)}`;
     }
     return () => {
       if (requestRef.current) {
