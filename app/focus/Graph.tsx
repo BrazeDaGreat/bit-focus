@@ -72,7 +72,7 @@ const processData = (
       100;
     groupedData[date][tag] =
       ((groupedData[date][tag] as number) || 0) + duration;
-    groupedData[date].total += duration ;
+    groupedData[date].total += duration;
   });
 
   return Object.values(groupedData);
@@ -89,7 +89,10 @@ const Graph: React.FC = () => {
     new Set(
       processedData.flatMap((entry) =>
         Object.entries(entry)
-          .filter(([key, value]) => key !== "date" && key !== "total" && Number(value) > 0)
+          .filter(
+            ([key, value]) =>
+              key !== "date" && key !== "total" && Number(value) > 0
+          )
           .map(([key]) => key)
       )
     )
@@ -184,31 +187,52 @@ const Graph: React.FC = () => {
         >
           Months
         </Button>
-        {/* <Button></Button> */}
-        {/* <button
-          onClick={() => setView("day")}
-          className={`px-4 py-2 ${
-            view === "day" ? "bg-blue-500 text-white" : "bg-gray-300"
-          } rounded`}
-        >
-          Days
-        </button>
-        <button
-          onClick={() => setView("week")}
-          className={`px-4 py-2 ${
-            view === "week" ? "bg-blue-500 text-white" : "bg-gray-300"
-          } rounded`}
-        >
-          Weeks
-        </button>
-        <button
-          onClick={() => setView("month")}
-          className={`px-4 py-2 ${
-            view === "month" ? "bg-blue-500 text-white" : "bg-gray-300"
-          } rounded`}
-        >
-          Months
-        </button> */}
+      </div>
+      {/* Data Table */}
+      <div className="mt-6 max-h-[180px] overflow-auto">
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="border-b flex justify-between font-medium w-full px-2">
+              <th className="py-2 text-left w-1/2">Tag</th>
+              <th className="py-2 text-right w-1/2">Focused Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tags.map((tag) => {
+              const total = processedData.reduce(
+                (acc, entry) => acc + ((entry[tag] as number) || 0),
+                0
+              );
+              const color = stringToHexColor(tag, 0.6)[0];
+              return (
+                <tr
+                  key={tag}
+                  className="border-b flex justify-between w-full px-2"
+                >
+                  <td className="py-1 w-1/2 text-left font-semibold" style={{color}}>{tag}</td>
+                  <td className="py-1 w-1/2 text-right font-semibold" style={{color}}>
+                    {formatTime(total, 0, 1)}
+                  </td>
+                </tr>
+              );
+            })}
+            <tr>
+              <td colSpan={2}>
+              <div className="h-[2px] w-full bg-accent rounded-2xl opacity-70"></div>
+              </td>
+            </tr>
+            <tr className="font-semibold flex justify-between w-full px-2">
+              <td className="py-2 w-1/2 text-left">Total</td>
+              <td className="py-2 w-1/2 text-right">
+                {formatTime(
+                  processedData.reduce((acc, entry) => acc + entry.total, 0),
+                  0,
+                  1
+                )}
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   );
