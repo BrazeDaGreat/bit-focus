@@ -1,4 +1,4 @@
-export const VERSION = "v0.2.4-alpha";
+export const VERSION = "v0.2.5-alpha";
 
 const CHANGELOG = `
 
@@ -24,6 +24,8 @@ const CHANGELOG = `
 - Fixed Graph showing Tags that do not have focused time the visible range.
 ### \`v0.2.4-alpha\` (2025-04-15)
 - Added a Focus Summary table in Details view.
+$$$ \`v0.2.5-alpha\` (2025-04-22)
+- Focus Summary now shows items in ascending order.
 ***
 
 ## \`v0.1.0-alpha\` (2025-03-25)

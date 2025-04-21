@@ -198,27 +198,47 @@ const Graph: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {tags.map((tag) => {
-              const total = processedData.reduce(
-                (acc, entry) => acc + ((entry[tag] as number) || 0),
-                0
-              );
-              const color = stringToHexColor(tag, 0.6)[0];
-              return (
-                <tr
-                  key={tag}
-                  className="border-b flex justify-between w-full px-2"
-                >
-                  <td className="py-1 w-1/2 text-left font-semibold" style={{color}}>{tag}</td>
-                  <td className="py-1 w-1/2 text-right font-semibold" style={{color}}>
-                    {formatTime(total, 0, 1)}
-                  </td>
-                </tr>
-              );
-            })}
+            {[...tags]
+              .sort((a, b) => {
+                const totalA = processedData.reduce(
+                  (acc, entry) => acc + ((entry[a] as number) || 0),
+                  0
+                );
+                const totalB = processedData.reduce(
+                  (acc, entry) => acc + ((entry[b] as number) || 0),
+                  0
+                );
+                return totalB - totalA; // Sort descending
+              })
+              .map((tag) => {
+                const total = processedData.reduce(
+                  (acc, entry) => acc + ((entry[tag] as number) || 0),
+                  0
+                );
+                const color = stringToHexColor(tag, 0.6)[0];
+                return (
+                  <tr
+                    key={tag}
+                    className="border-b flex justify-between w-full px-2"
+                  >
+                    <td
+                      className="py-1 w-1/2 text-left font-semibold"
+                      style={{ color }}
+                    >
+                      {tag}
+                    </td>
+                    <td
+                      className="py-1 w-1/2 text-right font-semibold"
+                      style={{ color }}
+                    >
+                      {formatTime(total, 0, 1)}
+                    </td>
+                  </tr>
+                );
+              })}
             <tr>
               <td colSpan={2}>
-              <div className="h-[2px] w-full bg-accent rounded-2xl opacity-70"></div>
+                <div className="h-[2px] w-full bg-accent rounded-2xl opacity-70"></div>
               </td>
             </tr>
             <tr className="font-semibold flex justify-between w-full px-2">
