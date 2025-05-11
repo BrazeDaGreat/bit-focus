@@ -8,14 +8,17 @@ import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { FaPencil } from "react-icons/fa6";
 
-export default function TagSelector() {
+interface TagSelectorProps {
+    noHover?: boolean;
+}
+export default function TagSelector({ noHover }: TagSelectorProps) {
     const { tag, setTag, removeTag } = useTag();
     const [tempTag, setTempTag] = useState("");
   
     if (tag)
       return (
         <div className="">
-          <TagBadge tag={tag} deletable removeTag={removeTag} />
+          <TagBadge tag={tag} deletable removeTag={removeTag} noHover={noHover ?? false} />
         </div>
       );
   

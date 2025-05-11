@@ -4,6 +4,7 @@ import { FaTrash } from "react-icons/fa6";
 interface TagBadgeProps {
   tag: string;
   deletable?: boolean;
+  noHover?: boolean;
   removeTag?: () => void;
 }
 
@@ -23,7 +24,7 @@ export default function TagBadge(props: TagBadgeProps) {
           // Deletable
           "cursor-pointer",
           "group",
-          "hover:space-x-1"
+          props.noHover ? "" : "hover:space-x-1"
         )}
         style={{
           backgroundColor: color[0],
@@ -32,15 +33,17 @@ export default function TagBadge(props: TagBadgeProps) {
         onClick={removeTag}
       >
         <span>#{tag}</span>
-        <span
-          className={cn(
-            "w-0 group-hover:w-3",
-            "overflow-hidden",
-            "transition-all"
-          )}
-        >
-          <FaTrash />
-        </span>
+        {!props.noHover && (
+          <span
+            className={cn(
+              "w-0 group-hover:w-3",
+              "overflow-hidden",
+              "transition-all"
+            )}
+          >
+            <FaTrash />
+          </span>
+        )}
       </span>
     );
   }

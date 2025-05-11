@@ -33,7 +33,7 @@ const FocusMode = ({ setFocusMode, start, pause, reset, isRunning, minutes, seco
     <div className="text-8xl font-bold text-white">
       {formatTime(minutes, seconds)}
     </div>
-    <TagSelector />
+    <TagSelector noHover />
     {/* Controls */}
     <div className={cn("w-80 h-16", "flex", "gap-2")}>
       <Button

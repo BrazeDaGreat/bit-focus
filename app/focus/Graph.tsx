@@ -132,9 +132,6 @@ const Graph: React.FC = () => {
             }}
             tickFormatter={(value) => `${formatTime(value as number, 0, 1)}`}
           />
-          {/* <Tooltip
-            formatter={(value) => formatTime((value as number), 0, 1)}
-          /> */}
           <Tooltip
             wrapperStyle={{ outline: "none" }}
             cursor={{ fill: "transparent" }}
@@ -189,7 +186,7 @@ const Graph: React.FC = () => {
         </Button>
       </div>
       {/* Data Table */}
-      <div className="mt-6 max-h-[180px] overflow-auto">
+      <div className="mt-6">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="border-b flex justify-between font-medium w-full px-2">
@@ -266,7 +263,7 @@ export default function GraphDialog() {
           <FaChartBar /> Details
         </Button>
       </DialogTrigger>
-      <DialogContent className="bg-gray-200 text-gray-800">
+      <DialogContent className="bg-gray-200 text-gray-800 max-h-[calc(85vh)] overflow-auto no-scroll-wheel">
         <DialogTitle>Detailed View</DialogTitle>
         <DialogDescription asChild>
           <Graph />
