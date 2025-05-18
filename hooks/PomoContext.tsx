@@ -53,13 +53,14 @@ function pomoReducer(state: PomoState, action: Action): PomoState {
     case "START":
       return { ...state, isRunning: true, startTime: action.payload.startTime };
     case "PAUSE":
+      console.log("Pause");
       return {
         ...state,
         isRunning: false,
         elapsedSeconds: action.payload.elapsedSeconds,
-        startTime: null,
       };
     case "RESET":
+      console.log("Reset", state.elapsedSeconds > 0 && action.payload?.tag && state.startTime);
       if (state.elapsedSeconds > 0 && action.payload?.tag && state.startTime) {
         handleFinish(
           state.addFocusSession,
