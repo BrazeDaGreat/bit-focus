@@ -120,12 +120,6 @@ interface FocusOptionProps {
 
 function FocusOption({ item }: FocusOptionProps) {
   const { removeFocusSession } = useFocus()
-  // const elapsedSeconds = Math.floor(
-  //   (item.endTime.getTime() - item.startTime.getTime()) / 1000
-  // );
-  // const elapsedSeconds =
-  //     Math.round(((item.endTime.getTime() - item.startTime.getTime()) / 60000) * 100) /
-  //     100;
 
   const time = calculateTime(item.startTime, item.endTime);
   const onDate = item.startTime.toLocaleDateString("en-GB");

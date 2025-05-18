@@ -13,6 +13,7 @@ import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FocusSession, useFocus } from "@/hooks/useFocus";
+import { calculateTime } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -40,11 +41,10 @@ export function EditFocusSession({
   const { editFocusSession } = useFocus();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const defaultMinutes = Math.floor(
-    (item.endTime.getTime() - item.startTime.getTime()) / 60000
-  );
-  const defaultSeconds =
-    Math.floor((item.endTime.getTime() - item.startTime.getTime()) / 1000) % 60;
+
+  const time = calculateTime(item.startTime, item.endTime, "M:S");
+  const defaultMinutes = time.minutes || 0;
+  const defaultSeconds = time.seconds;
 
   const {
     control,
