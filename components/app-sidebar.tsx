@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { IoColorPalette } from "react-icons/io5";
-import { FaCalendarCheck, FaHome, FaMoon, FaSun } from "react-icons/fa";
+import { /*FaCalendarCheck,*/ FaHome, FaMoon, FaSun } from "react-icons/fa";
 import { IoIosTimer } from "react-icons/io";
 import { FaGear, FaReadme } from "react-icons/fa6";
 import { useTheme } from "next-themes";
@@ -34,7 +34,7 @@ import { VERSION } from "@/app/changelog/CHANGELOG";
 
 const items = [
   { title: "Home", url: "/", icon: <FaHome /> },
-  { title: "Tasks", url: "/tasks", icon: <FaCalendarCheck /> },
+  // { title: "Tasks", url: "/tasks", icon: <FaCalendarCheck /> },
   { title: "Focus", url: "/focus", icon: <IoIosTimer /> },
   { title: "Changelog", url: "/changelog", icon: <FaReadme /> },
 ];
