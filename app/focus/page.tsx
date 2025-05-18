@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/card";
 import { usePomo } from "@/hooks/PomoContext";
 import { FocusSession, useFocus } from "@/hooks/useFocus";
-import { formatTime } from "@/lib/utils";
+import { calculateTime, formatTime, formatTimeNew } from "@/lib/utils";
 import { useTheme } from "next-themes";
 import {
   FaCalendar,
@@ -123,9 +123,11 @@ function FocusOption({ item }: FocusOptionProps) {
   // const elapsedSeconds = Math.floor(
   //   (item.endTime.getTime() - item.startTime.getTime()) / 1000
   // );
-  const elapsedSeconds =
-      Math.round(((item.endTime.getTime() - item.startTime.getTime()) / 60000) * 100) /
-      100;
+  // const elapsedSeconds =
+  //     Math.round(((item.endTime.getTime() - item.startTime.getTime()) / 60000) * 100) /
+  //     100;
+
+  const time = calculateTime(item.startTime, item.endTime);
   const onDate = item.startTime.toLocaleDateString("en-GB");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const handleOpenChange = (open: boolean) => {
@@ -142,7 +144,7 @@ function FocusOption({ item }: FocusOptionProps) {
           <div className="flex gap-2 items-center">
             <FaRegClock />
             <span className="font-semibold">
-              {formatTime(elapsedSeconds as number, 0, 1)}
+              {formatTimeNew(time, "H:M:S", "text")}
             </span>
           </div>
           <div className="flex gap-4 items-center">

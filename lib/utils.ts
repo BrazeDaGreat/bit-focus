@@ -5,6 +5,31 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+export const calculateTime = (
+  startTime: Date,
+  endTime: Date,
+  mode: "H:M:S" | "M:S" | "S" = "H:M:S"
+): { hours?: number; minutes?: number; seconds: number } => {
+  const diffInMs = Math.max(endTime.getTime() - startTime.getTime(), 0); // Ensure non-negative
+  const totalSeconds = Math.floor(diffInMs / 1000);
+
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  switch (mode) {
+    case "H:M:S":
+      return { hours, minutes, seconds };
+    case "M:S":
+      const totalMinutes = Math.floor(totalSeconds / 60);
+      return { minutes: totalMinutes, seconds };
+    case "S":
+      return { seconds: totalSeconds };
+    default:
+      throw new Error("Invalid mode");
+  }
+};
+
 export const formatTime = (
   minutes: number,
   seconds: number,
@@ -28,6 +53,56 @@ export const formatTime = (
     if (str === "") str = `0s`;
     return str;
   }
+};
+
+type TimeObject =
+  | { hours: number; minutes: number; seconds: number }
+  | { minutes: number; seconds: number }
+  | { seconds: number };
+
+export const formatTimeNew = (
+  time: TimeObject,
+  mode: "H:M:S" | "M:S" | "S" = "H:M:S",
+  style: "digital" | "text" = "digital"
+): string => {
+  const pad = (num: number) => num.toString().padStart(2, "0");
+
+  if (style === "digital") {
+    switch (mode) {
+      case "H:M:S": {
+        const {
+          hours = 0,
+          minutes = 0,
+          seconds,
+        } = time as {
+          hours: number;
+          minutes: number;
+          seconds: number;
+        };
+        return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+      }
+      case "M:S": {
+        const { minutes = 0, seconds } = time as {
+          minutes: number;
+          seconds: number;
+        };
+        return `${pad(minutes)}:${pad(seconds)}`;
+      }
+      case "S": {
+        const { seconds } = time as { seconds: number };
+        return `${seconds}`;
+      }
+    }
+  } else if (style === "text") {
+    const parts: string[] = [];
+    if ("hours" in time && time.hours > 0) parts.push(`${time.hours}h`);
+    if ("minutes" in time && time.minutes > 0) parts.push(`${time.minutes}m`);
+    if (time.seconds > 0) parts.push(`${time.seconds}s`);
+    if (parts.length === 0) return "0s";
+    return parts.join(" ");
+  }
+
+  return "";
 };
 
 export function stringToHexColor(
