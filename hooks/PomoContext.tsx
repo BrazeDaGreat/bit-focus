@@ -24,6 +24,12 @@ const handleFinish = (
 ) => {
   const endTime = Date.now();
   const elapsedSeconds = Math.floor((endTime - startTime) / 1000);
+  if (elapsedSeconds < 60) {
+    toast("You need to focus for at least 1 minute.", {
+      icon: <IoIosTimer />,
+    });
+    return;
+  }
   addFocusSession(tag, new Date(startTime), new Date(endTime));
   toast(`Focused for ${formatTime(elapsedSeconds/60, 0, 1)} seconds.`, {
     icon: <IoIosTimer />,
