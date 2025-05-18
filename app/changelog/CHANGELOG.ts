@@ -2,6 +2,21 @@ export const VERSION = "v0.2.6-alpha";
 
 const CHANGELOG = `
 
+## \`v0.3.0-alpha\` (2025-05-18)
+### Added
+- \`calculateTime()\` function as a standard time difference calculator.
+- \`formatTimeNew()\` that is compatible with \`TimeObject\`.
+- \`durationFromSeconds()\` as helper function.
+- \`reduceSessions()\` which reduces \`FocusSession[]\` into a \`TimeObject\` equivalent.
+- Added 30 Days view in Detailed Graph, and Home Screen.
+- Removed "Tasks" option from sidebar.
+### Changed
+- You need to focus for at least 1 minute before it being counted.
+### Fixed
+- Fixed Focus Time not being counted when you are paused.
+- Fixed issues related to differences in time calculation in different parts.
+***
+
 ## \`v0.2.0-alpha\` (2025-03-29)
 ### Added
 - Added Favicon.
