@@ -5,6 +5,17 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * Calculate the time difference between two dates.
+ *
+ * @param {Date} startTime The start time
+ * @param {Date} endTime The end time
+ * @param {string} [mode="H:M:S"] The format of the returned time difference
+ *   - "H:M:S" returns the difference in hours, minutes and seconds
+ *   - "M:S" returns the difference in minutes and seconds
+ *   - "S" returns the difference in seconds
+ * @returns {{ hours?: number, minutes?: number, seconds: number }} The time difference
+ */
 export const calculateTime = (
   startTime: Date,
   endTime: Date,
@@ -30,6 +41,16 @@ export const calculateTime = (
   }
 };
 
+/**
+ * Format a given time in minutes and seconds to a human-readable string.
+ *
+ * @param {number} minutes The number of minutes
+ * @param {number} seconds The number of seconds
+ * @param {number} [mode=0] The format of the returned time
+ *   - 0: "MM:SS"
+ *   - 1: "Xh Ym Zs"
+ * @returns {string} The formatted time
+ */
 export const formatTime = (
   minutes: number,
   seconds: number,
@@ -60,6 +81,19 @@ type TimeObject =
   | { minutes: number; seconds: number }
   | { seconds: number };
 
+/**
+ * Format a given time object to a human-readable string. Compatible with `calculateTime()`
+ *
+ * @param {TimeObject} time The time object to format
+ * @param {string} [mode="H:M:S"] The format of the returned time
+ *   - "H:M:S" returns the time in hours, minutes and seconds
+ *   - "M:S" returns the time in minutes and seconds
+ *   - "S" returns the time in seconds
+ * @param {string} [style="digital"] The style of the returned time
+ *   - "digital" returns a digital-style time (e.g. 12:34:56)
+ *   - "text" returns a text-style time (e.g. 12h 34m 56s)
+ * @returns {string} The formatted time
+ */
 export const formatTimeNew = (
   time: TimeObject,
   mode: "H:M:S" | "M:S" | "S" = "H:M:S",
@@ -105,6 +139,23 @@ export const formatTimeNew = (
   return "";
 };
 
+/**
+ * Generates a color based on the given string and optional parameters.
+ *
+ * The color is generated using the DJB2 hash function to map the string to a hue (0-360).
+ * The saturation is fixed at 65 and the lightness is fixed at 50 unless the `lighten` parameter
+ * is specified, in which case the lightness is increased by the specified amount (up to a maximum
+ * of 100).
+ *
+ * The function returns an array with two elements: the first is the color as a CSS color string
+ * (either `#RRGGBB` or `rgba(R,G,B,A)` if the `alpha` parameter is specified), and the second is
+ * a boolean indicating whether the color is dark enough to use white text.
+ *
+ * @param {string} str The string to generate the color from
+ * @param {number} [alpha] The alpha channel value to use if returning an `rgba()` color string
+ * @param {number} [lighten] The amount to lighten the color by (up to a maximum of 100)
+ * @returns {[string, boolean]} The color and whether to use white text or not
+ */
 export function stringToHexColor(
   str: string,
   alpha?: number,
