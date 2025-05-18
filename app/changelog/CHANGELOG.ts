@@ -1,4 +1,4 @@
-export const VERSION = "v0.2.6-alpha";
+export const VERSION = "v0.3.0-alpha";
 
 const CHANGELOG = `
 
