@@ -1,7 +1,7 @@
 "use client";
 
-import { useFocus } from "@/hooks/useFocus";
-import { cn, formatTime } from "@/lib/utils";
+import { FocusSession, useFocus } from "@/hooks/useFocus";
+import { cn, durationFromSeconds, formatTimeNew, reduceSessions } from "@/lib/utils";
 import { useTheme } from "next-themes";
 import { Toaster } from "sonner";
 import { MdTimelapse } from "react-icons/md";
@@ -9,9 +9,11 @@ import { TbClockHeart } from "react-icons/tb";
 
 import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
+import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 dayjs.extend(isBetween);
+dayjs.extend(isSameOrAfter);
 
 export default function Home() {
   const { theme } = useTheme();
@@ -28,7 +30,9 @@ export default function Home() {
         <div className={cn("flex gap-4", "flex-wrap", "my-8")}>
           <CardTimeFocused />
         </div>
-        <h1 className="text-sm opacity-60">This feature is under development.</h1>
+        <h1 className="text-sm opacity-60">
+          This feature is under development.
+        </h1>
       </div>
 
       <Toaster theme={(theme ?? "system") as "system" | "light" | "dark"} />
@@ -40,25 +44,27 @@ export default function Home() {
 function CardTimeFocused() {
   const { focusSessions, loadingFocusSessions } = useFocus();
 
-  const now = dayjs();
-  const todayStart = now.startOf("day");
-  const last7DaysStart = now.subtract(7, "day").startOf("day");
+  const today: FocusSession[] = [];
+  const week: FocusSession[]  = [];
+  const month: FocusSession[] = [];
 
-  let todayTotal = 0;
-  let last7DaysTotal = 0;
-
-  focusSessions.forEach(({ startTime, endTime }) => {
-    const start = dayjs(startTime);
-    const end = dayjs(endTime);
-    const duration = end.diff(start, "second");
-
-    if (start.isAfter(todayStart)) {
-      todayTotal += duration;
+  focusSessions.forEach((session) => {
+    const start = dayjs(session.startTime);
+    if (start.isSameOrAfter(dayjs().subtract(1, "day"))) {
+      today.push(session);
     }
-    if (start.isBetween(last7DaysStart, now, null, "[]")) {
-      last7DaysTotal += duration;
+    if (start.isBetween(dayjs().subtract(7, "day"), dayjs())) {
+      week.push(session);
     }
-  });
+    if (start.isBetween(dayjs().subtract(30, "day"), dayjs())) {
+      month.push(session);
+    }
+  })
+
+  // Calculate Times
+  const todayTotal = formatTimeNew(durationFromSeconds(reduceSessions(today)), "H:M:S", "text");
+  const weekTotal  = formatTimeNew(durationFromSeconds(reduceSessions(week)), "H:M:S", "text");
+  const monthTotal = formatTimeNew(durationFromSeconds(reduceSessions(month)), "H:M:S", "text");
 
   return (
     <>
@@ -70,10 +76,15 @@ function CardTimeFocused() {
             <span className="text-xs opacity-70">(Today)</span>
           </div>
           <span className="text-3xl font-bold">
-            {loadingFocusSessions ? <Skeleton className="h-10" /> : formatTime(Math.floor(todayTotal / 60), todayTotal % 60, 1)}
+            {loadingFocusSessions ? (
+              <Skeleton className="h-10" />
+            ) : (
+              todayTotal
+            )}
           </span>
         </div>
       </Card>
+
       <Card className="w-64">
         <div className="px-4 space-y-3">
           <div className="flex items-center gap-2">
@@ -82,11 +93,33 @@ function CardTimeFocused() {
             <span className="text-xs opacity-70">(Last 7 days)</span>
           </div>
           <span className="text-3xl font-bold">
-            {loadingFocusSessions ? <Skeleton className="h-10" /> : formatTime(Math.floor(last7DaysTotal / 60), last7DaysTotal % 60, 1)}
+            {loadingFocusSessions ? (
+              <Skeleton className="h-10" />
+            ) : (
+              weekTotal
+            )}
           </span>
         </div>
       </Card>
-      {/* <Card>{last7DaysTotal}</Card> */}
+
+      <Card className="w-64">
+        <div className="px-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <TbClockHeart />
+            <span className="text-xl font-bold">Focus Time</span>
+            <span className="text-xs opacity-70">(Last 30 days)</span>
+          </div>
+          <span className="text-3xl font-bold">
+            {loadingFocusSessions ? (
+              <Skeleton className="h-10" />
+            ) : (
+              monthTotal
+            )}
+          </span>
+        </div>
+      </Card>
     </>
   );
+
+  
 }

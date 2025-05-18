@@ -1,3 +1,4 @@
+import { FocusSession } from "@/hooks/useFocus";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -137,6 +138,35 @@ export const formatTimeNew = (
   }
 
   return "";
+};
+
+/**
+ * Converts a duration in seconds to an object representing hours, minutes, and seconds.
+ *
+ * @param {number} seconds The duration in seconds to convert
+ * @returns {{ hours: number, minutes: number, seconds: number }} The converted duration
+ */
+export const durationFromSeconds = (seconds: number) =>
+  calculateTime(new Date(0), new Date(seconds * 1000), "H:M:S");
+
+/**
+ * Calculate the total duration of focus sessions in seconds.
+ *
+ * @param {FocusSession[]} sessions - Array of focus sessions to reduce.
+ * @returns {number} The total duration of all sessions in seconds.
+ */
+
+export const reduceSessions = (sessions: FocusSession[]) => {
+  let totalSeconds = 0;
+  sessions.map(
+    (session) =>
+      (totalSeconds += calculateTime(
+        session.startTime,
+        session.endTime,
+        "S"
+      ).seconds)
+  );
+  return totalSeconds;
 };
 
 /**
