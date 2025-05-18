@@ -81,10 +81,18 @@ const processData = (
 const Graph: React.FC = () => {
   const { focusSessions } = useFocus();
   const [offset, setOffset] = useState(0);
-  const [view, setView] = useState<"day" | "week" | "month">("day");
-  const unitToShow = view === "day" ? 7 : view === "week" ? 4 : 6;
-  const dateRange = generateLastNUnits(unitToShow, view, offset);
-  const processedData = processData(focusSessions, dateRange, view);
+  const [view, setView] = useState<"day" | "week" | "month" | "30days">("day");
+
+  // Determine number of units to show and unit type for generateLastNUnits
+  const unitToShow =
+    view === "day" ? 7 : view === "30days" ? 30 : view === "week" ? 4 : 6;
+
+  // For 30days view, unit is 'day'; otherwise use the view directly
+  const unitForGenerate = view === "30days" ? "day" : view;
+
+  const dateRange = generateLastNUnits(unitToShow, unitForGenerate, offset);
+  const processedData = processData(focusSessions, dateRange, unitForGenerate);
+
   const tags = Array.from(
     new Set(
       processedData.flatMap((entry) =>
@@ -121,6 +129,9 @@ const Graph: React.FC = () => {
             dataKey="date"
             stroke="#8884d8"
             tickFormatter={(date) => {
+              // Format X axis ticks differently based on view
+              if (view === "week") return dayjs(date).format("[W]WW, YYYY");
+              if (view === "month") return dayjs(date).format("MMM YYYY");
               return dayjs(date).format("DD MMM");
             }}
           />
@@ -135,15 +146,13 @@ const Graph: React.FC = () => {
           <Tooltip
             wrapperStyle={{ outline: "none" }}
             cursor={{ fill: "transparent" }}
-            formatter={(value, name, props) => {
+            formatter={(value, name) => {
               if (name === "total") return null; // Hide the total as a separate item
-              const total = props.payload?.total ?? 0;
-              console.log(total);
               return [`${formatTime(value as number, 0, 1)}`, name];
             }}
             content={({ payload, label }) => {
               if (!payload || payload.length === 0) return null;
-              const total = payload[0].payload.total; // Get total focus time for the day
+              const total = payload[0].payload.total; // Get total focus time for the day/week/month
               return (
                 <div className="bg-white p-2 shadow rounded">
                   <p className="font-bold">{label}</p>
@@ -174,15 +183,30 @@ const Graph: React.FC = () => {
       <div className="flex justify-center mt-4 space-x-4">
         <Button
           variant={view === "day" ? "secondary" : "ghost"}
-          onClick={() => setView("day")}
+          onClick={() => {
+            setView("day");
+            setOffset(0);
+          }}
         >
-          Days
+          7 Days
+        </Button>
+        <Button
+          variant={view === "30days" ? "secondary" : "ghost"}
+          onClick={() => {
+            setView("30days");
+            setOffset(0);
+          }}
+        >
+          30 Days
         </Button>
         <Button
           variant={view === "month" ? "secondary" : "ghost"}
-          onClick={() => setView("month")}
+          onClick={() => {
+            setView("month");
+            setOffset(0);
+          }}
         >
-          Months
+          6 Months
         </Button>
       </div>
       {/* Data Table */}
@@ -264,16 +288,13 @@ export default function GraphDialog() {
         </Button>
       </DialogTrigger>
       <DialogContent className="bg-gray-200 text-gray-800 max-h-[calc(85vh)] overflow-auto no-scroll-wheel">
-        <DialogTitle>Detailed View</DialogTitle>
-        <DialogDescription asChild>
-          <Graph />
+        <DialogTitle>Focus History</DialogTitle>
+        <DialogDescription>
+          See a summary of your focus time, broken down by days, weeks, and
+          months.
         </DialogDescription>
+        <Graph />
       </DialogContent>
     </Dialog>
   );
-  //     return <Button size={"sm"} variant={"outline"}>
-  //     <FaChartBar /> Details
-  //   </Button>
 }
-
-// export default Graph;
