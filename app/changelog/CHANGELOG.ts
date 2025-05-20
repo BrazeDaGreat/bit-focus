@@ -1,4 +1,4 @@
-export const VERSION = "v0.3.0-alpha";
+export const VERSION = "v0.3.1-alpha";
 
 const CHANGELOG = `
 
@@ -15,6 +15,9 @@ const CHANGELOG = `
 ### Fixed
 - Fixed Focus Time not being counted when you are paused.
 - Fixed issues related to differences in time calculation in different parts.
+
+### \`v0.3.1-alpha\` (2025-05-21)
+- Added Discord & GitHub buttons to TopBar.
 ***
 
 ## \`v0.2.0-alpha\` (2025-03-29)
