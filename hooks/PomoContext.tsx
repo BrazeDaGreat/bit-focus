@@ -97,11 +97,7 @@ function pomoReducer(state: PomoState, action: Action): PomoState {
         elapsedSeconds: action.payload.elapsedSeconds,
       };
     case "RESET":
-      if (
-        state.elapsedSeconds > 0 &&
-        action.payload?.tag &&
-        state.startTime
-      ) {
+      if (state.elapsedSeconds > 0 && action.payload?.tag && state.startTime) {
         handleFinish(
           state.addFocusSession,
           action.payload.tag,
@@ -179,15 +175,31 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem("pomoTime", String(state.elapsedSeconds));
-      if (state.elapsedSeconds > 0) {
-        document.title = `BIT Focus - ${formatTime(
-          state.elapsedSeconds / 60,
-          0,
-          1
-        )}`;
-      } else document.title = `BIT Focus`;
     }
   }, [state.elapsedSeconds]);
+
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+
+    if (state.isRunning && state.startTime) {
+      intervalId = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - state.startTime!) / 1000);
+
+        if (elapsed > 0) {
+          document.title = `BIT Focus - ${formatTime(elapsed / 60, 0, 1)}`;
+        } else {
+          document.title = "BIT Focus";
+        }
+      }, 1000);
+    } else {
+      document.title = "BIT Focus";
+    }
+
+    return () => {
+      clearInterval(intervalId);
+      document.title = "BIT Focus";
+    };
+  }, [state.isRunning, state.startTime]);
 
   const updateElapsedTime = () => {
     if (state.isRunning && state.startTime) {
@@ -228,9 +240,10 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
             webhook &&
             tag
           ) {
-            sendMessage(`${name} started focusing on \`#${tag}\`.`, webhook).then(
-              (s) => console.log("Submitted", s)
-            );
+            sendMessage(
+              `${name} started focusing on \`#${tag}\`.`,
+              webhook
+            ).then((s) => console.log("Submitted", s));
           }
           dispatch({ type: "START", payload: { startTime } });
         },

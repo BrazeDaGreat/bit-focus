@@ -1,4 +1,4 @@
-export const VERSION = "v0.3.2-alpha";
+export const VERSION = "v0.3.3-alpha";
 
 const CHANGELOG = `
 
@@ -22,6 +22,9 @@ const CHANGELOG = `
 ### \`v0.3.2-alpha\` (2025-05-24)
 - Added Discord Webhook support.
 - Sends a webhook call whenever timer starts/finishes.
+
+### \`v0.3.3-alpha\` (2025-05-24)
+- The document's title now shows live timer time, even when tab is inactive.
 ***
 
 ## \`v0.2.0-alpha\` (2025-03-29)
