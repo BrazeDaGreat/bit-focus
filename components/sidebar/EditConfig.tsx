@@ -19,7 +19,7 @@ export const EditConfigSkeleton = () => {
 }
 
 const EditConfig = () => {
-  const { name, dob, setConfig } = useConfig();
+  const { name, dob, setConfig, webhook } = useConfig();
   const isMobile = useIsMobile();
   const {
     register,
@@ -30,6 +30,7 @@ const EditConfig = () => {
       name: name === "NULL" ? "" : name,
       day: dob ? new Date(dob).getDate() : "",
       month: dob ? new Date(dob).getMonth() + 1 : "",
+      webhook: webhook ?? "",
       year: dob ? new Date(dob).getFullYear() : "",
     },
   });
@@ -48,10 +49,10 @@ const EditConfig = () => {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onSubmit = (data: any) => {
-    const { name, day, month, year } = data;
+    const { name, day, month, year, webhook } = data;
     const dateOfBirth = new Date(year, month - 1, day);
     toast("Config updated successfully.", { icon: <FaPencil /> });
-    setConfig(name, dateOfBirth);
+    setConfig(name, dateOfBirth, webhook);
   };
 
   return (
@@ -151,6 +152,26 @@ const EditConfig = () => {
             {errors.year && (
               <span className="text-red-500 text-xs">
                 {errors.year.message}
+              </span>
+            )}
+
+            <Label className="text-xs opacity-90" htmlFor="name">
+              Webhook URL
+            </Label>
+            <Input
+              id="webhook"
+              {...register("webhook", {
+                validate: (value: string) => {
+                  if (value && !/^https?:\/\/.+\..+/.test(value)) {
+                    return "Invalid webhook URL";
+                  }
+                  return true;
+                },
+              })}
+            />
+            {errors.webhook && (
+              <span className="text-red-500 text-xs">
+                {errors.webhook.message}
               </span>
             )}
 

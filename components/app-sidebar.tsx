@@ -45,6 +45,7 @@ export function AppSidebar() {
 
   useEffect(() => {
     loadConfig();
+    // localStorage.setItem("user-config-backup")
   }, [loadConfig]);
 
   return (

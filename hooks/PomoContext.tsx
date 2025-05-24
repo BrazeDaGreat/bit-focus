@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 import {
   createContext,
@@ -9,8 +10,10 @@ import {
 import { IoIosTimer } from "react-icons/io";
 import { toast } from "sonner";
 import { useFocus } from "@/hooks/useFocus";
-import { formatTime } from "@/lib/utils";
+import { durationFromSeconds, formatTime, formatTimeNew } from "@/lib/utils";
 import { useTag } from "@/hooks/useTag";
+import { sendMessage } from "@/lib/webhook";
+import { useConfig } from "./useConfig";
 
 // Function to handle the end of a focus session
 const handleFinish = (
@@ -20,18 +23,35 @@ const handleFinish = (
     endTime: Date
   ) => Promise<void>,
   tag: string,
-  startTime: number
+  startTime: number,
+  data: {
+    name: string;
+    tag: string;
+    webhook: string;
+  }
 ) => {
   const endTime = Date.now();
   const elapsedSeconds = Math.floor((endTime - startTime) / 1000);
+
+  const timeobj = durationFromSeconds(elapsedSeconds);
+  const formattedTime = formatTimeNew(timeobj, "H:M:S", "text");
+
+  if (data.name && data.webhook && data.tag) {
+    sendMessage(
+      `${data.name} focused for \`${formattedTime}\` on \`#${data.tag}\``,
+      data.webhook
+    ).then((s) => console.log("Submitted", s));
+  }
+
   if (elapsedSeconds < 60) {
     toast("You need to focus for at least 1 minute.", {
       icon: <IoIosTimer />,
     });
     return;
   }
+
   addFocusSession(tag, new Date(startTime), new Date(endTime));
-  toast(`Focused for ${formatTime(elapsedSeconds/60, 0, 1)} seconds.`, {
+  toast(`Focused for ${formatTime(elapsedSeconds / 60, 0, 1)} seconds.`, {
     icon: <IoIosTimer />,
   });
 };
@@ -46,32 +66,47 @@ interface PomoState {
     startTime: Date,
     endTime: Date
   ) => Promise<void>;
+  data: {
+    name: string;
+    tag: string;
+    webhook: string;
+  };
 }
 
 type Action =
   | { type: "START"; payload: { startTime: number } }
   | { type: "PAUSE"; payload: { elapsedSeconds: number } }
-  | { type: "RESET"; payload?: { elapsedSeconds?: number; tag?: string } }
-  | { type: "UPDATE"; payload: { elapsedSeconds: number } };
+  | {
+      type: "RESET";
+      payload?: { elapsedSeconds?: number; tag?: string };
+    }
+  | { type: "UPDATE"; payload: { elapsedSeconds: number } }
+  | {
+      type: "SET_DATA";
+      payload: { name: string; tag: string; webhook: string };
+    };
 
 function pomoReducer(state: PomoState, action: Action): PomoState {
   switch (action.type) {
     case "START":
       return { ...state, isRunning: true, startTime: action.payload.startTime };
     case "PAUSE":
-      console.log("Pause");
       return {
         ...state,
         isRunning: false,
         elapsedSeconds: action.payload.elapsedSeconds,
       };
     case "RESET":
-      console.log("Reset", state.elapsedSeconds > 0 && action.payload?.tag && state.startTime);
-      if (state.elapsedSeconds > 0 && action.payload?.tag && state.startTime) {
+      if (
+        state.elapsedSeconds > 0 &&
+        action.payload?.tag &&
+        state.startTime
+      ) {
         handleFinish(
           state.addFocusSession,
           action.payload.tag,
-          state.startTime
+          state.startTime,
+          state.data
         );
       }
       return {
@@ -84,6 +119,11 @@ function pomoReducer(state: PomoState, action: Action): PomoState {
       return {
         ...state,
         elapsedSeconds: action.payload.elapsedSeconds,
+      };
+    case "SET_DATA":
+      return {
+        ...state,
+        data: action.payload,
       };
     default:
       return state;
@@ -101,12 +141,15 @@ const PomoContext = createContext<{
 // Provider Component
 export function PomoProvider({ children }: { children: React.ReactNode }) {
   const { loadFocusSessions, addFocusSession } = useFocus();
+  const { name, webhook } = useConfig();
   const { tag } = useTag();
+
   const [state, dispatch] = useReducer(pomoReducer, {
     isRunning: false,
     startTime: null,
     elapsedSeconds: 0,
     addFocusSession: addFocusSession,
+    data: { name: "", webhook: "", tag: "" },
   });
 
   const requestRef = useRef<number | null>(null);
@@ -116,7 +159,16 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
     console.log("Loaded Focus Sessions");
   }, [loadFocusSessions]);
 
-  // Load saved time from localStorage
+  // Handle late-loaded config values
+  useEffect(() => {
+    if (name && webhook && tag) {
+      dispatch({
+        type: "SET_DATA",
+        payload: { name, webhook, tag },
+      });
+    }
+  }, [name, webhook, tag]);
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       const savedTime = Number(localStorage.getItem("pomoTime")) || 0;
@@ -124,17 +176,19 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Save timer state to localStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem("pomoTime", String(state.elapsedSeconds));
       if (state.elapsedSeconds > 0) {
-        document.title = `BIT Focus - ${formatTime(state.elapsedSeconds/60, 0, 1)}`;
+        document.title = `BIT Focus - ${formatTime(
+          state.elapsedSeconds / 60,
+          0,
+          1
+        )}`;
       } else document.title = `BIT Focus`;
     }
   }, [state.elapsedSeconds]);
 
-  // Function to update elapsed time
   const updateElapsedTime = () => {
     if (state.isRunning && state.startTime) {
       const currentTime = Date.now();
@@ -151,18 +205,15 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
     requestRef.current = requestAnimationFrame(updateElapsedTime);
   };
 
-  // Start the animation frame loop when the timer is running
   useEffect(() => {
     if (state.isRunning) {
       requestRef.current = requestAnimationFrame(updateElapsedTime);
-      // document.title = `BIT Focus - ${formatTime(state.elapsedSeconds/60, 0, 1)}`;
     }
     return () => {
       if (requestRef.current) {
         cancelAnimationFrame(requestRef.current);
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.isRunning]);
 
   return (
@@ -171,6 +222,16 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
         state,
         start: () => {
           const startTime = Date.now() - state.elapsedSeconds * 1000;
+          if (
+            Number(localStorage.getItem("pomoTime")) === 0 &&
+            name &&
+            webhook &&
+            tag
+          ) {
+            sendMessage(`${name} started focusing on \`#${tag}\`.`, webhook).then(
+              (s) => console.log("Submitted", s)
+            );
+          }
           dispatch({ type: "START", payload: { startTime } });
         },
         pause: () => {

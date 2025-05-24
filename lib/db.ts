@@ -1,7 +1,10 @@
 import Dexie from "dexie";
 
 class BitFocusDB extends Dexie {
-  configuration: Dexie.Table<{ name: string; dob: Date }, string>;
+  configuration: Dexie.Table<
+    { name: string; dob: Date; webhook: string },
+    string
+  >;
   focus: Dexie.Table<
     { id?: number; tag: string; startTime: Date; endTime: Date },
     number
