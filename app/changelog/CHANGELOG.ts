@@ -1,4 +1,4 @@
-export const VERSION = "v0.3.3-alpha";
+export const VERSION = "v0.3.4-alpha";
 
 const CHANGELOG = `
 
@@ -25,6 +25,10 @@ const CHANGELOG = `
 
 ### \`v0.3.3-alpha\` (2025-05-24)
 - The document's title now shows live timer time, even when tab is inactive.
+
+### \`v0.3.4-alpha\` (2025-05-24)
+- Added Theming support.
+- Also added Purple, Rose, and Amoled themes.
 ***
 
 ## \`v0.2.0-alpha\` (2025-03-29)

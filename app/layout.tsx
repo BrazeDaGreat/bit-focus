@@ -41,15 +41,26 @@ export default function RootLayout({
       >
         <PomoProvider>
           <SidebarProvider>
-            <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+            <ThemeProvider
+              attribute="class"
+              value={{
+                light: "light",
+                dark: "dark",
+                purple: "purple",
+                rose: "rose",
+                amoled: "amoled",
+              }}
+              defaultTheme="system"
+              enableSystem={true}
+            >
               <AppSidebar />
               {/* <SidebarTrigger /> */}
               <div className="flex-1 flex flex-col max-h-screen overflow-y-auto">
-              <TopBar />
-              {children}
+                <TopBar />
+                {children}
               </div>
             </ThemeProvider>
-        </SidebarProvider>
+          </SidebarProvider>
         </PomoProvider>
       </body>
     </html>

@@ -81,7 +81,9 @@ export function AppSidebar() {
         </SidebarContent>
 
         <SidebarFooter>
-          <span className="text-center text-xs opacity-40 select-none">{VERSION}</span>
+          <span className="text-center text-xs opacity-40 select-none">
+            {VERSION}
+          </span>
           <PomoFooterTimer />
           {loadingConfig ? <ThemeSelectorSkeleton /> : <ThemeSelector />}
         </SidebarFooter>
@@ -113,6 +115,15 @@ const ThemeSelector = () => {
         </SelectItem>
         <SelectItem value="dark">
           <FaMoon /> Dark
+        </SelectItem>
+        <SelectItem value="purple">
+          <IoColorPalette className="text-purple-500" /> Purple
+        </SelectItem>
+        <SelectItem value="rose">
+          <IoColorPalette className="text-rose-500" /> Rose
+        </SelectItem>
+        <SelectItem value="amoled">
+          <IoColorPalette className="text-neutral-500" /> Amoled
         </SelectItem>
         <SelectItem value="system">
           <FaGear /> System
