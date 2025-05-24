@@ -46,8 +46,8 @@ export default function RootLayout({
               value={{
                 light: "light",
                 dark: "dark",
-                purple: "purple",
-                rose: "rose",
+                amethyst: "amethyst",
+                bluenight: "bluenight",
                 amoled: "amoled",
               }}
               defaultTheme="system"

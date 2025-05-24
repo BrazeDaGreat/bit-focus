@@ -21,7 +21,7 @@ import {
 import { IoColorPalette } from "react-icons/io5";
 import { /*FaCalendarCheck,*/ FaHome, FaMoon, FaSun } from "react-icons/fa";
 import { IoIosTimer } from "react-icons/io";
-import { FaGear, FaReadme } from "react-icons/fa6";
+import { FaGear, FaGem, FaReadme, FaWater } from "react-icons/fa6";
 import { useTheme } from "next-themes";
 import EditConfig, { EditConfigSkeleton } from "./sidebar/EditConfig";
 import { usePathname } from "next/navigation";
@@ -116,11 +116,12 @@ const ThemeSelector = () => {
         <SelectItem value="dark">
           <FaMoon /> Dark
         </SelectItem>
-        <SelectItem value="purple">
-          <IoColorPalette className="text-purple-500" /> Purple
+        
+        <SelectItem value="amethyst">
+          <FaGem className="text-purple-400" /> Amethyst
         </SelectItem>
-        <SelectItem value="rose">
-          <IoColorPalette className="text-rose-500" /> Rose
+        <SelectItem value="bluenight">
+          <FaWater className="text-cyan-400" /> Blue Night
         </SelectItem>
         <SelectItem value="amoled">
           <IoColorPalette className="text-neutral-500" /> Amoled
