@@ -1,4 +1,4 @@
-export const VERSION = "v0.3.5-alpha";
+export const VERSION = "v0.3.6-alpha";
 
 const CHANGELOG = `
 
@@ -32,6 +32,7 @@ const CHANGELOG = `
 
 ### \`v0.3.5-alpha\` (2025-05-24)
 - Removed previous themes in favor of Amethyst and Blue Night.
+- Updated AMOLED color.
 ***
 
 ## \`v0.2.0-alpha\` (2025-03-29)

@@ -124,7 +124,7 @@ const ThemeSelector = () => {
           <FaWater className="text-cyan-400" /> Blue Night
         </SelectItem>
         <SelectItem value="amoled">
-          <IoColorPalette className="text-neutral-500" /> Amoled
+          <IoColorPalette className="text-neutral-500" /> AMOLED v2
         </SelectItem>
         <SelectItem value="system">
           <FaGear /> System
