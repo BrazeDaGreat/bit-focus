@@ -1,6 +1,13 @@
-export const VERSION = "v0.3.6-alpha";
+export const VERSION = "v0.4.0-alpha";
 
 const CHANGELOG = `
+
+## \`v0.4.0-alpha\` (2025-05-25)
+### Added
+- Implemented Saved Tags.
+### Fixed
+- Fixed border lines in Details graph.
+- Fixed the Homepage time being in days instead of hours.
 
 ## \`v0.3.0-alpha\` (2025-05-18)
 ### Added

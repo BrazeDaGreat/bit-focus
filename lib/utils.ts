@@ -245,3 +245,26 @@ export function stringToHexColor(
 
   return [hex, useWhiteText];
 }
+
+export function whiteText(hex: string) {
+  hex = hex.replace(/^#/, "");
+  // Parse r, g, b
+  let r = 0,
+    g = 0,
+    b = 0;
+  if (hex.length === 3) {
+    r = parseInt(hex[0] + hex[0], 16);
+    g = parseInt(hex[1] + hex[1], 16);
+    b = parseInt(hex[2] + hex[2], 16);
+  } else if (hex.length === 6) {
+    r = parseInt(hex.slice(0, 2), 16);
+    g = parseInt(hex.slice(2, 4), 16);
+    b = parseInt(hex.slice(4, 6), 16);
+  } else {
+    // Invalid hex
+    return false;
+  }
+  // Calculate luminance
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance < 0.5;
+}

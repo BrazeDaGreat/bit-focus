@@ -240,7 +240,7 @@ const Graph: React.FC = () => {
                 return (
                   <tr
                     key={tag}
-                    className="border-b flex justify-between w-full px-2"
+                    className="flex justify-between w-full px-2"
                   >
                     <td
                       className="py-1 w-1/2 text-left font-semibold"
@@ -257,12 +257,7 @@ const Graph: React.FC = () => {
                   </tr>
                 );
               })}
-            <tr>
-              <td colSpan={2}>
-                <div className="h-[2px] w-full bg-accent rounded-2xl opacity-70"></div>
-              </td>
-            </tr>
-            <tr className="font-semibold flex justify-between w-full px-2">
+            <tr className="border-t font-semibold flex justify-between w-full px-2">
               <td className="py-2 w-1/2 text-left">Total</td>
               <td className="py-2 w-1/2 text-right">
                 {formatTime(

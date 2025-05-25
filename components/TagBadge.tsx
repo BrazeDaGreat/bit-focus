@@ -1,4 +1,5 @@
-import { cn, stringToHexColor } from "@/lib/utils";
+import { useTag } from "@/hooks/useTag";
+import { cn, stringToHexColor, whiteText } from "@/lib/utils";
 import { FaTrash } from "react-icons/fa6";
 
 interface TagBadgeProps {
@@ -9,8 +10,13 @@ interface TagBadgeProps {
 }
 
 export default function TagBadge(props: TagBadgeProps) {
+  const { savedTags } = useTag()
   const { tag } = props;
-  const color = stringToHexColor(tag, 0.6);
+  let color = stringToHexColor(tag, 0.6);
+  const isSaved = savedTags.find(c => c.t === tag)
+  if (isSaved) {
+    color = [isSaved.c, whiteText(isSaved.c)]
+  }
 
   if (props.deletable) {
     const { removeTag } = props;
