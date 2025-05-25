@@ -30,6 +30,7 @@ import {
 import { useForm } from "react-hook-form";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { useState } from "react";
 dayjs.extend(isBetween);
 dayjs.extend(isSameOrAfter);
 
@@ -64,6 +65,7 @@ export default function Home() {
 // Saved Tags
 function SavedTags() {
   const { savedTags, addSavedTag, removeSavedTag } = useTag();
+  const [open, setOpen] = useState(false)
 
   const {
     register,
@@ -75,6 +77,7 @@ function SavedTags() {
     const { tagname, color } = data;
     console.log(data);
     addSavedTag(tagname, color);
+    setOpen(!open)
   };
 
   return (
@@ -84,9 +87,9 @@ function SavedTags() {
           <FaHashtag />
           <span>Saved Tags</span>
         </div>
-        <Popover>
+        <Popover open={open}>
           <PopoverTrigger asChild>
-            <Button variant={"ghost"}>
+            <Button variant={"ghost"} onClick={() => setOpen(!open)}>
               <FaPlus />
               <span>Add</span>
             </Button>
@@ -134,9 +137,14 @@ function SavedTags() {
                 </span>
               )}
               <div></div>
-              <Button variant={"default"} type="submit">
+              <div className="flex items-center justify-between gap-2">
+              <Button variant={"ghost"} type="button" onClick={() => setOpen(!open)} className="flex-1">
+                Close
+              </Button>
+              <Button variant={"outline"} type="submit" className="flex-1">
                 Create
               </Button>
+              </div>
             </form>
           </PopoverContent>
         </Popover>

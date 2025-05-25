@@ -1,4 +1,4 @@
-export const VERSION = "v0.4.0-alpha";
+export const VERSION = "v0.4.1-alpha";
 
 const CHANGELOG = `
 
@@ -8,6 +8,8 @@ const CHANGELOG = `
 ### Fixed
 - Fixed border lines in Details graph.
 - Fixed the Homepage time being in days instead of hours.
+### \`v0.4.1-alpha\` (2025-05-25)
+- Tag creation popup automatically closes after creating now.
 
 ## \`v0.3.0-alpha\` (2025-05-18)
 ### Added
