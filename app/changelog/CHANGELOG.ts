@@ -1,4 +1,4 @@
-export const VERSION = "v0.4.1-alpha";
+export const VERSION = "v0.4.2-alpha";
 
 const CHANGELOG = `
 
@@ -10,7 +10,9 @@ const CHANGELOG = `
 - Fixed the Homepage time being in days instead of hours.
 ### \`v0.4.1-alpha\` (2025-05-25)
 - Tag creation popup automatically closes after creating now.
-
+### \`v0.4.2-alpha\` (2025-05-26)
+- The correct tag color shows up in Graph now.
+- The graph entires are now low-to-high, more pleasant to look at.
 ## \`v0.3.0-alpha\` (2025-05-18)
 ### Added
 - \`calculateTime()\` function as a standard time difference calculator.

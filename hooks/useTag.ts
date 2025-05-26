@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist, PersistStorage } from "zustand/middleware";
 
-interface SavedTag {
+export interface SavedTag {
   t: string; // tag name
   c: string; // color
 }

@@ -1,4 +1,5 @@
 import { FocusSession } from "@/hooks/useFocus";
+import { SavedTag } from "@/hooks/useTag";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -267,4 +268,16 @@ export function whiteText(hex: string) {
   // Calculate luminance
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
   return luminance < 0.5;
+}
+
+export function getTagColor(
+  savedTags: SavedTag[],
+  tag: string,
+  alpha: number = 1
+): [string, boolean] {
+  const exists = savedTags.find((n) => n.t === tag);
+  if (exists) {
+    return [exists.c, whiteText(exists.c)];
+  }
+  return stringToHexColor(tag, alpha);
 }

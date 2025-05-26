@@ -12,7 +12,7 @@ import {
 import dayjs from "dayjs";
 import isoWeek from "dayjs/plugin/isoWeek";
 import { FocusSession, useFocus } from "@/hooks/useFocus";
-import { stringToHexColor, formatTime } from "@/lib/utils";
+import { stringToHexColor, formatTime, getTagColor } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { FaChartBar } from "react-icons/fa6";
 import {
@@ -23,6 +23,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa";
+import { useTag } from "@/hooks/useTag";
 
 dayjs.extend(isoWeek);
 
@@ -74,12 +75,13 @@ const processData = (
       ((groupedData[date][tag] as number) || 0) + duration;
     groupedData[date].total += duration;
   });
-
+  console.log(groupedData);
   return Object.values(groupedData);
 };
 
 const Graph: React.FC = () => {
   const { focusSessions } = useFocus();
+  const { savedTags } = useTag();
   const [offset, setOffset] = useState(0);
   const [view, setView] = useState<"day" | "week" | "month" | "30days">("day");
 
@@ -93,7 +95,7 @@ const Graph: React.FC = () => {
   const dateRange = generateLastNUnits(unitToShow, unitForGenerate, offset);
   const processedData = processData(focusSessions, dateRange, unitForGenerate);
 
-  const tags = Array.from(
+  const rawTags = Array.from(
     new Set(
       processedData.flatMap((entry) =>
         Object.entries(entry)
@@ -105,6 +107,13 @@ const Graph: React.FC = () => {
       )
     )
   );
+  const tagTotals: Record<string, number> = {};
+  for (const entry of processedData) {
+    for (const tag of rawTags) {
+      tagTotals[tag] = (tagTotals[tag] || 0) + ((entry[tag] as number) || 0);
+    }
+  }
+  const tags = rawTags.sort((a, b) => tagTotals[b] - tagTotals[a]);
 
   return (
     <div>
@@ -175,7 +184,7 @@ const Graph: React.FC = () => {
               key={String(tag)}
               dataKey={tag}
               stackId="a"
-              fill={stringToHexColor(tag, 0.6)[0]}
+              fill={getTagColor(savedTags, tag, 0.6)[0]}
             />
           ))}
         </BarChart>
@@ -238,10 +247,7 @@ const Graph: React.FC = () => {
                 );
                 const color = stringToHexColor(tag, 0.6)[0];
                 return (
-                  <tr
-                    key={tag}
-                    className="flex justify-between w-full px-2"
-                  >
+                  <tr key={tag} className="flex justify-between w-full px-2">
                     <td
                       className="py-1 w-1/2 text-left font-semibold"
                       style={{ color }}
