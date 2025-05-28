@@ -1,6 +1,15 @@
-export const VERSION = "v0.4.2-alpha";
+export const VERSION = "v0.5.0-alpha";
 
 const CHANGELOG = `
+
+## \`v0.5.0-alpha\` (2025-05-25)
+### Added
+- Mini PIP Player for timer.
+- \`usePip()\` hook.
+- \`usePipSpace()\` hook.
+- \`PipTimer\` component for the mini window.
+
+***
 
 ## \`v0.4.0-alpha\` (2025-05-25)
 ### Added
@@ -13,6 +22,9 @@ const CHANGELOG = `
 ### \`v0.4.2-alpha\` (2025-05-26)
 - The correct tag color shows up in Graph now.
 - The graph entires are now low-to-high, more pleasant to look at.
+
+***
+
 ## \`v0.3.0-alpha\` (2025-05-18)
 ### Added
 - \`calculateTime()\` function as a standard time difference calculator.

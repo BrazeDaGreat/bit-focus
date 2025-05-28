@@ -12,16 +12,13 @@ import { calculateTime, formatTime, formatTimeNew } from "@/lib/utils";
 import { useTheme } from "next-themes";
 import {
   FaCalendar,
+  FaExternalLinkAlt,
   FaFileCsv,
   FaPause,
   FaPlay,
   FaTrash,
 } from "react-icons/fa";
-import {
-  FaForwardFast,
-  FaRegClock,
-  FaTableList,
-} from "react-icons/fa6";
+import { FaForwardFast, FaRegClock, FaTableList } from "react-icons/fa6";
 import { RiExpandUpDownLine, RiFocus2Line } from "react-icons/ri";
 import { toast, Toaster } from "sonner";
 import {
@@ -34,18 +31,86 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import TagBadge from "@/components/TagBadge";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { EditFocusSession } from "./EditFocusSection";
 import TagSelector from "@/components/TagSelector";
 import GraphDialog from "./Graph";
-
+import { usePip, usePipSpace } from "@/hooks/usePip";
+import PipTimer from "@/components/PipTimer";
 
 export default function Focus() {
   const { theme } = useTheme();
   const { state, start, pause, reset } = usePomo();
+
   const minutes = Math.floor(state.elapsedSeconds / 60);
   const seconds = state.elapsedSeconds % 60;
   const { focusSessions } = useFocus();
+
+  const { show } = usePip(PipTimer, {
+    injectStyles: `
+    * {
+      padding: 0;
+      margin: 0;
+      box-sizing: border-box;
+      font-family: JetBrains Mono, monospace;
+    }
+    div {
+      width: 100vw;
+      height: 100vh;
+      background-color: black;
+      color: oklch(87% 0 0);
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    h1 {
+      font-size: 2.25rem;
+      font-weight: 800;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.5rem;
+      border-radius: 0.5rem;
+      font-size: 1rem;
+      line-height: 1;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: none;
+    }
+    `,
+  });
+  const { data, update } = usePipSpace("piptimer", {
+    time: state.elapsedSeconds,
+    running: state.isRunning,
+    inc: {
+      pause: 0,
+      resume: 0,
+    },
+  });
+  useEffect(() => {
+    if (state.isRunning) {
+      update({ time: state.elapsedSeconds, running: true });
+    } else {
+      update({ time: state.elapsedSeconds, running: false });
+    }
+  }, [state, update]);
+  useEffect(() => {
+    if (data.inc.pause === 1) {
+      pause();
+      update({ running: false, inc: { pause: 0, resume: 0 } });
+    }
+    if (data.inc.resume === 1) {
+      start();
+      update({ running: true, inc: { pause: 0, resume: 0 } });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, update]);
 
   return (
     <div className="flex-1 p-8 gap-8 flex flex-col items-center justify-center">
@@ -76,13 +141,21 @@ export default function Focus() {
             {state.elapsedSeconds > 0 && (
               <Button
                 size={"icon"}
-                className="py-6 w-1/3"
+                className="py-6 w-1/6"
                 variant={"destructive"}
                 onClick={reset}
               >
                 <FaForwardFast />
               </Button>
             )}
+            <Button
+              onClick={show}
+              size={"icon"}
+              className="py-6 w-1/6"
+              variant={"secondary"}
+            >
+              <FaExternalLinkAlt />
+            </Button>
           </CardFooter>
         </Card>
       </div>
@@ -95,7 +168,11 @@ export default function Focus() {
               <span>Focus Report</span>
             </div>
             <div className="flex gap-1">
-              <Button size={"sm"} variant={"ghost"} onClick={() => toast("This feature is under development.")}>
+              <Button
+                size={"sm"}
+                variant={"ghost"}
+                onClick={() => toast("This feature is under development.")}
+              >
                 <FaFileCsv /> Export
               </Button>
               <GraphDialog />
@@ -119,7 +196,7 @@ interface FocusOptionProps {
 }
 
 function FocusOption({ item }: FocusOptionProps) {
-  const { removeFocusSession } = useFocus()
+  const { removeFocusSession } = useFocus();
 
   const time = calculateTime(item.startTime, item.endTime);
   const onDate = item.startTime.toLocaleDateString("en-GB");
