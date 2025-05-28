@@ -12,7 +12,7 @@ import {
 import dayjs from "dayjs";
 import isoWeek from "dayjs/plugin/isoWeek";
 import { FocusSession, useFocus } from "@/hooks/useFocus";
-import { stringToHexColor, formatTime, getTagColor } from "@/lib/utils";
+import { formatTime, getTagColor } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { FaChartBar } from "react-icons/fa6";
 import {
@@ -245,7 +245,7 @@ const Graph: React.FC = () => {
                   (acc, entry) => acc + ((entry[tag] as number) || 0),
                   0
                 );
-                const color = stringToHexColor(tag, 0.6)[0];
+                const color = getTagColor(savedTags, tag, 0.6)[0];
                 return (
                   <tr key={tag} className="flex justify-between w-full px-2">
                     <td

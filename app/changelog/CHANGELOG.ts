@@ -1,14 +1,15 @@
-export const VERSION = "v0.5.0-alpha";
+export const VERSION = "v0.5.1-alpha";
 
 const CHANGELOG = `
 
-## \`v0.5.0-alpha\` (2025-05-25)
+## \`v0.5.0-alpha\` (2025-05-28)
 ### Added
 - Mini PIP Player for timer.
 - \`usePip()\` hook.
 - \`usePipSpace()\` hook.
 - \`PipTimer\` component for the mini window.
-
+### \`v0.5.1-alpha\` (2025-05-28)
+- Graph's Table shows saved tag color now.
 ***
 
 ## \`v0.4.0-alpha\` (2025-05-25)
