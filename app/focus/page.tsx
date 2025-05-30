@@ -18,7 +18,13 @@ import {
   FaPlay,
   FaTrash,
 } from "react-icons/fa";
-import { FaForwardFast, FaRegClock, FaTableList } from "react-icons/fa6";
+import {
+  FaFileExport,
+  FaFileImport,
+  FaForwardFast,
+  FaRegClock,
+  FaTableList,
+} from "react-icons/fa6";
 import { RiExpandUpDownLine, RiFocus2Line } from "react-icons/ri";
 import { toast, Toaster } from "sonner";
 import {
@@ -27,16 +33,18 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
 import TagBadge from "@/components/TagBadge";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { EditFocusSession } from "./EditFocusSection";
 import TagSelector from "@/components/TagSelector";
 import GraphDialog from "./Graph";
 import { usePip, usePipSpace } from "@/hooks/usePip";
 import PipTimer from "@/components/PipTimer";
+import SaveManager from "@/lib/SaveManager";
 
 export default function Focus() {
   const { theme } = useTheme();
@@ -168,13 +176,7 @@ export default function Focus() {
               <span>Focus Report</span>
             </div>
             <div className="flex gap-1">
-              <Button
-                size={"sm"}
-                variant={"ghost"}
-                onClick={() => toast("This feature is under development.")}
-              >
-                <FaFileCsv /> Export
-              </Button>
+              <BITFdata />
               <GraphDialog />
             </div>
           </CardTitle>
@@ -190,6 +192,101 @@ export default function Focus() {
     </div>
   );
 }
+
+function BITFdata() {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
+
+  const handleExport = async () => {
+    try {
+      await SaveManager.exportData();
+      toast.success("Backup exported successfully!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Export failed.");
+    }
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      await SaveManager.importData(file);
+      toast.success("Backup imported successfully!");
+      toast.info("Reloading in 2 seconds to apply changes...");
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } catch (err) {
+      console.error(err);
+      toast.error("Import failed. Check file format.");
+    } finally {
+      e.target.value = "";
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const listener = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (
+        document.activeElement &&
+        (document.activeElement.tagName === "INPUT" ||
+          document.activeElement.tagName === "TEXTAREA")
+      )
+        return;
+
+      if (e.key.toLowerCase() === "w") {
+        e.preventDefault();
+        handleExport();
+      } else if (e.key.toLowerCase() === "q") {
+        e.preventDefault();
+        handleImportClick();
+      }
+    };
+
+    window.addEventListener("keydown", listener);
+    return () => window.removeEventListener("keydown", listener);
+  }, [isOpen]);
+
+  return (
+    <>
+      <input
+        type="file"
+        accept=".bitf.json"
+        onChange={handleFileChange}
+        ref={fileInputRef}
+        className="hidden"
+      />
+      <DropdownMenu onOpenChange={setIsOpen}>
+        <DropdownMenuTrigger asChild>
+          <Button size="sm" variant="ghost">
+            <FaFileCsv className="mr-2" />
+            BITF Data
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuItem onClick={handleExport}>
+            <FaFileExport className="mr-2" />
+            <span>Export</span>
+            <DropdownMenuShortcut>W</DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleImportClick}>
+            <FaFileImport className="mr-2" />
+            <span>Import</span>
+            <DropdownMenuShortcut>Q</DropdownMenuShortcut>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
+  );
+}
+
 
 interface FocusOptionProps {
   item: FocusSession;
