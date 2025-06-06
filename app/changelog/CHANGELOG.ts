@@ -1,11 +1,15 @@
-export const VERSION = "v0.6.0-alpha";
+export const VERSION = "v0.6.1-alpha";
 
 const CHANGELOG = `
 ## \`v0.6.0-alpha\` (2025-05-30)
 ### Added
 - Added \`SaveManager.ts\`.
 - Added Import/Export functionality. The data is exported in a \`.bitf.json\` file extension.
-
+### \`v0.6.1-alpha\`
+- Bumped \`package.json\` version.
+- Shifted to \`pnpm\`.
+- Added a Todo button in top bar.
+- Thus, added a simple functioning todo list, to keep track of tasks while you're focusing.
 ***
 
 ## \`v0.5.0-alpha\` (2025-05-28)
