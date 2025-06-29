@@ -5,11 +5,13 @@ const CHANGELOG = `
 ### Added
 - Added \`SaveManager.ts\`.
 - Added Import/Export functionality. The data is exported in a \`.bitf.json\` file extension.
-### \`v0.6.1-alpha\`
+### \`v0.6.1-alpha\` (2025-06-07)
 - Bumped \`package.json\` version.
 - Shifted to \`pnpm\`.
 - Added a Todo button in top bar.
 - Thus, added a simple functioning todo list, to keep track of tasks while you're focusing.
+### \`v0.6.2-alpha\` (2025-06-29)
+- Fixed the bug where, if you stopped the timer, refreshed, and ended it, it wouldn't count and just reset.
 ***
 
 ## \`v0.5.0-alpha\` (2025-05-28)

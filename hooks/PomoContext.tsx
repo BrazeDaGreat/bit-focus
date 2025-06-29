@@ -1,3 +1,12 @@
+/**
+ * PomoContext.tsx - Pomodoro Timer Context and Provider
+ * 
+ * This file provides a React context for managing a Pomodoro-style focus timer.
+ * It handles timer state (running/paused), elapsed time tracking, and automatic
+ * session saving when focus sessions are completed. The timer state persists
+ * across page refreshes using localStorage.
+ */
+
 /* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 import {
@@ -15,7 +24,15 @@ import { useTag } from "@/hooks/useTag";
 import { sendMessage } from "@/lib/webhook";
 import { useConfig } from "./useConfig";
 
-// Function to handle the end of a focus session
+/**
+ * Handles the completion of a focus session by saving it to the database
+ * and sending webhook notifications if configured.
+ * 
+ * @param addFocusSession - Function to add a focus session to the database
+ * @param tag - The tag associated with this focus session
+ * @param startTime - The timestamp when the session started
+ * @param data - Configuration data including user name, tag, and webhook URL
+ */
 const handleFinish = (
   addFocusSession: (
     tag: string,
@@ -86,6 +103,14 @@ type Action =
       payload: { name: string; tag: string; webhook: string };
     };
 
+/**
+ * Reducer function for managing Pomodoro timer state transitions.
+ * Handles starting, pausing, resetting, and updating the timer.
+ * 
+ * @param state - Current timer state
+ * @param action - Action to perform on the state
+ * @returns Updated state
+ */
 function pomoReducer(state: PomoState, action: Action): PomoState {
   switch (action.type) {
     case "START":
@@ -97,11 +122,20 @@ function pomoReducer(state: PomoState, action: Action): PomoState {
         elapsedSeconds: action.payload.elapsedSeconds,
       };
     case "RESET":
-      if (state.elapsedSeconds > 0 && action.payload?.tag && state.startTime) {
+      // Handle session completion and saving
+      if (state.elapsedSeconds > 0 && action.payload?.tag) {
+        let startTime = state.startTime;
+        
+        // If startTime is null (e.g., after page refresh), calculate it backwards
+        // from current time and elapsed seconds to ensure session gets saved
+        if (!startTime) {
+          startTime = Date.now() - (state.elapsedSeconds * 1000);
+        }
+        
         handleFinish(
           state.addFocusSession,
           action.payload.tag,
-          state.startTime,
+          startTime,
           state.data
         );
       }
@@ -134,7 +168,12 @@ const PomoContext = createContext<{
   reset: () => void;
 } | null>(null);
 
-// Provider Component
+/**
+ * Provider Component for the Pomodoro Timer Context
+ * Manages timer state, persistence, and automatic updates.
+ * 
+ * @param children - React children to wrap with the provider
+ */
 export function PomoProvider({ children }: { children: React.ReactNode }) {
   const { loadFocusSessions, addFocusSession } = useFocus();
   const { name, webhook } = useConfig();
@@ -165,6 +204,7 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
     }
   }, [name, webhook, tag]);
 
+  // Load persisted timer state from localStorage on mount
   useEffect(() => {
     if (typeof window !== "undefined") {
       const savedTime = Number(localStorage.getItem("pomoTime")) || 0;
@@ -172,12 +212,14 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Persist timer state to localStorage whenever it changes
   useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem("pomoTime", String(state.elapsedSeconds));
     }
   }, [state.elapsedSeconds]);
 
+  // Update document title with current timer when running
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
 
@@ -201,6 +243,9 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
     };
   }, [state.isRunning, state.startTime]);
 
+  /**
+   * Updates the elapsed time using requestAnimationFrame for smooth updates
+   */
   const updateElapsedTime = () => {
     if (state.isRunning && state.startTime) {
       const currentTime = Date.now();
@@ -217,6 +262,7 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
     requestRef.current = requestAnimationFrame(updateElapsedTime);
   };
 
+  // Handle requestAnimationFrame updates when timer is running
   useEffect(() => {
     if (state.isRunning) {
       requestRef.current = requestAnimationFrame(updateElapsedTime);
@@ -269,7 +315,13 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Custom Hook to Use Pomodoro Timer
+/**
+ * Custom Hook to Use Pomodoro Timer Context
+ * Provides access to timer state and control functions.
+ * 
+ * @returns Timer state and control functions (start, pause, reset)
+ * @throws Error if used outside of PomoProvider
+ */
 export function usePomo() {
   const context = useContext(PomoContext);
   if (!context) {
