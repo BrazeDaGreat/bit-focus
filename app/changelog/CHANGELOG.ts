@@ -1,4 +1,4 @@
-export const VERSION = "v0.6.1-alpha";
+export const VERSION = "v0.6.3-alpha";
 
 const CHANGELOG = `
 ## \`v0.6.0-alpha\` (2025-05-30)
@@ -12,6 +12,8 @@ const CHANGELOG = `
 - Thus, added a simple functioning todo list, to keep track of tasks while you're focusing.
 ### \`v0.6.2-alpha\` (2025-06-29)
 - Fixed the bug where, if you stopped the timer, refreshed, and ended it, it wouldn't count and just reset.
+### \`v0.6.3-alpha\` (2025-06-30)
+- Fixed the navigation block while timer is running.
 ***
 
 ## \`v0.5.0-alpha\` (2025-05-28)

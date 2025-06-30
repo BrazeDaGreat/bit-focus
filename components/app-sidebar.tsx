@@ -1,3 +1,12 @@
+/**
+ * AppSidebar.tsx - Main Application Sidebar Component with Navigation Timer Management
+ * 
+ * This component renders the main navigation sidebar for the BIT Focus application.
+ * It includes navigation items, user configuration, timer display, and theme selector.
+ * The sidebar handles timer state during navigation to prevent blocking issues.
+ * 
+ */
+
 "use client";
 import {
   Sidebar,
@@ -19,34 +28,118 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { IoColorPalette } from "react-icons/io5";
-import { /*FaCalendarCheck,*/ FaHome, FaMoon, FaSun } from "react-icons/fa";
+import { FaHome, FaMoon, FaSun } from "react-icons/fa";
 import { IoIosTimer } from "react-icons/io";
 import { FaGear, FaGem, FaReadme, FaWater } from "react-icons/fa6";
 import { useTheme } from "next-themes";
 import EditConfig, { EditConfigSkeleton } from "./sidebar/EditConfig";
-import { usePathname } from "next/navigation";
-import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useConfig } from "@/hooks/useConfig";
-import { useEffect } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import PomoFooterTimer from "./sidebar/PomoFooterTimer";
 import { Skeleton } from "./ui/skeleton";
 import { VERSION } from "@/app/changelog/CHANGELOG";
+import { usePomo } from "@/hooks/PomoContext";
 
+/**
+ * Navigation items configuration for the sidebar menu
+ */
 const items = [
   { title: "Home", url: "/", icon: <FaHome /> },
-  // { title: "Tasks", url: "/tasks", icon: <FaCalendarCheck /> },
   { title: "Focus", url: "/focus", icon: <IoIosTimer /> },
   { title: "Changelog", url: "/changelog", icon: <FaReadme /> },
 ];
 
+/**
+ * Main application sidebar component that provides navigation and app controls.
+ * Handles timer state during navigation to prevent blocking issues.
+ * 
+ * @returns JSX element containing the complete sidebar interface
+ */
 export function AppSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { pause, state, start } = usePomo();
   const { loadConfig, loadingConfig } = useConfig();
+  
+  // Track navigation state to prevent duplicate operations
+  const isNavigatingRef = useRef(false);
+  const wasRunningRef = useRef(false);
 
+  /**
+   * Load user configuration on component mount
+   */
   useEffect(() => {
     loadConfig();
-    // localStorage.setItem("user-config-backup")
   }, [loadConfig]);
+
+  /**
+   * Optimized function to temporarily pause timer if it's running.
+   * Stores the running state to restore later.
+   */
+  const pauseForNavigation = useCallback(() => {
+    if (state.isRunning && state.elapsedSeconds > 0 && !isNavigatingRef.current) {
+      wasRunningRef.current = true;
+      pause();
+    }
+  }, [state.isRunning, state.elapsedSeconds, pause]);
+
+  /**
+   * Optimized function to resume timer if it was running before navigation.
+   * Only resumes if the timer was actually running before pause.
+   */
+  const resumeAfterNavigation = useCallback(() => {
+    if (wasRunningRef.current && !state.isRunning && state.elapsedSeconds > 0) {
+      // Use a minimal delay to ensure navigation is complete
+      const timeoutId = setTimeout(() => {
+        start();
+        wasRunningRef.current = false;
+        isNavigatingRef.current = false;
+      }, 10); // Minimal delay for navigation completion
+      
+      return () => clearTimeout(timeoutId);
+    } else {
+      isNavigatingRef.current = false;
+    }
+  }, [state.isRunning, state.elapsedSeconds, start]);
+
+  /**
+   * Resume timer after navigation completes (pathname change)
+   */
+  useEffect(() => {
+    const cleanup = resumeAfterNavigation();
+    return cleanup;
+  }, [pathname, resumeAfterNavigation]);
+
+  /**
+   * Enhanced navigation handler that manages timer state for smooth navigation.
+   * 
+   * @param url - The destination URL to navigate to
+   * @param event - The click event from the navigation link
+   */
+  const handleNavigation = useCallback((url: string, event: React.MouseEvent) => {
+    event.preventDefault();
+    
+    // Prevent duplicate navigation attempts
+    if (isNavigatingRef.current) {
+      return;
+    }
+    
+    // Skip if already on the target page
+    if (pathname === url) {
+      return;
+    }
+    
+    isNavigatingRef.current = true;
+    
+    // Pause timer immediately for smooth navigation
+    pauseForNavigation();
+    
+    // Navigate with minimal delay to ensure pause takes effect
+    setTimeout(() => {
+      router.push(url);
+    }, 5);
+  }, [pathname, router, pauseForNavigation]);
 
   return (
     <>
@@ -54,6 +147,7 @@ export function AppSidebar() {
         <SidebarHeader>
           {loadingConfig ? <EditConfigSkeleton /> : <EditConfig />}
         </SidebarHeader>
+        
         <SidebarContent>
           {/* Main Menu */}
           <SidebarGroup>
@@ -63,15 +157,13 @@ export function AppSidebar() {
                 {items.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
-                      asChild
                       className="gap-2"
                       style={{ padding: "1.5rem 0.5rem" }}
                       isActive={pathname === item.url}
+                      onClick={(event) => handleNavigation(item.url, event)}
                     >
-                      <Link href={item.url}>
-                        {item.icon}
-                        <span>{item.title}</span>
-                      </Link>
+                      {item.icon}
+                      <span>{item.title}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
@@ -92,9 +184,21 @@ export function AppSidebar() {
   );
 }
 
+/**
+ * Skeleton component for theme selector loading state
+ * 
+ * @returns JSX element with skeleton styling
+ */
 const ThemeSelectorSkeleton = () => <Skeleton className="h-9" />;
+
+/**
+ * Theme selector component that allows users to switch between different app themes
+ * 
+ * @returns JSX element containing the theme selection dropdown
+ */
 const ThemeSelector = () => {
   const { setTheme, theme } = useTheme();
+  
   return (
     <Select
       onValueChange={(value) => setTheme(value)}
@@ -116,7 +220,6 @@ const ThemeSelector = () => {
         <SelectItem value="dark">
           <FaMoon /> Dark
         </SelectItem>
-        
         <SelectItem value="amethyst">
           <FaGem className="text-purple-400" /> Amethyst
         </SelectItem>

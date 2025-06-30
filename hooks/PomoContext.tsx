@@ -1,13 +1,14 @@
 /**
- * PomoContext.tsx - Pomodoro Timer Context and Provider
+ * PomoContext.tsx - Optimized Pomodoro Timer Context and Provider
  * 
  * This file provides a React context for managing a Pomodoro-style focus timer.
  * It handles timer state (running/paused), elapsed time tracking, and automatic
  * session saving when focus sessions are completed. The timer state persists
  * across page refreshes using localStorage.
+ * 
  */
 
-/* eslint-disable react-hooks/exhaustive-deps */
+
 "use client";
 import {
   createContext,
@@ -15,6 +16,7 @@ import {
   useReducer,
   useEffect,
   useRef,
+  useCallback,
 } from "react";
 import { IoIosTimer } from "react-icons/io";
 import { toast } from "sonner";
@@ -171,6 +173,7 @@ const PomoContext = createContext<{
 /**
  * Provider Component for the Pomodoro Timer Context
  * Manages timer state, persistence, and automatic updates.
+ * Uses optimized timer approach with setInterval instead of requestAnimationFrame.
  * 
  * @param children - React children to wrap with the provider
  */
@@ -187,7 +190,9 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
     data: { name: "", webhook: "", tag: "" },
   });
 
-  const requestRef = useRef<number | null>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const titleIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSavedTimeRef = useRef<number>(0);
 
   useEffect(() => {
     loadFocusSessions();
@@ -212,67 +217,99 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Persist timer state to localStorage whenever it changes
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("pomoTime", String(state.elapsedSeconds));
+  /**
+   * Debounced function to save timer state to localStorage.
+   * Only saves if the time has actually changed to reduce I/O operations.
+   */
+  const saveToLocalStorage = useCallback((elapsedSeconds: number) => {
+    if (typeof window !== "undefined" && elapsedSeconds !== lastSavedTimeRef.current) {
+      localStorage.setItem("pomoTime", String(elapsedSeconds));
+      lastSavedTimeRef.current = elapsedSeconds;
     }
-  }, [state.elapsedSeconds]);
+  }, []);
 
-  // Update document title with current timer when running
+  // Persist timer state to localStorage whenever it changes (debounced)
   useEffect(() => {
-    let intervalId: NodeJS.Timeout;
+    const timeoutId = setTimeout(() => {
+      saveToLocalStorage(state.elapsedSeconds);
+    }, 100); // Debounce saves to every 100ms
 
+    return () => clearTimeout(timeoutId);
+  }, [state.elapsedSeconds, saveToLocalStorage]);
+
+  /**
+   * Updates the document title with current timer time.
+   * Runs independently of main timer updates for better performance.
+   */
+  const updateDocumentTitle = useCallback(() => {
     if (state.isRunning && state.startTime) {
-      intervalId = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - state.startTime!) / 1000);
-
-        if (elapsed > 0) {
-          document.title = `BIT Focus - ${formatTime(elapsed / 60, 0, 1)}`;
-        } else {
-          document.title = "BIT Focus";
-        }
-      }, 1000);
+      const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
+      if (elapsed > 0) {
+        document.title = `BIT Focus - ${formatTime(elapsed / 60, 0, 1)}`;
+      } else {
+        document.title = "BIT Focus";
+      }
     } else {
       document.title = "BIT Focus";
     }
-
-    return () => {
-      clearInterval(intervalId);
-      document.title = "BIT Focus";
-    };
   }, [state.isRunning, state.startTime]);
 
-  /**
-   * Updates the elapsed time using requestAnimationFrame for smooth updates
-   */
-  const updateElapsedTime = () => {
+  // Handle document title updates
+  useEffect(() => {
     if (state.isRunning && state.startTime) {
-      const currentTime = Date.now();
-      const newElapsedSeconds = Math.floor(
-        (currentTime - state.startTime) / 1000
-      );
-      if (newElapsedSeconds !== state.elapsedSeconds) {
+      // Update title immediately
+      updateDocumentTitle();
+      
+      // Set up interval for title updates (less frequent than main timer)
+      titleIntervalRef.current = setInterval(updateDocumentTitle, 1000);
+    } else {
+      document.title = "BIT Focus";
+      if (titleIntervalRef.current) {
+        clearInterval(titleIntervalRef.current);
+        titleIntervalRef.current = null;
+      }
+    }
+
+    return () => {
+      if (titleIntervalRef.current) {
+        clearInterval(titleIntervalRef.current);
+        titleIntervalRef.current = null;
+      }
+      document.title = "BIT Focus";
+    };
+  }, [state.isRunning, state.startTime, updateDocumentTitle]);
+
+  /**
+   * Main timer update function using setInterval for better performance.
+   * Updates every 100ms for smooth UI updates without blocking navigation.
+   */
+  useEffect(() => {
+    if (state.isRunning && state.startTime) {
+      intervalRef.current = setInterval(() => {
+        const currentTime = Date.now();
+        const newElapsedSeconds = Math.floor(
+          (currentTime - state.startTime!) / 1000
+        );
+        
         dispatch({
           type: "UPDATE",
           payload: { elapsedSeconds: newElapsedSeconds },
         });
+      }, 100); // Update every 100ms for smooth UI without blocking navigation
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     }
-    requestRef.current = requestAnimationFrame(updateElapsedTime);
-  };
 
-  // Handle requestAnimationFrame updates when timer is running
-  useEffect(() => {
-    if (state.isRunning) {
-      requestRef.current = requestAnimationFrame(updateElapsedTime);
-    }
     return () => {
-      if (requestRef.current) {
-        cancelAnimationFrame(requestRef.current);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     };
-  }, [state.isRunning]);
+  }, [state.isRunning, state.startTime]);
 
   return (
     <PomoContext.Provider
