@@ -111,7 +111,7 @@ export function EditFocusSession({
 
   // Calculate current session duration for form defaults
   const time = calculateTime(item.startTime, item.endTime, "M:S");
-  const defaultMinutes = time.minutes || 0;
+  const defaultMinutes = 'minutes' in time ? time.minutes : 0;
   const defaultSeconds = time.seconds;
 
   // Initialize form with React Hook Form and Zod validation
