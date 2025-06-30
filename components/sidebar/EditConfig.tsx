@@ -1,4 +1,4 @@
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { useConfig } from "@/hooks/useConfig";
 import { useForm } from "react-hook-form";
 import { FaPencil } from "react-icons/fa6";

@@ -1,4 +1,4 @@
-export const VERSION = "v0.6.3-alpha";
+export const VERSION = "v0.6.4-alpha";
 
 const CHANGELOG = `
 ## \`v0.6.0-alpha\` (2025-05-30)
@@ -14,6 +14,10 @@ const CHANGELOG = `
 - Fixed the bug where, if you stopped the timer, refreshed, and ended it, it wouldn't count and just reset.
 ### \`v0.6.3-alpha\` (2025-06-30)
 - Fixed the navigation block while timer is running.
+### \`v0.6.4-alpha\` (2025-06-30)
+- Documented more code.
+- Removed \`lib/cn.ts\` since all definitions use the one in \`lib/utils.ts\`.
+- Renamed files from kebab-case to camelCase/PascalCase.
 ***
 
 ## \`v0.5.0-alpha\` (2025-05-28)
