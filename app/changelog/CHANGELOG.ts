@@ -1,6 +1,14 @@
-export const VERSION = "v0.6.4-alpha";
+export const VERSION = "v0.7.0-alpha";
 
 const CHANGELOG = `
+## \`v0.7.0-alpha\` (2025-07-03)
+### Documented
+- Added detailed documentation (with help of AI).
+- Refactored filenames (v0.6.4-alpha).
+### Fixed
+- Fixed bugs (Mentioned in v0.6.2-alpha and v0.6.3-alpha).
+***
+
 ## \`v0.6.0-alpha\` (2025-05-30)
 ### Added
 - Added \`SaveManager.ts\`.
