@@ -1,4 +1,4 @@
-export const VERSION = "v0.8.0-alpha";
+export const VERSION = "v0.8.1-alpha";
 
 const CHANGELOG = `
 ## \`v0.8.0-alpha\` (2025-07-03)
@@ -9,6 +9,10 @@ const CHANGELOG = `
 - Updated \`SaveManager.ts\` and \`db.ts\` for new todo functionality.
 ### Removed
 - Removed deprecated \`tasks/page.tsx\`.
+### \`v0.8.1-alpha\` (2025-07-03)
+- Bumped \`package.json\` version.
+- Better webhook messages support with the new Todo functionality.
+***
 
 ## \`v0.7.0-alpha\` (2025-07-03)
 ### Documented

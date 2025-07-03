@@ -1,17 +1,30 @@
 /**
- * Enhanced Todo Page Component - Microsoft Todo Inspired Design
+ * Enhanced Todo Page Component - Microsoft Todo Inspired Design with Comprehensive Webhook Integration
  *
  * This page provides a clean, compact task management interface inspired by
- * Microsoft Todo. Features a centered layout with proper width constraints,
- * compact task items, and efficient use of space.
+ * Microsoft Todo with comprehensive webhook notifications for all task actions.
+ * Features enhanced webhook integration for task lifecycle events including
+ * creation, completion, editing, deletion, and subtask milestones.
  *
  * Features:
  * - Microsoft Todo-inspired compact design
+ * - Comprehensive webhook notifications for all actions
+ * - Smart subtask milestone notifications
+ * - Priority-aware webhook messages
+ * - Tag-based notifications
+ * - Overdue task alerts
  * - Centered layout with max-width constraints
  * - Compact, scannable task items
  * - Efficient sidebar for controls and stats
  * - Clean visual hierarchy
  * - Responsive design
+ *
+ * Webhook Integration:
+ * - Task completion/incompletion notifications
+ * - Task deletion confirmations
+ * - Task editing updates
+ * - Subtask milestone achievements
+ * - Priority and due date context in messages
  *
  * Design Principles:
  * - Compact task items for easy scanning
@@ -19,14 +32,18 @@
  * - Clear visual hierarchy
  * - Efficient use of horizontal space
  *
- * @fileoverview Microsoft Todo-inspired task management interface
+ * @fileoverview Microsoft Todo-inspired task management interface with comprehensive webhook integration
  * @author BIT Focus Development Team
+ * @since v0.8.0-alpha
+ * @updated v0.8.0-alpha - Added comprehensive webhook integration
  */
 
 "use client";
 
 import { useEffect, useState, type JSX } from "react";
 import { useTask, Task, TaskTimeCategory } from "@/hooks/useTask";
+import { useConfig } from "@/hooks/useConfig";
+import { sendMessage } from "@/lib/webhook";
 import { useTheme } from "next-themes";
 import { Toaster, toast } from "sonner";
 import { useForm } from "react-hook-form";
@@ -132,10 +149,18 @@ const taskEditSchema = z.object({
 type TaskEditForm = z.infer<typeof taskEditSchema>;
 
 /**
- * Main Todo Page Component
+ * Main Todo Page Component with Enhanced Webhook Integration
+ * 
+ * Renders the complete todo interface with comprehensive webhook notifications
+ * for all task lifecycle events. Integrates with Discord webhooks to provide
+ * real-time updates about task management activities.
+ * 
+ * @component
+ * @returns {JSX.Element} Complete todo interface with webhook integration
  */
 export default function TodoPage(): JSX.Element {
   const { theme } = useTheme();
+  const { name, webhook } = useConfig();
   const {
     loadingTasks,
     loadTasks,
@@ -159,6 +184,8 @@ export default function TodoPage(): JSX.Element {
 
   /**
    * Calculates task statistics for the dashboard summary
+   * 
+   * @returns {Object} Task statistics including totals, completion counts, and priorities
    */
   const getTaskStats = () => {
     const activeTasks = getActiveTasks();
@@ -172,6 +199,47 @@ export default function TodoPage(): JSX.Element {
     const urgent = activeTasks.filter((task) => task.priority === 4).length;
 
     return { total, completed, overdue, dueToday, urgent };
+  };
+
+  /**
+   * Sends webhook notification for task-related events with enhanced context
+   * 
+   * @param {string} message - The message to send
+   * @param {Task} task - The task object for additional context
+   * @param {string} action - The action performed (completed, deleted, etc.)
+   */
+  const sendTaskWebhook = async (message: string, task?: Task, action?: string) => {
+    if (name && webhook) {
+      try {
+        await sendMessage(message, webhook);
+      } catch (error) {
+        console.error(`Failed to send ${action} webhook:`, error);
+      }
+    }
+  };
+
+  /**
+   * Generates a formatted task description for webhook messages
+   * 
+   * @param {Task} task - The task to describe
+   * @returns {string} Formatted task description with priority and due date
+   */
+  const getTaskDescription = (task: Task): string => {
+    const priorityInfo = PRIORITY_LABELS[task.priority as keyof typeof PRIORITY_LABELS];
+    const dueDate = new Date(task.duedate).toLocaleDateString();
+    const today = new Date().toISOString().split("T")[0];
+    const taskDueDate = new Date(task.duedate).toISOString().split("T")[0];
+    
+    let dueDateContext = `due ${dueDate}`;
+    if (taskDueDate < today) {
+      dueDateContext = `overdue (was due ${dueDate})`;
+    } else if (taskDueDate === today) {
+      dueDateContext = `due today`;
+    }
+    
+    const tagsContext = task.tags.length > 0 ? ` with tags: ${task.tags.map(t => `#${t}`).join(", ")}` : "";
+    
+    return `${priorityInfo.label.toLowerCase()} priority task "${task.task}" ${dueDateContext}${tagsContext}`;
   };
 
   const stats = getTaskStats();
@@ -340,6 +408,8 @@ export default function TodoPage(): JSX.Element {
 
   /**
    * Time-based View Component
+   * 
+   * @returns {JSX.Element} Time-categorized task groups
    */
   function TimeView(): JSX.Element {
     const timeGroups = getTasksByTimeCategory();
@@ -362,6 +432,8 @@ export default function TodoPage(): JSX.Element {
 
   /**
    * Tags-based View Component
+   * 
+   * @returns {JSX.Element} Tag-categorized task groups
    */
   function TagsView(): JSX.Element {
     const tagGroups = getTasksByTag();
@@ -383,6 +455,8 @@ export default function TodoPage(): JSX.Element {
 
   /**
    * Priority-based View Component
+   * 
+   * @returns {JSX.Element} Priority-categorized task groups
    */
   function PriorityView(): JSX.Element {
     const priorityGroups = getTasksByPriority();
@@ -407,63 +481,177 @@ export default function TodoPage(): JSX.Element {
       </div>
     );
   }
+
+  /**
+   * Task Group Component
+   * 
+   * @param {Object} props - Component props
+   * @param {string} props.title - Group title
+   * @param {Task[]} props.tasks - Tasks in this group
+   * @param {JSX.Element} props.icon - Group icon
+   * @param {boolean} props.isOverdue - Whether this is an overdue group
+   * @param {Function} props.onEditTask - Callback for editing tasks
+   * @returns {JSX.Element} Task group container
+   */
+  function TaskGroup({
+    title,
+    tasks,
+    icon,
+    isOverdue,
+    onEditTask,
+  }: {
+    title: string;
+    tasks: Task[];
+    icon: JSX.Element;
+    isOverdue?: boolean;
+    onEditTask: (task: Task) => void;
+  }): JSX.Element {
+    if (tasks.length === 0) return <></>;
+
+    return (
+      <div className="space-y-3">
+        {/* Section Header */}
+        <div className="flex items-center gap-2 pb-2">
+          {icon}
+          <h2
+            className={cn("text-lg font-semibold", isOverdue && "text-red-600")}
+          >
+            {title}
+          </h2>
+          <Badge variant="secondary" className="ml-auto">
+            {tasks.length}
+          </Badge>
+        </div>
+
+        {/* Task List */}
+        <div className="space-y-2">
+          {tasks.map((task) => (
+            <TaskCard 
+              key={task.id} 
+              task={task} 
+              onEdit={onEditTask}
+              sendTaskWebhook={sendTaskWebhook}
+              getTaskDescription={getTaskDescription}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  /**
+   * Completed Task Card Component with Webhook Integration
+   * 
+   * @param {Object} props - Component props
+   * @param {Task} props.task - The completed task
+   * @returns {JSX.Element} Completed task card
+   */
+  function CompletedTaskCard({ task }: { task: Task }): JSX.Element {
+    const { removeTask, uncompleteTask } = useTask();
+
+    /**
+     * Handles task restoration with webhook notification
+     */
+    const handleUncompleteTask = async () => {
+      try {
+        await uncompleteTask(task.id!);
+        await sendTaskWebhook(
+          `${name} restored ${getTaskDescription(task)} back to active tasks`,
+          task,
+          "restoration"
+        );
+        toast.success("Task restored to active list!");
+      } catch (error) {
+        console.error("Failed to uncomplete task:", error);
+        toast.error("Failed to restore task");
+      }
+    };
+
+    /**
+     * Handles task deletion with webhook notification
+     */
+    const handleDeleteTask = async () => {
+      try {
+        await removeTask(task.id!);
+        await sendTaskWebhook(
+          `${name} permanently deleted completed ${getTaskDescription(task)}`,
+          task,
+          "deletion"
+        );
+        toast.success("Task permanently deleted!");
+      } catch (error) {
+        console.error("Failed to delete task:", error);
+        toast.error("Failed to delete task");
+      }
+    };
+
+    return (
+      <div className="group bg-muted/30 border rounded-lg p-3 opacity-75">
+        <div className="flex items-start gap-3">
+          <Button
+            variant={"ghost"}
+            size={"icon"}
+            onClick={handleUncompleteTask}
+          >
+            <FaCheckCircle className="text-green-600" />
+          </Button>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-medium text-base line-through text-muted-foreground truncate">
+              {task.task}
+            </h3>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+              <span>Due: {new Date(task.duedate).toLocaleDateString()}</span>
+              <Badge variant="secondary" className="text-xs">
+                Completed
+              </Badge>
+            </div>
+            {task.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {task.tags.map((tag) => (
+                  <TagBadge key={tag} tag={tag} noHover />
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button
+              variant="destructive"
+              size="icon"
+              onClick={handleDeleteTask}
+            >
+              <FaTrash />
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 }
 
 /**
- * Task Group Component
+ * Individual Task Card Component with Enhanced Webhook Integration
+ * 
+ * @param {Object} props - Component props
+ * @param {Task} props.task - The task to display
+ * @param {Function} props.onEdit - Callback for editing tasks
+ * @param {Function} props.sendTaskWebhook - Function to send webhook notifications
+ * @param {Function} props.getTaskDescription - Function to format task descriptions
+ * @returns {JSX.Element} Task card with webhook-enabled actions
  */
-interface TaskGroupProps {
-  title: string;
-  tasks: Task[];
-  icon: JSX.Element;
-  isOverdue?: boolean;
-  onEditTask: (task: Task) => void;
-}
-
-function TaskGroup({
-  title,
-  tasks,
-  icon,
-  isOverdue,
-  onEditTask,
-}: TaskGroupProps): JSX.Element {
-  if (tasks.length === 0) return <></>;
-
-  return (
-    <div className="space-y-3">
-      {/* Section Header */}
-      <div className="flex items-center gap-2 pb-2">
-        {icon}
-        <h2
-          className={cn("text-lg font-semibold", isOverdue && "text-red-600")}
-        >
-          {title}
-        </h2>
-        <Badge variant="secondary" className="ml-auto">
-          {tasks.length}
-        </Badge>
-      </div>
-
-      {/* Task List */}
-      <div className="space-y-2">
-        {tasks.map((task) => (
-          <TaskCard key={task.id} task={task} onEdit={onEditTask} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/**
- * Individual Task Card Component - Microsoft Todo Style
- */
-interface TaskCardProps {
-  task: Task;
+function TaskCard({ 
+  task, 
+  onEdit, 
+  sendTaskWebhook, 
+  getTaskDescription 
+}: { 
+  task: Task; 
   onEdit: (task: Task) => void;
-}
-
-function TaskCard({ task, onEdit }: TaskCardProps): JSX.Element {
+  sendTaskWebhook: (message: string, task?: Task, action?: string) => Promise<void>;
+  getTaskDescription: (task: Task) => string;
+}): JSX.Element {
   const { removeTask, completeTask, updateSubtaskCompletion } = useTask();
+  const { name } = useConfig();
   const priorityInfo =
     PRIORITY_LABELS[task.priority as keyof typeof PRIORITY_LABELS];
   const today = new Date().toISOString().split("T")[0];
@@ -472,15 +660,81 @@ function TaskCard({ task, onEdit }: TaskCardProps): JSX.Element {
     new Date(task.duedate).toISOString().split("T")[0] === today;
 
   /**
-   * Handles subtask completion toggle with persistence
+   * Handles subtask completion toggle with milestone notifications
+   * 
+   * @param {number} index - Index of the subtask to toggle
    */
   const handleSubtaskToggle = async (index: number) => {
-    const newState = !task.completedSubtasks[index];
-    await updateSubtaskCompletion(task.id!, index, newState);
+    try {
+      const newState = !task.completedSubtasks[index];
+      await updateSubtaskCompletion(task.id!, index, newState);
+
+      // Check for milestone achievements
+      const newCompletedSubtasks = [...task.completedSubtasks];
+      newCompletedSubtasks[index] = newState;
+      const completedCount = newCompletedSubtasks.filter(Boolean).length;
+      const totalSubtasks = task.subtasks.length;
+
+      // Send webhook for subtask milestones
+      if (newState && completedCount === totalSubtasks) {
+        await sendTaskWebhook(
+          `${name} completed all subtasks for ${getTaskDescription(task)} 🎉`,
+          task,
+          "subtask_milestone"
+        );
+      } else if (newState && completedCount === Math.ceil(totalSubtasks / 2) && totalSubtasks > 2) {
+        await sendTaskWebhook(
+          `${name} reached halfway point (${completedCount}/${totalSubtasks} subtasks) for "${task.task}"`,
+          task,
+          "subtask_progress"
+        );
+      }
+    } catch (error) {
+      console.error("Failed to update subtask:", error);
+      toast.error("Failed to update subtask");
+    }
+  };
+
+  /**
+   * Handles task completion with webhook notification
+   */
+  const handleCompleteTask = async () => {
+    try {
+      await completeTask(task.id!);
+      await sendTaskWebhook(
+        `${name} completed ${getTaskDescription(task)} ✅`,
+        task,
+        "completion"
+      );
+      toast.success("Task completed!");
+    } catch (error) {
+      console.error("Failed to complete task:", error);
+      toast.error("Failed to complete task");
+    }
+  };
+
+  /**
+   * Handles task deletion with webhook notification
+   */
+  const handleDeleteTask = async () => {
+    try {
+      await removeTask(task.id!);
+      await sendTaskWebhook(
+        `${name} deleted ${getTaskDescription(task)} 🗑️`,
+        task,
+        "deletion"
+      );
+      toast.success("Task deleted!");
+    } catch (error) {
+      console.error("Failed to delete task:", error);
+      toast.error("Failed to delete task");
+    }
   };
 
   /**
    * Calculates subtask progress
+   * 
+   * @returns {Object} Progress statistics
    */
   const getSubtaskProgress = () => {
     const completed = task.completedSubtasks.filter(Boolean).length;
@@ -498,7 +752,6 @@ function TaskCard({ task, onEdit }: TaskCardProps): JSX.Element {
     <div
       className={cn(
         "group bg-background border rounded-lg p-4 hover:shadow-md transition-all duration-200",
-        // "hover:border-primary/20",
         "border-l-6",
         isOverdue && "border-l-red-900",
         isDueToday && "border-l-orange-200"
@@ -511,7 +764,7 @@ function TaskCard({ task, onEdit }: TaskCardProps): JSX.Element {
           variant={"outline"}
           size={"sm"}
           className="w-8 h-8"
-          onClick={() => completeTask(task.id!)}
+          onClick={handleCompleteTask}
         >
           <FaCircle className="opacity-0" />
         </Button>
@@ -617,7 +870,7 @@ function TaskCard({ task, onEdit }: TaskCardProps): JSX.Element {
           <Button
             variant="destructive"
             size="icon"
-            onClick={() => removeTask(task.id!)}
+            onClick={handleDeleteTask}
           >
             <FaTrash />
           </Button>
@@ -628,68 +881,16 @@ function TaskCard({ task, onEdit }: TaskCardProps): JSX.Element {
 }
 
 /**
- * Completed Task Card Component
+ * Edit Task Dialog Component with Webhook Integration
+ * 
+ * @param {Object} props - Component props
+ * @param {Task | null} props.task - Task to edit
+ * @param {Function} props.onClose - Close callback
+ * @returns {JSX.Element} Edit dialog with webhook notifications
  */
-interface CompletedTaskCardProps {
-  task: Task;
-}
-
-function CompletedTaskCard({ task }: CompletedTaskCardProps): JSX.Element {
-  const { removeTask, uncompleteTask } = useTask();
-
-  return (
-    <div className="group bg-muted/30 border rounded-lg p-3 opacity-75">
-      <div className="flex items-start gap-3">
-        <Button
-          variant={"ghost"}
-          size={"icon"}
-          onClick={() => uncompleteTask(task.id!)}
-        >
-          <FaCheckCircle className="text-green-600" />
-        </Button>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-medium text-base line-through text-muted-foreground truncate">
-            {task.task}
-          </h3>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-            <span>Due: {new Date(task.duedate).toLocaleDateString()}</span>
-            <Badge variant="secondary" className="text-xs">
-              Completed
-            </Badge>
-          </div>
-          {task.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-2">
-              {task.tags.map((tag) => (
-                <TagBadge key={tag} tag={tag} noHover />
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Button
-            variant="destructive"
-            size="icon"
-            onClick={() => removeTask(task.id!)}
-          >
-            <FaTrash />
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Edit Task Dialog Component
- */
-interface EditTaskDialogProps {
-  task: Task | null;
-  onClose: () => void;
-}
-
-function EditTaskDialog({ task, onClose }: EditTaskDialogProps): JSX.Element {
+function EditTaskDialog({ task, onClose }: { task: Task | null; onClose: () => void }): JSX.Element {
   const { updateTask } = useTask();
+  const { name, webhook } = useConfig();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
@@ -716,7 +917,9 @@ function EditTaskDialog({ task, onClose }: EditTaskDialogProps): JSX.Element {
   }, [task, reset]);
 
   /**
-   * Handles form submission
+   * Handles form submission with webhook notification
+   * 
+   * @param {TaskEditForm} data - Form data
    */
   const onSubmit = async (data: TaskEditForm) => {
     if (!task) return;
@@ -744,6 +947,18 @@ function EditTaskDialog({ task, onClose }: EditTaskDialogProps): JSX.Element {
         tags,
         subtasks,
       });
+
+      // Send webhook for task update
+      if (name && webhook) {
+        const priorityInfo = PRIORITY_LABELS[data.priority as keyof typeof PRIORITY_LABELS];
+        const dueDate = new Date(data.duedate).toLocaleDateString();
+        const tagsContext = tags.length > 0 ? ` with tags: ${tags.map(t => `#${t}`).join(", ")}` : "";
+        
+        await sendMessage(
+          `${name} updated task "${data.task}" - ${priorityInfo.label.toLowerCase()} priority, due ${dueDate}${tagsContext} ✏️`,
+          webhook
+        );
+      }
 
       toast.success("Task updated successfully!");
       onClose();
@@ -849,6 +1064,8 @@ function EditTaskDialog({ task, onClose }: EditTaskDialogProps): JSX.Element {
 
 /**
  * Loading Skeleton Component
+ * 
+ * @returns {JSX.Element} Loading state skeleton
  */
 function TodoPageSkeleton(): JSX.Element {
   return (

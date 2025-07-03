@@ -1,3 +1,7 @@
+/**
+ * 
+ * @deprecated Replaced with new QuickTaskAdd component, will be removed in v0.8.4-alpha
+ */
 /* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
