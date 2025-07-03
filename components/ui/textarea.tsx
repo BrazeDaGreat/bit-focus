@@ -40,6 +40,7 @@ import { cn } from "@/lib/utils"
  * Extends standard textarea HTML attributes to provide type safety
  * and consistent prop handling throughout the application.
  */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface TextareaProps
   extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {}
 
