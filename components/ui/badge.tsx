@@ -1,57 +1,22 @@
-/**
- * Badge UI Component - Status and Category Indicators
- * 
- * This component provides visual badges for displaying status indicators,
- * categories, and labels throughout the BIT Focus application. It supports
- * multiple variants for different use cases and contexts.
- * 
- * Features:
- * - Multiple style variants (default, secondary, destructive, outline)
- * - Consistent sizing and typography
- * - Theme-aware color schemes
- * - Flexible content support
- * - Accessible design with proper contrast
- * 
- * Use Cases:
- * - Priority indicators in task management
- * - Status labels for focus sessions
- * - Category tags for organization
- * - Count indicators in navigation
- * - Warning and error states
- * 
- * Dependencies:
- * - Class Variance Authority for style variants
- * - Tailwind CSS for styling
- * - React for component architecture
- * 
- * @fileoverview Badge component for status and category indicators
- * @author BIT Focus Development Team
- * @since v0.7.1-alpha
- */
-
 import * as React from "react"
+import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
 
-/**
- * Badge Variant Styles
- * 
- * Defines the available style variants for badges using Class Variance Authority.
- * Each variant provides appropriate colors and styling for different contexts.
- */
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  "inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden",
   {
     variants: {
       variant: {
         default:
-          "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
+          "border-transparent bg-primary text-primary-foreground [a&]:hover:bg-primary/90",
         secondary:
-          "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
+          "border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90",
         destructive:
-          "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
-        outline: "text-foreground",
+          "border-transparent bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
+        outline:
+          "text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
       },
     },
     defaultVariants: {
@@ -60,59 +25,21 @@ const badgeVariants = cva(
   }
 )
 
-/**
- * Badge Component Props Interface
- * 
- * Extends standard div props with badge-specific variant styling options.
- */
-export interface BadgeProps
-  extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof badgeVariants> {}
+function Badge({
+  className,
+  variant,
+  asChild = false,
+  ...props
+}: React.ComponentProps<"span"> &
+  VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
+  const Comp = asChild ? Slot : "span"
 
-/**
- * Badge Component
- * 
- * Renders a styled badge element with configurable variants for different
- * contexts and use cases. Provides consistent visual indicators throughout
- * the application with proper accessibility support.
- * 
- * The component automatically applies appropriate colors, borders, and
- * hover states based on the selected variant. Content is flexible and
- * can include text, icons, or other elements.
- * 
- * @component
- * @param {BadgeProps} props - Component props including variant and content
- * @returns {JSX.Element} Styled badge element
- * 
- * @example
- * ```tsx
- * // Basic usage with different variants
- * <Badge variant="default">Active</Badge>
- * <Badge variant="secondary">Draft</Badge>
- * <Badge variant="destructive">Error</Badge>
- * <Badge variant="outline">Pending</Badge>
- * 
- * // With custom styling
- * <Badge variant="secondary" className="text-green-600">
- *   Completed
- * </Badge>
- * 
- * // With icon content
- * <Badge variant="outline">
- *   <FaExclamation className="mr-1" />
- *   High Priority
- * </Badge>
- * 
- * // Count indicators
- * <Badge variant="default">{taskCount}</Badge>
- * ```
- * 
- * @see {@link badgeVariants} for available style variants
- * @see {@link VariantProps} for variant prop types
- */
-function Badge({ className, variant, ...props }: BadgeProps) {
   return (
-    <div className={cn(badgeVariants({ variant }), className)} {...props} />
+    <Comp
+      data-slot="badge"
+      className={cn(badgeVariants({ variant }), className)}
+      {...props}
+    />
   )
 }
 

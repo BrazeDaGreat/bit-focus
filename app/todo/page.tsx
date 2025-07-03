@@ -1,36 +1,26 @@
 /**
- * Todo Page Component - Comprehensive Task Management Interface
- * 
- * This page provides a complete task management system with advanced sorting,
- * filtering, and organization capabilities. Updated to follow the consistent
- * card-based design system used throughout the BIT Focus application.
- * 
+ * Enhanced Todo Page Component - Microsoft Todo Inspired Design
+ *
+ * This page provides a clean, compact task management interface inspired by
+ * Microsoft Todo. Features a centered layout with proper width constraints,
+ * compact task items, and efficient use of space.
+ *
  * Features:
- * - Multiple sorting views (Time, Tags, Priority)
- * - Priority-based task organization (1-4 scale)
- * - Time-based categorization (Due Today, Tomorrow, etc.)
- * - Tag-based grouping for project organization
- * - Editable tasks with comprehensive form interface
- * - Checkable subtasks with progress tracking
- * - Visual priority indicators and due date warnings
- * - Consistent card-based layout design
- * - Real-time task statistics
- * 
- * View Modes:
- * - Time View: Groups tasks by due date categories
- * - Tags View: Groups tasks by assigned tags
- * - Priority View: Groups tasks by priority levels (4-1)
- * 
- * Dependencies:
- * - Enhanced useTask hook for state management
- * - UI components for consistent styling
- * - React Hook Form for task editing
- * - Theme system for consistent appearance
- * 
- * @fileoverview Comprehensive todo page with enhanced UI and task management
+ * - Microsoft Todo-inspired compact design
+ * - Centered layout with max-width constraints
+ * - Compact, scannable task items
+ * - Efficient sidebar for controls and stats
+ * - Clean visual hierarchy
+ * - Responsive design
+ *
+ * Design Principles:
+ * - Compact task items for easy scanning
+ * - Proper spacing and typography
+ * - Clear visual hierarchy
+ * - Efficient use of horizontal space
+ *
+ * @fileoverview Microsoft Todo-inspired task management interface
  * @author BIT Focus Development Team
- * @since v0.7.1-alpha
- * @updated v0.7.1-alpha - Enhanced UI consistency and edit capabilities
  */
 
 "use client";
@@ -42,17 +32,22 @@ import { Toaster, toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { 
-  FaClock, 
-  FaHashtag, 
+import {
+  FaClock,
+  FaHashtag,
   FaExclamationTriangle,
   FaTrash,
   FaEdit,
   FaCheck,
+  FaSearch,
+  FaChevronDown,
+  FaChevronUp,
+  FaCircle,
+  FaCheckCircle,
 } from "react-icons/fa";
 import { MdPriorityHigh } from "react-icons/md";
 import { TbClockHeart } from "react-icons/tb";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -60,12 +55,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue 
+  SelectValue,
 } from "@/components/ui/select";
 import {
   Dialog,
@@ -75,26 +70,52 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import TagBadge from "@/components/TagBadge";
+import { FaListCheck } from "react-icons/fa6";
 
 /**
  * View Mode Enumeration
  */
 enum ViewMode {
   Time = "time",
-  Tags = "tags", 
-  Priority = "priority"
+  Tags = "tags",
+  Priority = "priority",
 }
 
 /**
- * Priority Label Mapping
+ * Priority Label Mapping with better colors
  */
 const PRIORITY_LABELS = {
-  4: { label: "Urgent", color: "bg-red-500", textColor: "text-red-700" },
-  3: { label: "High", color: "bg-orange-500", textColor: "text-orange-700" },
-  2: { label: "Medium", color: "bg-yellow-500", textColor: "text-yellow-700" },
-  1: { label: "Low", color: "bg-green-500", textColor: "text-green-700" }
+  4: {
+    label: "Urgent",
+    color: "bg-red-500",
+    textColor: "text-red-100",
+    borderColor: "border-red-400",
+  },
+  3: {
+    label: "High",
+    color: "bg-orange-500",
+    textColor: "text-orange-100",
+    borderColor: "border-orange-400",
+  },
+  2: {
+    label: "Medium",
+    color: "bg-yellow-500",
+    textColor: "text-yellow-100",
+    borderColor: "border-yellow-400",
+  },
+  1: {
+    label: "Low",
+    color: "bg-green-500",
+    textColor: "text-green-100",
+    borderColor: "border-green-400",
+  },
 };
 
 /**
@@ -116,18 +137,20 @@ type TaskEditForm = z.infer<typeof taskEditSchema>;
 export default function TodoPage(): JSX.Element {
   const { theme } = useTheme();
   const {
-    tasks,
     loadingTasks,
     loadTasks,
-    removeTask,
-    updateTask,
+    searchQuery,
+    setSearchQuery,
+    getActiveTasks,
+    getCompletedTasks,
     getTasksByTimeCategory,
     getTasksByTag,
-    getTasksByPriority
+    getTasksByPriority,
   } = useTask();
 
   const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.Time);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [completedTasksOpen, setCompletedTasksOpen] = useState(false);
 
   // Load tasks on component mount
   useEffect(() => {
@@ -138,13 +161,17 @@ export default function TodoPage(): JSX.Element {
    * Calculates task statistics for the dashboard summary
    */
   const getTaskStats = () => {
+    const activeTasks = getActiveTasks();
+    const completedTasks = getCompletedTasks();
     const timeGroups = getTasksByTimeCategory();
-    const total = tasks.length;
+
+    const total = activeTasks.length;
+    const completed = completedTasks.length;
     const overdue = timeGroups[TaskTimeCategory.Overdue].length;
     const dueToday = timeGroups[TaskTimeCategory.DueToday].length;
-    const urgent = tasks.filter(task => task.priority === 4).length;
-    
-    return { total, overdue, dueToday, urgent };
+    const urgent = activeTasks.filter((task) => task.priority === 4).length;
+
+    return { total, completed, overdue, dueToday, urgent };
   };
 
   const stats = getTaskStats();
@@ -154,103 +181,157 @@ export default function TodoPage(): JSX.Element {
   }
 
   return (
-    <div className="flex-1 p-8 gap-8 flex flex-col">
-      {/* Page Header Card */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-3xl">Todo</CardTitle>
-              <CardDescription>
-                Manage your tasks and stay organized
-              </CardDescription>
-            </div>
-            
-            {/* View Mode Selector */}
-            <Select value={viewMode} onValueChange={(value) => setViewMode(value as ViewMode)}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Select view mode" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ViewMode.Time}>
-                  <div className="flex items-center gap-2">
-                    <FaClock />
-                    By Time
-                  </div>
-                </SelectItem>
-                <SelectItem value={ViewMode.Tags}>
-                  <div className="flex items-center gap-2">
-                    <FaHashtag />
-                    By Tags
-                  </div>
-                </SelectItem>
-                <SelectItem value={ViewMode.Priority}>
-                  <div className="flex items-center gap-2">
-                    <MdPriorityHigh />
-                    By Priority
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardHeader>
-      </Card>
-
-      {/* Statistics Dashboard */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Tasks</CardTitle>
-            <FaCheck className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Due Today</CardTitle>
-            <TbClockHeart className="h-4 w-4 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.dueToday}</div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Overdue</CardTitle>
-            <FaExclamationTriangle className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.overdue}</div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Urgent</CardTitle>
-            <MdPriorityHigh className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.urgent}</div>
-          </CardContent>
-        </Card>
+    <div className="flex-1 p-6 container mx-auto">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-2">Todo</h1>
+        <p className="text-muted-foreground">
+          Manage your tasks and stay organized
+        </p>
       </div>
 
-      {/* Task Groups Display */}
-      <div className="space-y-6">
-        {viewMode === ViewMode.Time && <TimeView />}
-        {viewMode === ViewMode.Tags && <TagsView />}
-        {viewMode === ViewMode.Priority && <PriorityView />}
+      {/* Main Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        {/* Main Content Area */}
+        <div className="lg:col-span-3 space-y-6">
+          {/* Search Bar */}
+          <div className="relative">
+            <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder="Search tasks or #tagname..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 h-12 text-base"
+            />
+          </div>
+
+          {/* Task Lists */}
+          <div className="space-y-6 overflow-auto max-h-[70vh] pr-4">
+            {viewMode === ViewMode.Time && <TimeView />}
+            {viewMode === ViewMode.Tags && <TagsView />}
+            {viewMode === ViewMode.Priority && <PriorityView />}
+          </div>
+
+          {/* Completed Tasks Section */}
+          {stats.completed > 0 && (
+            <Collapsible
+              open={completedTasksOpen}
+              onOpenChange={setCompletedTasksOpen}
+            >
+              <Card>
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="cursor-pointer">
+                    <CardTitle className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <FaCheck className="text-green-600" />
+                        <span>Completed Tasks</span>
+                        <Badge variant="secondary">{stats.completed}</Badge>
+                      </div>
+                      {completedTasksOpen ? <FaChevronUp /> : <FaChevronDown />}
+                    </CardTitle>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="space-y-2">
+                    {getCompletedTasks().map((task) => (
+                      <CompletedTaskCard key={task.id} task={task} />
+                    ))}
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
+          )}
+        </div>
+
+        {/* Sidebar */}
+        <div className="space-y-6">
+          {/* View Mode Selector */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">View</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Select
+                value={viewMode}
+                onValueChange={(value) => setViewMode(value as ViewMode)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select view mode" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ViewMode.Time}>
+                    <div className="flex items-center gap-2">
+                      <FaClock />
+                      By Time
+                    </div>
+                  </SelectItem>
+                  <SelectItem value={ViewMode.Tags}>
+                    <div className="flex items-center gap-2">
+                      <FaHashtag />
+                      By Tags
+                    </div>
+                  </SelectItem>
+                  <SelectItem value={ViewMode.Priority}>
+                    <div className="flex items-center gap-2">
+                      <MdPriorityHigh />
+                      By Priority
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </CardContent>
+          </Card>
+
+          {/* Statistics */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Statistics</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FaListCheck className="text-blue-600" />
+                  <span className="text-sm">Active Tasks</span>
+                </div>
+                <span className="font-bold">{stats.total}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FaCheck className="text-green-600" />
+                  <span className="text-sm">Completed</span>
+                </div>
+                <span className="font-bold">{stats.completed}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <TbClockHeart className="text-orange-600" />
+                  <span className="text-sm">Due Today</span>
+                </div>
+                <span className="font-bold">{stats.dueToday}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FaExclamationTriangle className="text-red-600" />
+                  <span className="text-sm">Overdue</span>
+                </div>
+                <span className="font-bold text-red-600">{stats.overdue}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <MdPriorityHigh className="text-purple-600" />
+                  <span className="text-sm">Urgent</span>
+                </div>
+                <span className="font-bold text-purple-600">
+                  {stats.urgent}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Edit Task Dialog */}
-      <EditTaskDialog 
-        task={editingTask} 
-        onClose={() => setEditingTask(null)}
-      />
+      <EditTaskDialog task={editingTask} onClose={() => setEditingTask(null)} />
 
       {/* Toast Notifications */}
       <Toaster theme={(theme ?? "system") as "system" | "light" | "dark"} />
@@ -264,11 +345,11 @@ export default function TodoPage(): JSX.Element {
     const timeGroups = getTasksByTimeCategory();
 
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         {Object.entries(timeGroups).map(([category, tasks]) => (
-          <TaskGroup 
-            key={category} 
-            title={category} 
+          <TaskGroup
+            key={category}
+            title={category}
             tasks={tasks}
             icon={<FaClock />}
             isOverdue={category === TaskTimeCategory.Overdue}
@@ -286,11 +367,11 @@ export default function TodoPage(): JSX.Element {
     const tagGroups = getTasksByTag();
 
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         {Object.entries(tagGroups).map(([tag, tasks]) => (
-          <TaskGroup 
-            key={tag} 
-            title={tag} 
+          <TaskGroup
+            key={tag}
+            title={tag}
             tasks={tasks}
             icon={<FaHashtag />}
             onEditTask={setEditingTask}
@@ -307,18 +388,18 @@ export default function TodoPage(): JSX.Element {
     const priorityGroups = getTasksByPriority();
 
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         {Object.entries(priorityGroups)
           .sort(([a], [b]) => Number(b) - Number(a))
           .map(([priority, tasks]) => {
-            const priorityInfo = PRIORITY_LABELS[Number(priority) as keyof typeof PRIORITY_LABELS];
+            const priorityInfo =
+              PRIORITY_LABELS[Number(priority) as keyof typeof PRIORITY_LABELS];
             return (
-              <TaskGroup 
-                key={priority} 
-                title={`${priorityInfo.label} Priority`} 
+              <TaskGroup
+                key={priority}
+                title={`${priorityInfo.label} Priority`}
                 tasks={tasks}
                 icon={<MdPriorityHigh />}
-                badgeColor={priorityInfo.color}
                 onEditTask={setEditingTask}
               />
             );
@@ -336,37 +417,45 @@ interface TaskGroupProps {
   tasks: Task[];
   icon: JSX.Element;
   isOverdue?: boolean;
-  badgeColor?: string;
   onEditTask: (task: Task) => void;
 }
 
-function TaskGroup({ title, tasks, icon, isOverdue, badgeColor, onEditTask }: TaskGroupProps): JSX.Element {
+function TaskGroup({
+  title,
+  tasks,
+  icon,
+  isOverdue,
+  onEditTask,
+}: TaskGroupProps): JSX.Element {
   if (tasks.length === 0) return <></>;
 
   return (
-    <Card className={cn(isOverdue && "border-red-500")}>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {icon}
-            <span>{title}</span>
-            <Badge variant="secondary" className={badgeColor}>
-              {tasks.length}
-            </Badge>
-          </div>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {tasks.map(task => (
+    <div className="space-y-3">
+      {/* Section Header */}
+      <div className="flex items-center gap-2 pb-2">
+        {icon}
+        <h2
+          className={cn("text-lg font-semibold", isOverdue && "text-red-600")}
+        >
+          {title}
+        </h2>
+        <Badge variant="secondary" className="ml-auto">
+          {tasks.length}
+        </Badge>
+      </div>
+
+      {/* Task List */}
+      <div className="space-y-2">
+        {tasks.map((task) => (
           <TaskCard key={task.id} task={task} onEdit={onEditTask} />
         ))}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
 /**
- * Individual Task Card Component
+ * Individual Task Card Component - Microsoft Todo Style
  */
 interface TaskCardProps {
   task: Task;
@@ -374,147 +463,220 @@ interface TaskCardProps {
 }
 
 function TaskCard({ task, onEdit }: TaskCardProps): JSX.Element {
-  const { removeTask, updateTask } = useTask();
-  const priorityInfo = PRIORITY_LABELS[task.priority as keyof typeof PRIORITY_LABELS];
-  const isOverdue = new Date(task.duedate) < new Date();
-  const [completedSubtasks, setCompletedSubtasks] = useState<boolean[]>(
-    new Array(task.subtasks.length).fill(false)
-  );
+  const { removeTask, completeTask, updateSubtaskCompletion } = useTask();
+  const priorityInfo =
+    PRIORITY_LABELS[task.priority as keyof typeof PRIORITY_LABELS];
+  const today = new Date().toISOString().split("T")[0];
+  const isOverdue = new Date(task.duedate).toISOString().split("T")[0] < today;
+  const isDueToday =
+    new Date(task.duedate).toISOString().split("T")[0] === today;
 
   /**
-   * Handles subtask completion toggle
+   * Handles subtask completion toggle with persistence
    */
-  const handleSubtaskToggle = (index: number) => {
-    const newCompletedSubtasks = [...completedSubtasks];
-    newCompletedSubtasks[index] = !newCompletedSubtasks[index];
-    setCompletedSubtasks(newCompletedSubtasks);
+  const handleSubtaskToggle = async (index: number) => {
+    const newState = !task.completedSubtasks[index];
+    await updateSubtaskCompletion(task.id!, index, newState);
   };
 
   /**
    * Calculates subtask progress
    */
   const getSubtaskProgress = () => {
-    const completed = completedSubtasks.filter(Boolean).length;
+    const completed = task.completedSubtasks.filter(Boolean).length;
     const total = task.subtasks.length;
-    return { completed, total, percentage: total > 0 ? (completed / total) * 100 : 0 };
+    return {
+      completed,
+      total,
+      percentage: total > 0 ? (completed / total) * 100 : 0,
+    };
   };
 
   const progress = getSubtaskProgress();
 
   return (
-    <Card className={cn(
-      "border-l-4",
-      isOverdue && "border-l-red-500",
-      task.priority === 4 && "border-l-red-400",
-      task.priority === 3 && "border-l-orange-400",
-      task.priority === 2 && "border-l-yellow-400",
-      task.priority === 1 && "border-l-green-400"
-    )}>
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <CardTitle className="text-lg">{task.task}</CardTitle>
-            <CardDescription className="flex items-center gap-2 mt-1">
-              <Badge variant="outline" className={priorityInfo.textColor}>
+    <div
+      className={cn(
+        "group bg-background border rounded-lg p-4 hover:shadow-md transition-all duration-200",
+        // "hover:border-primary/20",
+        "border-l-6",
+        isOverdue && "border-l-red-900",
+        isDueToday && "border-l-orange-200"
+      )}
+    >
+      {/* Main Task Row */}
+      <div className="flex items-start gap-3">
+        {/* Complete Button */}
+        <Button
+          variant={"outline"}
+          size={"sm"}
+          className="w-8 h-8"
+          onClick={() => completeTask(task.id!)}
+        >
+          <FaCircle className="opacity-0" />
+        </Button>
+
+        {/* Task Content */}
+        <div className="flex-1 min-w-0">
+          {/* Task Title and Priority */}
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="font-medium text-base truncate">{task.task}</h3>
+            {task.priority > 2 && (
+              <Badge
+                variant="secondary"
+                className={cn(
+                  "text-xs",
+                  priorityInfo.textColor,
+                  priorityInfo.color
+                )}
+              >
                 {priorityInfo.label}
               </Badge>
-              <span className="text-sm">
-                Due: {new Date(task.duedate).toLocaleDateString()}
-              </span>
-              {isOverdue && (
-                <Badge variant="destructive" className="text-xs">
-                  Overdue
-                </Badge>
-              )}
-            </CardDescription>
+            )}
+            {isOverdue && (
+              <Badge variant="destructive" className="text-xs">
+                Overdue
+              </Badge>
+            )}
+            {isDueToday && (
+              <Badge className="text-xs bg-orange-100 text-orange-800">
+                Due Today
+              </Badge>
+            )}
           </div>
-        </div>
-      </CardHeader>
 
-      <CardContent className="space-y-4">
-        {/* Subtasks */}
-        {task.subtasks.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-medium">Subtasks</h4>
-              <span className="text-xs text-muted-foreground">
-                {progress.completed}/{progress.total} completed
-              </span>
-            </div>
-            
-            {/* Progress Bar */}
-            <div className="w-full bg-muted rounded-full h-2">
-              <div 
-                className="bg-primary h-2 rounded-full transition-all duration-300" 
-                style={{ width: `${progress.percentage}%` }}
-              />
-            </div>
-            
-            {/* Subtask List */}
-            <div className="space-y-2">
-              {task.subtasks.map((subtask, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <Checkbox
-                    id={`subtask-${task.id}-${index}`}
-                    checked={completedSubtasks[index]}
-                    onCheckedChange={() => handleSubtaskToggle(index)}
-                  />
-                  <label
-                    htmlFor={`subtask-${task.id}-${index}`}
-                    className={cn(
-                      "text-sm cursor-pointer flex-1",
-                      completedSubtasks[index] && "line-through text-muted-foreground"
-                    )}
-                  >
-                    {subtask}
-                  </label>
-                </div>
+          {/* Task Meta */}
+          <div className="flex items-center gap-3 text-sm text-muted-foreground mb-2">
+            <span
+              className={cn(
+                isOverdue && "text-red-600 font-medium",
+                isDueToday && "text-orange-600 font-medium"
+              )}
+            >
+              Due: {new Date(task.duedate).toLocaleDateString()}
+            </span>
+          </div>
+
+          {/* Tags */}
+          {task.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-2">
+              {task.tags.map((tag) => (
+                <TagBadge key={tag} tag={tag} noHover />
               ))}
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Tags */}
-        {task.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {task.tags.map(tag => (
-              <TagBadge key={tag} tag={tag} noHover />
-            ))}
-          </div>
-        )}
-      </CardContent>
+          {/* Subtasks */}
+          {task.subtasks.length > 0 && (
+            <div className="space-y-2">
+              {/* Progress Bar */}
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex-1 bg-muted rounded-full h-1">
+                  <div
+                    className="bg-primary h-1 rounded-full transition-all duration-300"
+                    style={{ width: `${progress.percentage}%` }}
+                  />
+                </div>
+                <span>
+                  {progress.completed}/{progress.total}
+                </span>
+              </div>
 
-      <CardFooter className="flex items-center justify-between pt-4">
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onEdit(task)}
-            className="gap-1"
-          >
-            <FaEdit className="h-3 w-3" />
-            Edit
+              {/* Subtask List */}
+              <div className="space-y-1">
+                {task.subtasks.map((subtask, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Checkbox
+                      checked={task.completedSubtasks[index] || false}
+                      onCheckedChange={() => handleSubtaskToggle(index)}
+                      className="h-3 w-3"
+                      id={`${task.task}-${subtask}`}
+                    />
+                    <Label
+                      htmlFor={`${task.task}-${subtask}`}
+                      className={cn(
+                        "text-sm flex-1",
+                        task.completedSubtasks[index] &&
+                          "line-through text-muted-foreground"
+                      )}
+                    >
+                      {subtask}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Button variant="ghost" size="icon" onClick={() => onEdit(task)}>
+            <FaEdit />
           </Button>
           <Button
-            size="sm"
             variant="destructive"
+            size="icon"
             onClick={() => removeTask(task.id!)}
-            className="gap-1"
           >
-            <FaTrash className="h-3 w-3" />
-            Delete
+            <FaTrash />
           </Button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Completed Task Card Component
+ */
+interface CompletedTaskCardProps {
+  task: Task;
+}
+
+function CompletedTaskCard({ task }: CompletedTaskCardProps): JSX.Element {
+  const { removeTask, uncompleteTask } = useTask();
+
+  return (
+    <div className="group bg-muted/30 border rounded-lg p-3 opacity-75">
+      <div className="flex items-start gap-3">
         <Button
-          size="sm"
-          onClick={() => removeTask(task.id!)}
-          className="gap-1"
+          variant={"ghost"}
+          size={"icon"}
+          onClick={() => uncompleteTask(task.id!)}
         >
-          <FaCheck className="h-3 w-3" />
-          Complete
+          <FaCheckCircle className="text-green-600" />
         </Button>
-      </CardFooter>
-    </Card>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-medium text-base line-through text-muted-foreground truncate">
+            {task.task}
+          </h3>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+            <span>Due: {new Date(task.duedate).toLocaleDateString()}</span>
+            <Badge variant="secondary" className="text-xs">
+              Completed
+            </Badge>
+          </div>
+          {task.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {task.tags.map((tag) => (
+                <TagBadge key={tag} tag={tag} noHover />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Button
+            variant="destructive"
+            size="icon"
+            onClick={() => removeTask(task.id!)}
+          >
+            <FaTrash />
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -535,7 +697,7 @@ function EditTaskDialog({ task, onClose }: EditTaskDialogProps): JSX.Element {
     handleSubmit,
     reset,
     formState: { errors },
-    setValue
+    setValue,
   } = useForm<TaskEditForm>({
     resolver: zodResolver(taskEditSchema),
   });
@@ -545,7 +707,7 @@ function EditTaskDialog({ task, onClose }: EditTaskDialogProps): JSX.Element {
     if (task) {
       reset({
         task: task.task,
-        duedate: task.duedate.toISOString().split('T')[0],
+        duedate: task.duedate.toISOString().split("T")[0],
         priority: task.priority,
         tags: task.tags.join(", "),
         subtasks: task.subtasks.join(", "),
@@ -561,12 +723,18 @@ function EditTaskDialog({ task, onClose }: EditTaskDialogProps): JSX.Element {
 
     setIsSubmitting(true);
     try {
-      const tags = data.tags 
-        ? data.tags.split(",").map(tag => tag.trim()).filter(Boolean)
+      const tags = data.tags
+        ? data.tags
+            .split(",")
+            .map((tag) => tag.trim())
+            .filter(Boolean)
         : [];
-      
+
       const subtasks = data.subtasks
-        ? data.subtasks.split(",").map(subtask => subtask.trim()).filter(Boolean)
+        ? data.subtasks
+            .split(",")
+            .map((subtask) => subtask.trim())
+            .filter(Boolean)
         : [];
 
       await updateTask(task.id!, {
@@ -592,9 +760,7 @@ function EditTaskDialog({ task, onClose }: EditTaskDialogProps): JSX.Element {
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Edit Task</DialogTitle>
-          <DialogDescription>
-            Update your task details below
-          </DialogDescription>
+          <DialogDescription>Update your task details below</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -686,43 +852,45 @@ function EditTaskDialog({ task, onClose }: EditTaskDialogProps): JSX.Element {
  */
 function TodoPageSkeleton(): JSX.Element {
   return (
-    <div className="flex-1 p-8 gap-8 flex flex-col">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="space-y-2">
-              <Skeleton className="h-8 w-24" />
-              <Skeleton className="h-4 w-64" />
-            </div>
-            <Skeleton className="h-10 w-48" />
-          </div>
-        </CardHeader>
-      </Card>
-      
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Card key={i}>
-            <CardHeader>
-              <Skeleton className="h-4 w-20" />
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-8 w-12" />
-            </CardContent>
-          </Card>
-        ))}
+    <div className="flex-1 p-6 max-w-7xl mx-auto">
+      <div className="mb-8">
+        <Skeleton className="h-8 w-32 mb-2" />
+        <Skeleton className="h-4 w-64" />
       </div>
-      
-      <div className="space-y-4">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Card key={i}>
-            <CardHeader>
-              <Skeleton className="h-6 w-32" />
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-32 w-full" />
-            </CardContent>
-          </Card>
-        ))}
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <div className="lg:col-span-3 space-y-6">
+          <Skeleton className="h-12 w-full" />
+
+          <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="space-y-2">
+                <Skeleton className="h-6 w-32" />
+                {Array.from({ length: 3 }).map((_, j) => (
+                  <Skeleton key={j} className="h-20 w-full" />
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div>
+            <Skeleton className="h-6 w-16 mb-4" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+          <div>
+            <Skeleton className="h-6 w-20 mb-4" />
+            <div className="space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-center justify-between">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-8" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

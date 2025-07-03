@@ -1,6 +1,15 @@
-export const VERSION = "v0.7.0-alpha";
+export const VERSION = "v0.8.0-alpha";
 
 const CHANGELOG = `
+## \`v0.8.0-alpha\` (2025-07-03)
+### Added
+- Implemented Todo functionality.
+### Updates
+- Updated \`useTasks.ts\`.
+- Updated \`SaveManager.ts\` and \`db.ts\` for new todo functionality.
+### Removed
+- Removed deprecated \`tasks/page.tsx\`.
+
 ## \`v0.7.0-alpha\` (2025-07-03)
 ### Documented
 - Added detailed documentation (with help of AI).
