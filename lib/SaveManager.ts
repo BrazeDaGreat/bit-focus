@@ -1,24 +1,27 @@
 /**
- * Save Manager - Data Import/Export Functionality
+ * Save Manager - Enhanced Data Import/Export with Completion Tracking
  *
  * This module provides comprehensive data backup and restore capabilities for
- * the BIT Focus application. It handles the export of all application data
- * to portable .bitf.json files and the import of such files for data migration,
- * backup restoration, or cross-device synchronization.
+ * the BIT Focus application. Updated to support the new completion tracking
+ * fields and maintain backward compatibility with existing data exports.
  *
  * Features:
  * - Complete application data export to JSON format
  * - Data import with validation and error handling
+ * - Enhanced task support with priority levels and completion tracking
+ * - Persistent subtask completion state support
  * - Local storage and IndexedDB backup/restore
  * - Date serialization and deserialization
  * - Atomic import operations with rollback capability
  * - Custom .bitf.json file format for data integrity
+ * - Backward compatibility with legacy task data
  *
  * Data Coverage:
- * - All IndexedDB tables (configuration, focus, tasks, notes)
+ * - All IndexedDB tables (configuration, focus, enhanced tasks, notes)
  * - Complete localStorage state
  * - Proper date object handling
  * - Maintains data relationships and integrity
+ * - Subtask completion states persistence
  *
  * Use Cases:
  * - Regular data backups
@@ -31,19 +34,20 @@
  * - Browser File API for download/upload
  * - JSON serialization for data format
  *
- * @fileoverview Data import/export system for backup and migration
+ * @fileoverview Enhanced data import/export system with completion tracking support
  * @author BIT Focus Development Team
  * @since v0.6.0-alpha
+ * @updated v0.7.1-alpha - Added completion tracking and subtask persistence
  */
 
 import db from "./db";
 
 /**
- * Exported Data Structure Interface
+ * Enhanced Exported Data Structure Interface
  *
  * Defines the complete structure of exported BIT Focus data including
- * both localStorage and IndexedDB contents. All dates are serialized
- * as ISO strings for JSON compatibility.
+ * both localStorage and IndexedDB contents. Updated to include the
+ * new completion tracking fields while maintaining backward compatibility.
  */
 type ExportedData = {
   /** Complete localStorage contents as key-value pairs */
@@ -63,13 +67,16 @@ type ExportedData = {
       startTime: string; // Serialized as ISO string
       endTime: string; // Serialized as ISO string
     }[];
-    /** Task and todo records */
+    /** Enhanced task records with completion tracking */
     tasks: {
       id?: number;
       task: string;
       subtasks: string[];
       duedate: string; // Serialized as ISO string
       tags: string[];
+      priority: number; // Priority level (1-4)
+      completed: boolean; // Overall task completion status
+      completedSubtasks: boolean[]; // Individual subtask completion states
     }[];
     /** Note and document records */
     notes: {
@@ -86,26 +93,23 @@ type ExportedData = {
 };
 
 /**
- * Save Manager Class
+ * Enhanced Save Manager Class
  *
- * Provides static methods for handling data export and import operations.
- * Manages the complete application state including both persistent storage
- * systems (localStorage and IndexedDB) with proper error handling and
- * data integrity verification.
+ * Provides static methods for handling data export and import operations
+ * with support for the new completion tracking fields. Maintains backward
+ * compatibility while providing enhanced functionality for the improved
+ * task management system with persistent subtask states.
  *
  * @class
  */
 class SaveManager {
   /**
-   * Export All Application Data
+   * Export All Application Data (Enhanced with Completion Tracking)
    *
    * Creates a comprehensive backup of all application data including
-   * localStorage contents and all IndexedDB tables. Serializes the data
-   * to JSON format and triggers a file download with a timestamped filename.
-   *
-   * The export process handles date serialization, maintains data relationships,
-   * and creates a portable .bitf.json file that can be imported on any
-   * compatible BIT Focus instance.
+   * localStorage contents and all IndexedDB tables. Updated to include
+   * the new completion tracking fields and subtask persistence while
+   * maintaining compatibility with the existing export format.
    *
    * @static
    * @async
@@ -114,10 +118,10 @@ class SaveManager {
    *
    * @example
    * ```typescript
-   * // Export all data
+   * // Export all data including enhanced tasks with completion tracking
    * try {
    *   await SaveManager.exportData();
-   *   console.log("Data exported successfully");
+   *   console.log("Data exported successfully with completion tracking support");
    * } catch (error) {
    *   console.error("Export failed:", error);
    * }
@@ -141,10 +145,15 @@ class SaveManager {
           startTime: f.startTime.toISOString(),
           endTime: f.endTime.toISOString(),
         })),
-        // Serialize tasks with date conversion
+        // Serialize enhanced tasks with completion tracking and date conversion
         tasks: (await db.tasks.toArray()).map((t) => ({
           ...t,
           duedate: t.duedate.toISOString(),
+          priority: t.priority ?? 1, // Ensure priority is included with default
+          completed: t.completed ?? false, // Ensure completion status is included
+          completedSubtasks:
+            t.completedSubtasks ??
+            new Array(t.subtasks?.length || 0).fill(false), // Ensure subtask completion array
         })),
         // Serialize notes with date conversion
         notes: (await db.notes.toArray()).map((n) => ({
@@ -176,16 +185,12 @@ class SaveManager {
   }
 
   /**
-   * Import Application Data from File
+   * Import Application Data from File (Enhanced with Completion Tracking)
    *
-   * Restores application data from a .bitf.json backup file. Performs
-   * comprehensive data validation, clears existing data, and imports
-   * the backup contents. The import process is atomic - either all
-   * data is imported successfully or the operation fails completely.
-   *
-   * Handles date deserialization, maintains data integrity, and restores
-   * both localStorage and IndexedDB contents. After successful import,
-   * the application should be refreshed to reflect the restored state.
+   * Restores application data from a .bitf.json backup file with enhanced
+   * support for task completion tracking and subtask persistence. Provides
+   * backward compatibility for legacy exports while supporting the new
+   * completion-based task system.
    *
    * @static
    * @async
@@ -195,11 +200,11 @@ class SaveManager {
    *
    * @example
    * ```typescript
-   * // Import data from file upload
+   * // Import data with enhanced task and completion support
    * const handleFileImport = async (file: File) => {
    *   try {
    *     await SaveManager.importData(file);
-   *     console.log("Data imported successfully");
+   *     console.log("Data imported successfully with completion tracking support");
    *     // Refresh application to reflect changes
    *     window.location.reload();
    *   } catch (error) {
@@ -230,9 +235,14 @@ class SaveManager {
       endTime: new Date(f.endTime),
     }));
 
+    // Enhanced task deserialization with completion tracking support and backward compatibility
     const tasks = data.indexedDB.tasks.map((t) => ({
       ...t,
       duedate: new Date(t.duedate),
+      priority: t.priority ?? 1, // Default to priority 1 for legacy data
+      completed: t.completed ?? false, // Default to not completed for legacy data
+      completedSubtasks:
+        t.completedSubtasks ?? new Array(t.subtasks?.length || 0).fill(false), // Initialize subtask completion for legacy data
     }));
 
     const notes = data.indexedDB.notes.map((n) => ({
@@ -255,7 +265,7 @@ class SaveManager {
         await db.tasks.clear();
         await db.notes.clear();
 
-        // Import new data
+        // Import new data with enhanced task support
         await db.configuration.bulkAdd(configuration);
         await db.focus.bulkAdd(focus);
         await db.tasks.bulkAdd(tasks);

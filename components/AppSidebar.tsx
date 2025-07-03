@@ -1,10 +1,34 @@
 /**
- * AppSidebar.tsx - Main Application Sidebar Component with Navigation Timer Management
+ * AppSidebar.tsx - Main Application Sidebar Component with Enhanced Navigation
  * 
  * This component renders the main navigation sidebar for the BIT Focus application.
- * It includes navigation items, user configuration, timer display, and theme selector.
- * The sidebar handles timer state during navigation to prevent blocking issues.
+ * Updated to include the new dedicated Todo page in the navigation menu, replacing
+ * the previous popover-based task management with a full-featured page experience.
  * 
+ * Features:
+ * - Enhanced navigation items including dedicated Todo page
+ * - User configuration and timer display
+ * - Theme selector with multiple options
+ * - Timer state management during navigation
+ * - Responsive sidebar behavior
+ * - Version information display
+ * 
+ * Navigation Items:
+ * - Home: Dashboard and analytics overview
+ * - Focus: Timer interface and session management
+ * - Todo: Comprehensive task management (NEW)
+ * - Changelog: Version history and updates
+ * 
+ * Dependencies:
+ * - Enhanced navigation structure
+ * - Timer state management for smooth navigation
+ * - Theme system integration
+ * - User configuration management
+ * 
+ * @fileoverview Main application sidebar with enhanced navigation including Todo page
+ * @author BIT Focus Development Team
+ * @since v0.1.0-alpha
+ * @updated v0.7.1-alpha - Added dedicated Todo page navigation
  */
 
 "use client";
@@ -30,33 +54,51 @@ import {
 import { IoColorPalette } from "react-icons/io5";
 import { FaHome, FaMoon, FaSun } from "react-icons/fa";
 import { IoIosTimer } from "react-icons/io";
-import { FaGear, FaGem, FaReadme, FaWater } from "react-icons/fa6";
+import { FaGear, FaGem, FaList, FaReadme, FaWater } from "react-icons/fa6";
 import { useTheme } from "next-themes";
 import EditConfig, { EditConfigSkeleton } from "./sidebar/EditConfig";
 import { usePathname, useRouter } from "next/navigation";
 import { useConfig } from "@/hooks/useConfig";
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, type JSX } from "react";
 import PomoFooterTimer from "./sidebar/PomoFooterTimer";
 import { Skeleton } from "./ui/skeleton";
 import { VERSION } from "@/app/changelog/CHANGELOG";
 import { usePomo } from "@/hooks/PomoContext";
 
 /**
- * Navigation items configuration for the sidebar menu
+ * Enhanced Navigation Items Configuration
+ * 
+ * Updated navigation structure including the new dedicated Todo page
+ * for comprehensive task management capabilities.
  */
 const items = [
   { title: "Home", url: "/", icon: <FaHome /> },
   { title: "Focus", url: "/focus", icon: <IoIosTimer /> },
+  { title: "Todo", url: "/todo", icon: <FaList /> }, // NEW: Dedicated Todo page
   { title: "Changelog", url: "/changelog", icon: <FaReadme /> },
 ];
 
 /**
- * Main application sidebar component that provides navigation and app controls.
- * Handles timer state during navigation to prevent blocking issues.
+ * Main Application Sidebar Component
  * 
- * @returns JSX element containing the complete sidebar interface
+ * Renders the complete sidebar interface with enhanced navigation including
+ * the new Todo page. Maintains all existing functionality while providing
+ * access to the comprehensive task management interface.
+ * 
+ * The component handles timer state during navigation to prevent blocking
+ * issues and provides a smooth user experience across all pages including
+ * the new task management interface.
+ * 
+ * @component
+ * @returns {JSX.Element} Complete sidebar interface with enhanced navigation
+ * 
+ * @example
+ * ```tsx
+ * // Used in root layout for consistent navigation
+ * <AppSidebar />
+ * ```
  */
-export function AppSidebar() {
+export function AppSidebar(): JSX.Element {
   const pathname = usePathname();
   const router = useRouter();
   const { pause, state, start } = usePomo();
@@ -114,8 +156,8 @@ export function AppSidebar() {
   /**
    * Enhanced navigation handler that manages timer state for smooth navigation.
    * 
-   * @param url - The destination URL to navigate to
-   * @param event - The click event from the navigation link
+   * @param {string} url - The destination URL to navigate to
+   * @param {React.MouseEvent} event - The click event from the navigation link
    */
   const handleNavigation = useCallback((url: string, event: React.MouseEvent) => {
     event.preventDefault();
@@ -149,7 +191,7 @@ export function AppSidebar() {
         </SidebarHeader>
         
         <SidebarContent>
-          {/* Main Menu */}
+          {/* Main Menu with Enhanced Navigation */}
           <SidebarGroup>
             <SidebarGroupLabel>BIT Focus</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -187,16 +229,20 @@ export function AppSidebar() {
 /**
  * Skeleton component for theme selector loading state
  * 
- * @returns JSX element with skeleton styling
+ * @returns {JSX.Element} Skeleton styling placeholder
  */
-const ThemeSelectorSkeleton = () => <Skeleton className="h-9" />;
+const ThemeSelectorSkeleton = (): JSX.Element => <Skeleton className="h-9" />;
 
 /**
- * Theme selector component that allows users to switch between different app themes
+ * Theme Selector Component
  * 
- * @returns JSX element containing the theme selection dropdown
+ * Provides theme switching capabilities with multiple theme options
+ * including light, dark, and custom branded themes.
+ * 
+ * @component
+ * @returns {JSX.Element} Theme selection dropdown interface
  */
-const ThemeSelector = () => {
+const ThemeSelector = (): JSX.Element => {
   const { setTheme, theme } = useTheme();
   
   return (

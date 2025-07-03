@@ -2,14 +2,11 @@
  * Todo Page Component - Comprehensive Task Management Interface
  * 
  * This page provides a complete task management system with advanced sorting,
- * filtering, search capabilities, and completion tracking. Updated to follow 
- * the consistent card-based design system and handle task completion properly.
+ * filtering, and organization capabilities. Updated to follow the consistent
+ * card-based design system used throughout the BIT Focus application.
  * 
  * Features:
  * - Multiple sorting views (Time, Tags, Priority)
- * - Advanced search with tag filtering (#tagname syntax)
- * - Persistent subtask completion tracking
- * - Separate completed tasks section
  * - Priority-based task organization (1-4 scale)
  * - Time-based categorization (Due Today, Tomorrow, etc.)
  * - Tag-based grouping for project organization
@@ -32,6 +29,8 @@
  * 
  * @fileoverview Comprehensive todo page with enhanced UI and task management
  * @author BIT Focus Development Team
+ * @since v0.7.1-alpha
+ * @updated v0.7.1-alpha - Enhanced UI consistency and edit capabilities
  */
 
 "use client";
@@ -50,10 +49,6 @@ import {
   FaTrash,
   FaEdit,
   FaCheck,
-  FaSearch,
-  FaChevronDown,
-  FaChevronUp,
-  FaUndo
 } from "react-icons/fa";
 import { MdPriorityHigh } from "react-icons/md";
 import { TbClockHeart } from "react-icons/tb";
@@ -80,11 +75,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import TagBadge from "@/components/TagBadge";
 
@@ -130,14 +120,7 @@ export default function TodoPage(): JSX.Element {
     loadingTasks,
     loadTasks,
     removeTask,
-    completeTask,
-    uncompleteTask,
     updateTask,
-    updateSubtaskCompletion,
-    searchQuery,
-    setSearchQuery,
-    getActiveTasks,
-    getCompletedTasks,
     getTasksByTimeCategory,
     getTasksByTag,
     getTasksByPriority
@@ -145,7 +128,6 @@ export default function TodoPage(): JSX.Element {
 
   const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.Time);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [completedTasksOpen, setCompletedTasksOpen] = useState(false);
 
   // Load tasks on component mount
   useEffect(() => {
@@ -156,17 +138,13 @@ export default function TodoPage(): JSX.Element {
    * Calculates task statistics for the dashboard summary
    */
   const getTaskStats = () => {
-    const activeTasks = getActiveTasks();
-    const completedTasks = getCompletedTasks();
     const timeGroups = getTasksByTimeCategory();
-    
-    const total = activeTasks.length;
-    const completed = completedTasks.length;
+    const total = tasks.length;
     const overdue = timeGroups[TaskTimeCategory.Overdue].length;
     const dueToday = timeGroups[TaskTimeCategory.DueToday].length;
-    const urgent = activeTasks.filter(task => task.priority === 4).length;
+    const urgent = tasks.filter(task => task.priority === 4).length;
     
-    return { total, completed, overdue, dueToday, urgent };
+    return { total, overdue, dueToday, urgent };
   };
 
   const stats = getTaskStats();
@@ -188,69 +166,45 @@ export default function TodoPage(): JSX.Element {
               </CardDescription>
             </div>
             
-            {/* Search and View Controls */}
-            <div className="flex items-center gap-3">
-              {/* Search Bar */}
-              <div className="relative">
-                <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input
-                  placeholder="Search tasks or #tagname..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 w-64"
-                />
-              </div>
-              
-              {/* View Mode Selector */}
-              <Select value={viewMode} onValueChange={(value) => setViewMode(value as ViewMode)}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Select view mode" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ViewMode.Time}>
-                    <div className="flex items-center gap-2">
-                      <FaClock />
-                      By Time
-                    </div>
-                  </SelectItem>
-                  <SelectItem value={ViewMode.Tags}>
-                    <div className="flex items-center gap-2">
-                      <FaHashtag />
-                      By Tags
-                    </div>
-                  </SelectItem>
-                  <SelectItem value={ViewMode.Priority}>
-                    <div className="flex items-center gap-2">
-                      <MdPriorityHigh />
-                      By Priority
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {/* View Mode Selector */}
+            <Select value={viewMode} onValueChange={(value) => setViewMode(value as ViewMode)}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Select view mode" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ViewMode.Time}>
+                  <div className="flex items-center gap-2">
+                    <FaClock />
+                    By Time
+                  </div>
+                </SelectItem>
+                <SelectItem value={ViewMode.Tags}>
+                  <div className="flex items-center gap-2">
+                    <FaHashtag />
+                    By Tags
+                  </div>
+                </SelectItem>
+                <SelectItem value={ViewMode.Priority}>
+                  <div className="flex items-center gap-2">
+                    <MdPriorityHigh />
+                    By Priority
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardHeader>
       </Card>
 
       {/* Statistics Dashboard */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Tasks</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Tasks</CardTitle>
             <FaCheck className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.total}</div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed</CardTitle>
-            <FaCheck className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.completed}</div>
           </CardContent>
         </Card>
         
@@ -285,39 +239,12 @@ export default function TodoPage(): JSX.Element {
         </Card>
       </div>
 
-      {/* Active Tasks Groups Display */}
+      {/* Task Groups Display */}
       <div className="space-y-6">
         {viewMode === ViewMode.Time && <TimeView />}
         {viewMode === ViewMode.Tags && <TagsView />}
         {viewMode === ViewMode.Priority && <PriorityView />}
       </div>
-
-      {/* Completed Tasks Section */}
-      {stats.completed > 0 && (
-        <Collapsible open={completedTasksOpen} onOpenChange={setCompletedTasksOpen}>
-          <Card>
-            <CollapsibleTrigger asChild>
-              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <FaCheck className="text-green-600" />
-                    <span>Completed Tasks</span>
-                    <Badge variant="secondary">{stats.completed}</Badge>
-                  </div>
-                  {completedTasksOpen ? <FaChevronUp /> : <FaChevronDown />}
-                </CardTitle>
-              </CardHeader>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <CardContent className="space-y-4">
-                {getCompletedTasks().map(task => (
-                  <CompletedTaskCard key={task.id} task={task} />
-                ))}
-              </CardContent>
-            </CollapsibleContent>
-          </Card>
-        </Collapsible>
-      )}
 
       {/* Edit Task Dialog */}
       <EditTaskDialog 
@@ -447,23 +374,27 @@ interface TaskCardProps {
 }
 
 function TaskCard({ task, onEdit }: TaskCardProps): JSX.Element {
-  const { removeTask, completeTask, updateSubtaskCompletion } = useTask();
+  const { removeTask, updateTask } = useTask();
   const priorityInfo = PRIORITY_LABELS[task.priority as keyof typeof PRIORITY_LABELS];
   const isOverdue = new Date(task.duedate) < new Date();
+  const [completedSubtasks, setCompletedSubtasks] = useState<boolean[]>(
+    new Array(task.subtasks.length).fill(false)
+  );
 
   /**
-   * Handles subtask completion toggle with persistence
+   * Handles subtask completion toggle
    */
-  const handleSubtaskToggle = async (index: number) => {
-    const newState = !task.completedSubtasks[index];
-    await updateSubtaskCompletion(task.id!, index, newState);
+  const handleSubtaskToggle = (index: number) => {
+    const newCompletedSubtasks = [...completedSubtasks];
+    newCompletedSubtasks[index] = !newCompletedSubtasks[index];
+    setCompletedSubtasks(newCompletedSubtasks);
   };
 
   /**
    * Calculates subtask progress
    */
   const getSubtaskProgress = () => {
-    const completed = task.completedSubtasks.filter(Boolean).length;
+    const completed = completedSubtasks.filter(Boolean).length;
     const total = task.subtasks.length;
     return { completed, total, percentage: total > 0 ? (completed / total) * 100 : 0 };
   };
@@ -525,14 +456,14 @@ function TaskCard({ task, onEdit }: TaskCardProps): JSX.Element {
                 <div key={index} className="flex items-center gap-2">
                   <Checkbox
                     id={`subtask-${task.id}-${index}`}
-                    checked={task.completedSubtasks[index] || false}
+                    checked={completedSubtasks[index]}
                     onCheckedChange={() => handleSubtaskToggle(index)}
                   />
                   <label
                     htmlFor={`subtask-${task.id}-${index}`}
                     className={cn(
                       "text-sm cursor-pointer flex-1",
-                      task.completedSubtasks[index] && "line-through text-muted-foreground"
+                      completedSubtasks[index] && "line-through text-muted-foreground"
                     )}
                   >
                     {subtask}
@@ -576,80 +507,11 @@ function TaskCard({ task, onEdit }: TaskCardProps): JSX.Element {
         </div>
         <Button
           size="sm"
-          onClick={() => completeTask(task.id!)}
+          onClick={() => removeTask(task.id!)}
           className="gap-1"
         >
           <FaCheck className="h-3 w-3" />
           Complete
-        </Button>
-      </CardFooter>
-    </Card>
-  );
-}
-
-/**
- * Completed Task Card Component
- */
-interface CompletedTaskCardProps {
-  task: Task;
-}
-
-function CompletedTaskCard({ task }: CompletedTaskCardProps): JSX.Element {
-  const { removeTask, uncompleteTask } = useTask();
-  const priorityInfo = PRIORITY_LABELS[task.priority as keyof typeof PRIORITY_LABELS];
-
-  return (
-    <Card className="opacity-75 border-l-4 border-l-green-400">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <CardTitle className="text-lg line-through text-muted-foreground">
-              {task.task}
-            </CardTitle>
-            <CardDescription className="flex items-center gap-2 mt-1">
-              <Badge variant="outline" className={priorityInfo.textColor}>
-                {priorityInfo.label}
-              </Badge>
-              <span className="text-sm">
-                Due: {new Date(task.duedate).toLocaleDateString()}
-              </span>
-              <Badge variant="secondary" className="text-xs">
-                Completed
-              </Badge>
-            </CardDescription>
-          </div>
-        </div>
-      </CardHeader>
-
-      <CardContent className="space-y-4">
-        {/* Tags */}
-        {task.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {task.tags.map(tag => (
-              <TagBadge key={tag} tag={tag} noHover />
-            ))}
-          </div>
-        )}
-      </CardContent>
-
-      <CardFooter className="flex items-center justify-between pt-4">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => uncompleteTask(task.id!)}
-          className="gap-1"
-        >
-          <FaUndo className="h-3 w-3" />
-          Reopen
-        </Button>
-        <Button
-          size="sm"
-          variant="destructive"
-          onClick={() => removeTask(task.id!)}
-          className="gap-1"
-        >
-          <FaTrash className="h-3 w-3" />
-          Delete
         </Button>
       </CardFooter>
     </Card>
@@ -832,16 +694,13 @@ function TodoPageSkeleton(): JSX.Element {
               <Skeleton className="h-8 w-24" />
               <Skeleton className="h-4 w-64" />
             </div>
-            <div className="flex items-center gap-3">
-              <Skeleton className="h-10 w-64" />
-              <Skeleton className="h-10 w-48" />
-            </div>
+            <Skeleton className="h-10 w-48" />
           </div>
         </CardHeader>
       </Card>
       
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        {Array.from({ length: 5 }).map((_, i) => (
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
           <Card key={i}>
             <CardHeader>
               <Skeleton className="h-4 w-20" />

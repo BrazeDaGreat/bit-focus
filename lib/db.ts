@@ -1,15 +1,14 @@
 /**
- * Database Configuration - IndexedDB Schema and Management
+ * Database Configuration - IndexedDB Schema and Management (Enhanced)
  *
  * This module defines the database schema and configuration for the BIT Focus
- * application using Dexie.js as an IndexedDB wrapper. It provides type-safe
- * database operations and handles all local data storage including focus
- * sessions, user configuration, tasks, and notes.
+ * application using Dexie.js as an IndexedDB wrapper. Updated to include
+ * priority field and subtask completion tracking for enhanced task management.
  *
  * Database Schema:
  * - Configuration: User settings and preferences
  * - Focus: Focus session tracking and analytics
- * - Tasks: Task management and todo functionality
+ * - Tasks: Enhanced task management with priority levels and completion tracking
  * - Notes: Document and board-style note storage
  *
  * Features:
@@ -18,6 +17,7 @@
  * - Indexed fields for efficient querying
  * - Structured data models for consistency
  * - Version management for schema evolution
+ * - Subtask completion state persistence
  *
  * Storage Architecture:
  * - Client-side only storage using IndexedDB
@@ -32,6 +32,7 @@
  * @fileoverview Database schema and configuration for local data storage
  * @author BIT Focus Development Team
  * @since v0.1.0-alpha
+ * @updated v0.7.1-alpha - Added priority field and subtask completion tracking
  */
 
 import Dexie from "dexie";
@@ -43,33 +44,12 @@ import Dexie from "dexie";
  * application. Defines table schemas, relationships, and indexing strategies
  * for optimal performance and data integrity.
  *
- * The database uses a single version (v1) with four main tables, each designed
- * for specific application functionality. All tables include appropriate
- * indexing for common query patterns and efficient data retrieval.
+ * The database uses version 3 to accommodate the new completion tracking fields.
+ * All tables include appropriate indexing for common query patterns and
+ * efficient data retrieval.
  *
  * @class
  * @extends {Dexie}
- *
- * @example
- * ```typescript
- * // Adding a focus session
- * await db.focus.add({
- *   tag: "Work",
- *   startTime: new Date(),
- *   endTime: new Date(Date.now() + 3600000) // 1 hour later
- * });
- *
- * // Querying focus sessions by tag
- * const workSessions = await db.focus
- *   .where('tag')
- *   .equals('Work')
- *   .toArray();
- *
- * // Getting user configuration
- * const config = await db.configuration.toCollection().first();
- * ```
- *
- * @see {@link https://dexie.org/} for Dexie.js documentation
  */
 class BitFocusDB extends Dexie {
   /**
@@ -101,10 +81,11 @@ class BitFocusDB extends Dexie {
   >;
 
   /**
-   * Tasks Table
+   * Tasks Table (Enhanced with Completion Tracking)
    *
-   * Stores task and todo items with subtasks, due dates, and categorization.
-   * Indexed on duedate and tags for efficient task management queries.
+   * Stores task and todo items with subtasks, due dates, priority levels,
+   * completion tracking, and categorization. Indexed on duedate, tags,
+   * priority, and completed status for efficient task management queries.
    *
    * @type {Dexie.Table<TaskRecord, number>}
    */
@@ -115,6 +96,9 @@ class BitFocusDB extends Dexie {
       subtasks: string[];
       duedate: Date;
       tags: string[];
+      priority: number; // 1-4, with 1 being default (lowest priority)
+      completed: boolean; // Overall task completion status
+      completedSubtasks: boolean[]; // Individual subtask completion states
     },
     number
   >;
@@ -146,25 +130,71 @@ class BitFocusDB extends Dexie {
    * Database Constructor
    *
    * Initializes the database with schema definition and table configuration.
-   * Sets up version 1 of the database with all required tables and indexes
-   * for optimal query performance.
+   * Includes migrations from previous versions to add new completion tracking
+   * fields to existing tasks.
    *
    * Index Strategy:
    * - Configuration: Primary key on name
    * - Focus: Auto-increment ID, indexes on tag, startTime, endTime
-   * - Tasks: Auto-increment ID, indexes on duedate, tags
+   * - Tasks: Auto-increment ID, indexes on duedate, tags, priority, completed
    * - Notes: Auto-increment ID, indexes on parentId, createdAt, updatedAt
    */
   constructor() {
     super("BitFocusDB");
 
-    // Database version 1 schema definition
+    // Database version 1 schema definition (original)
     this.version(1).stores({
       configuration: "name",
       focus: "++id, tag, startTime, endTime",
       tasks: "++id, task, duedate, tags",
       notes: "++id, title, type, parentId, createdAt, updatedAt",
     });
+
+    // Database version 2 schema definition (add priority to tasks)
+    this.version(2)
+      .stores({
+        configuration: "name",
+        focus: "++id, tag, startTime, endTime",
+        tasks: "++id, task, duedate, tags, priority",
+        notes: "++id, title, type, parentId, createdAt, updatedAt",
+      })
+      .upgrade((tx) => {
+        // Migrate existing tasks to include default priority
+        return tx
+          .table("tasks")
+          .toCollection()
+          .modify((task) => {
+            if (task.priority === undefined) {
+              task.priority = 1; // Set default priority for existing tasks
+            }
+          });
+      });
+
+    // Database version 3 schema definition (add completion tracking)
+    this.version(3)
+      .stores({
+        configuration: "name",
+        focus: "++id, tag, startTime, endTime",
+        tasks: "++id, task, duedate, tags, priority, completed",
+        notes: "++id, title, type, parentId, createdAt, updatedAt",
+      })
+      .upgrade((tx) => {
+        // Migrate existing tasks to include completion tracking
+        return tx
+          .table("tasks")
+          .toCollection()
+          .modify((task) => {
+            if (task.completed === undefined) {
+              task.completed = false; // Set default completed status
+            }
+            if (task.completedSubtasks === undefined) {
+              // Initialize subtask completion array based on existing subtasks
+              task.completedSubtasks = new Array(
+                task.subtasks?.length || 0
+              ).fill(false);
+            }
+          });
+      });
 
     // Table reference assignment for type safety
     this.configuration = this.table("configuration");
