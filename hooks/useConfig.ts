@@ -53,10 +53,12 @@ interface ConfigState {
   dob: Date;
   /** Discord webhook URL for notifications */
   webhook: string;
+  /** User's preferred currency */
+  currency: string;
   /** Loading state indicator for UI feedback */
   loadingConfig: boolean;
   /** Function to update configuration with new values */
-  setConfig: (name: string, dob: Date, webhook: string) => Promise<void>;
+  setConfig: (name: string, dob: Date, webhook: string, currency: string) => Promise<void>;
   /** Function to load configuration from database */
   loadConfig: () => Promise<void>;
 }
@@ -118,10 +120,10 @@ interface ConfigState {
  * @see {@link https://github.com/pmndrs/zustand} for Zustand documentation
  */
 export const useConfig = create<ConfigState>((set) => ({
-  // Default configuration values
-  name: "NULL", // Indicates unconfigured state
+  name: "NULL",
   dob: new Date(),
   webhook: "",
+  currency: "USD", // Add this line
   loadingConfig: true,
 
   /**
@@ -139,6 +141,7 @@ export const useConfig = create<ConfigState>((set) => ({
    * @param {string} name - User's display name
    * @param {Date} dob - User's date of birth
    * @param {string} webhook - Discord webhook URL
+   * @param {string} currency - User's preferred currency
    * @returns {Promise<void>} Resolves when configuration is saved
    *
    * @example
@@ -147,11 +150,12 @@ export const useConfig = create<ConfigState>((set) => ({
    * await setConfig(
    *   "John Doe",
    *   new Date("1990-01-15"),
-   *   "https://discord.com/api/webhooks/..."
+   *   "https://discord.com/api/webhooks/...",
+   *   "USD"
    * );
    * ```
    */
-  setConfig: async (name, dob, webhook) => {
+  setConfig: async (name, dob, webhook, currency) => {
     console.log(name, dob, webhook);
 
     // Remove existing configuration to prevent duplicates
@@ -162,11 +166,11 @@ export const useConfig = create<ConfigState>((set) => ({
     }
 
     // Add new configuration to database
-    await db.configuration.add({ name, dob, webhook });
+    await db.configuration.add({ name, dob, webhook, currency });
     console.log("Config added successfully.");
 
     // Update local state
-    set({ name, dob, webhook });
+    set({ name, dob, webhook, currency });
   },
 
   /**
@@ -201,6 +205,7 @@ export const useConfig = create<ConfigState>((set) => ({
           name: config.name,
           dob: config.dob,
           webhook: config.webhook || "", // Handle optional webhook
+          currency: config.currency || "USD", // Handle optional currency
         });
       }
     } catch (error) {

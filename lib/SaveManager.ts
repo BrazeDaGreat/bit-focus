@@ -57,6 +57,7 @@ type ExportedData = {
       name: string;
       dob: string; // Serialized as ISO string
       webhook: string;
+      currency: string;
     }[];
     /** Focus session records */
     focus: {

@@ -1,6 +1,12 @@
-export const VERSION = "v0.8.1-alpha";
+export const VERSION = "v0.9.0-alpha";
 
 const CHANGELOG = `
+## \`v0.9.0-alpha\` (2025-07-03)
+### Added
+- BIT-Focus: Projects. Core project management functionality.
+- StatusBadge component.
+- Changes to Database, etc.
+
 ## \`v0.8.0-alpha\` (2025-07-03)
 ### Added
 - Implemented Todo functionality.

@@ -51,7 +51,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { IoColorPalette } from "react-icons/io5";
-import { FaHome, FaMoon, FaSun } from "react-icons/fa";
+import { FaHome, FaMoon, FaProjectDiagram, FaSun } from "react-icons/fa";
 import { IoIosTimer } from "react-icons/io";
 import { FaGear, FaGem, FaReadme, FaWater } from "react-icons/fa6";
 import { useTheme } from "next-themes";
@@ -73,6 +73,7 @@ import { usePomo } from "@/hooks/PomoContext";
 const items = [
   { title: "Home", url: "/", icon: <FaHome /> },
   { title: "Focus", url: "/focus", icon: <IoIosTimer /> },
+  { title: "Projects", url: "/projects", icon: <FaProjectDiagram /> },
   { title: "Changelog", url: "/changelog", icon: <FaReadme /> },
 ];
 
