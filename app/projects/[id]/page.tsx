@@ -560,8 +560,7 @@ function MilestoneCard({
             </DropdownMenuTrigger>
             <DropdownMenuContent>
               <DropdownMenuItem>
-                <FaEdit className="mr-2" />
-                Edit Milestone
+                <EditMilestoneDialog milestone={milestone} onUpdate={onUpdate} />
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleDelete} className="text-red-600">
                 <FaTrash className="mr-2" />
@@ -709,8 +708,7 @@ function IssueItem({
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             <DropdownMenuItem>
-              <FaEdit className="mr-2 h-3 w-3" />
-              Edit Issue
+              <EditIssueDialog issue={issue} onUpdate={onUpdate} />
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleDelete} className="text-red-600">
               <FaTrash className="mr-2 h-3 w-3" />
@@ -1356,6 +1354,158 @@ function EditIssueDialog({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Issue description..."
               rows={3}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setIsOpen(false)}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={isSubmitting}>
+            {isSubmitting ? "Saving..." : "Save Changes"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Edit Milestone Dialog Component
+ *
+ * Provides a modal interface for editing existing milestones.
+ * Allows modification of title, status, deadline, and budget.
+ */
+function EditMilestoneDialog({
+  milestone,
+  onUpdate,
+}: {
+  milestone: MilestoneWithProgress;
+  onUpdate: () => void;
+}): JSX.Element {
+  const [isOpen, setIsOpen] = useState(false);
+  const [title, setTitle] = useState(milestone.title);
+  const [status, setStatus] = useState(milestone.status);
+  const [deadline, setDeadline] = useState(
+    milestone.deadline.toISOString().split("T")[0]
+  );
+  const [budget, setBudget] = useState(milestone.budget.toString());
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { updateMilestone } = useProjects();
+
+  /**
+   * Handles form submission for milestone updates
+   */
+  const handleSave = async () => {
+    if (!title.trim() || !deadline || !budget) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    const budgetValue = parseFloat(budget);
+    if (isNaN(budgetValue) || budgetValue < 0) {
+      toast.error("Please enter a valid budget amount");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await updateMilestone(milestone.id!, {
+        title: title.trim(),
+        status,
+        deadline: new Date(deadline),
+        budget: budgetValue,
+      });
+      toast.success("Milestone updated successfully!");
+      setIsOpen(false);
+      onUpdate();
+    } catch (error) {
+      console.error("Failed to update milestone:", error);
+      toast.error("Failed to update milestone");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  /**
+   * Resets form to original values when dialog opens
+   */
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (open) {
+      setTitle(milestone.title);
+      setStatus(milestone.status);
+      setDeadline(milestone.deadline.toISOString().split("T")[0]);
+      setBudget(milestone.budget.toString());
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+          <FaEdit className="mr-2" />
+          Edit Milestone
+        </DropdownMenuItem>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit Milestone</DialogTitle>
+          <DialogDescription>
+            Update the milestone details and tracking information.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="edit-milestone-title">Title *</Label>
+            <Input
+              id="edit-milestone-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Milestone title..."
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select
+                value={status}
+                onValueChange={(value) => setStatus(value as Milestone["status"])}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Scheduled">Scheduled</SelectItem>
+                  <SelectItem value="Active">Active</SelectItem>
+                  <SelectItem value="Closed">Closed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-milestone-deadline">Deadline *</Label>
+              <Input
+                id="edit-milestone-deadline"
+                type="date"
+                value={deadline}
+                onChange={(e) => setDeadline(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-milestone-budget">Budget *</Label>
+            <Input
+              id="edit-milestone-budget"
+              type="number"
+              min="0"
+              step="0.01"
+              value={budget}
+              onChange={(e) => setBudget(e.target.value)}
+              placeholder="0.00"
             />
           </div>
         </div>

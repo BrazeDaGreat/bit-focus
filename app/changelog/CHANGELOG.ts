@@ -1,4 +1,4 @@
-export const VERSION = "v0.9.2-alpha";
+export const VERSION = "v0.9.3-alpha";
 
 const CHANGELOG = `
 ## \`v0.9.0-alpha\` (2025-07-15)
@@ -14,6 +14,10 @@ const CHANGELOG = `
 - Removed \`useTask.ts\` hook.
 - Removed \`QuickTaskAdd.tsx\` component.
 - Removed \`TaskView.tsx\` component.
+### \`v0.9.3-alpha\` (2025-07-15)
+- A closed milestone is now counted as 100% progress.
+- Issues can now be edited.
+- Milestones can now be edited.
 
 ## \`v0.8.0-alpha\` (2025-07-03)
 ### Added
