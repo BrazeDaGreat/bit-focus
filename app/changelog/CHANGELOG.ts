@@ -1,4 +1,4 @@
-export const VERSION = "v0.9.1-alpha";
+export const VERSION = "v0.9.2-alpha";
 
 const CHANGELOG = `
 ## \`v0.9.0-alpha\` (2025-07-15)
@@ -10,6 +10,8 @@ const CHANGELOG = `
 - Fixed the issue where the total budget was not being displayed correctly.
 - Tweaked the Projects UI.
 - Added markdown support for project notes.
+### \`v0.9.2-alpha\` (2025-07-15)
+- Removed \`useTask.ts\` hook.
 
 ## \`v0.8.0-alpha\` (2025-07-03)
 ### Added
