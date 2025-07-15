@@ -8,16 +8,14 @@
  * Features:
  * - Complete application data export to JSON format
  * - Data import with validation and error handling
- * - Enhanced task support with priority levels and completion tracking
- * - Persistent subtask completion state support
  * - Local storage and IndexedDB backup/restore
  * - Date serialization and deserialization
  * - Atomic import operations with rollback capability
  * - Custom .bitf.json file format for data integrity
- * - Backward compatibility with legacy task data
+
  *
  * Data Coverage:
- * - All IndexedDB tables (configuration, focus, enhanced tasks, notes)
+ * - All IndexedDB tables (configuration, focus, notes)
  * - Complete localStorage state
  * - Proper date object handling
  * - Maintains data relationships and integrity
@@ -37,7 +35,7 @@
  * @fileoverview Enhanced data import/export system with completion tracking support
  * @author BIT Focus Development Team
  * @since v0.6.0-alpha
- * @updated v0.7.1-alpha - Added completion tracking and subtask persistence
+ * @updated v0.8.2-alpha
  */
 
 import db from "./db";
@@ -59,6 +57,7 @@ type ExportedData = {
       name: string;
       dob: string; // Serialized as ISO string
       webhook: string;
+      currency: string;
     }[];
     /** Focus session records */
     focus: {
@@ -66,17 +65,6 @@ type ExportedData = {
       tag: string;
       startTime: string; // Serialized as ISO string
       endTime: string; // Serialized as ISO string
-    }[];
-    /** Enhanced task records with completion tracking */
-    tasks: {
-      id?: number;
-      task: string;
-      subtasks: string[];
-      duedate: string; // Serialized as ISO string
-      tags: string[];
-      priority: number; // Priority level (1-4)
-      completed: boolean; // Overall task completion status
-      completedSubtasks: boolean[]; // Individual subtask completion states
     }[];
     /** Note and document records */
     notes: {
@@ -144,16 +132,6 @@ class SaveManager {
           ...f,
           startTime: f.startTime.toISOString(),
           endTime: f.endTime.toISOString(),
-        })),
-        // Serialize enhanced tasks with completion tracking and date conversion
-        tasks: (await db.tasks.toArray()).map((t) => ({
-          ...t,
-          duedate: t.duedate.toISOString(),
-          priority: t.priority ?? 1, // Ensure priority is included with default
-          completed: t.completed ?? false, // Ensure completion status is included
-          completedSubtasks:
-            t.completedSubtasks ??
-            new Array(t.subtasks?.length || 0).fill(false), // Ensure subtask completion array
         })),
         // Serialize notes with date conversion
         notes: (await db.notes.toArray()).map((n) => ({
@@ -235,15 +213,6 @@ class SaveManager {
       endTime: new Date(f.endTime),
     }));
 
-    // Enhanced task deserialization with completion tracking support and backward compatibility
-    const tasks = data.indexedDB.tasks.map((t) => ({
-      ...t,
-      duedate: new Date(t.duedate),
-      priority: t.priority ?? 1, // Default to priority 1 for legacy data
-      completed: t.completed ?? false, // Default to not completed for legacy data
-      completedSubtasks:
-        t.completedSubtasks ?? new Array(t.subtasks?.length || 0).fill(false), // Initialize subtask completion for legacy data
-    }));
 
     const notes = data.indexedDB.notes.map((n) => ({
       ...n,
@@ -256,19 +225,16 @@ class SaveManager {
       "rw",
       db.configuration,
       db.focus,
-      db.tasks,
       db.notes,
       async () => {
         // Clear existing data
         await db.configuration.clear();
         await db.focus.clear();
-        await db.tasks.clear();
         await db.notes.clear();
 
         // Import new data with enhanced task support
         await db.configuration.bulkAdd(configuration);
         await db.focus.bulkAdd(focus);
-        await db.tasks.bulkAdd(tasks);
         await db.notes.bulkAdd(notes);
       }
     );

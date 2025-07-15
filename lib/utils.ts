@@ -568,3 +568,29 @@ export function getTagColor(
   // Generate color for new tags
   return stringToHexColor(tag, alpha);
 }
+
+
+/**
+ * @deprecated use `Number.toLocaleString();` instead
+ * 
+ * Format Number with Commas
+ *
+ * Takes a number and returns a string with commas for better readability
+ * in lists and tables. Useful for formatting numbers in the thousands
+ * and beyond.
+ *
+ * @param {number} num - Number to format
+ * @returns {string} Formatted string with commas
+ *
+ * @example
+ * ```typescript
+ * formatNumberWithCommas(1000)
+ * // Returns: "1,000"
+ * formatNumberWithCommas(1000000)
+ * // Returns: "1,000,000"
+ * ```
+ *
+ */
+export function formatNumber(num: number): string {
+  return num.toLocaleString();
+}

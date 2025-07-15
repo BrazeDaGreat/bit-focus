@@ -1,6 +1,20 @@
-export const VERSION = "v0.8.1-alpha";
+export const VERSION = "v0.9.2-alpha";
 
 const CHANGELOG = `
+## \`v0.9.0-alpha\` (2025-07-15)
+### Added
+- BIT-Focus: Projects. Core project management functionality.
+- StatusBadge component.
+- Changes to Database, etc.
+### \`v0.9.1-alpha\` (2025-07-15)
+- Fixed the issue where the total budget was not being displayed correctly.
+- Tweaked the Projects UI.
+- Added markdown support for project notes.
+### \`v0.9.2-alpha\` (2025-07-15)
+- Removed \`useTask.ts\` hook.
+- Removed \`QuickTaskAdd.tsx\` component.
+- Removed \`TaskView.tsx\` component.
+
 ## \`v0.8.0-alpha\` (2025-07-03)
 ### Added
 - Implemented Todo functionality.
@@ -12,6 +26,10 @@ const CHANGELOG = `
 ### \`v0.8.1-alpha\` (2025-07-03)
 - Bumped \`package.json\` version.
 - Better webhook messages support with the new Todo functionality.
+### \`v0.8.2-alpha\` (2025-07-15)
+- Removed Todo functionality.
+- Removed all instances of UI related to Todo.
+- Removed \`/todo\`.
 ***
 
 ## \`v0.7.0-alpha\` (2025-07-03)

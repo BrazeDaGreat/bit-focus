@@ -19,7 +19,7 @@ export const EditConfigSkeleton = () => {
 }
 
 const EditConfig = () => {
-  const { name, dob, setConfig, webhook } = useConfig();
+  const { name, dob, setConfig, webhook, currency } = useConfig();
   const isMobile = useIsMobile();
   const {
     register,
@@ -32,6 +32,7 @@ const EditConfig = () => {
       month: dob ? new Date(dob).getMonth() + 1 : "",
       webhook: webhook ?? "",
       year: dob ? new Date(dob).getFullYear() : "",
+      currency: currency ?? "USD",
     },
   });
 
@@ -49,10 +50,10 @@ const EditConfig = () => {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onSubmit = (data: any) => {
-    const { name, day, month, year, webhook } = data;
+    const { name, day, month, year, webhook, currency } = data;
     const dateOfBirth = new Date(year, month - 1, day);
     toast("Config updated successfully.", { icon: <FaPencil /> });
-    setConfig(name, dateOfBirth, webhook);
+    setConfig(name, dateOfBirth, webhook, currency);
   };
 
   return (
@@ -174,6 +175,19 @@ const EditConfig = () => {
                 {errors.webhook.message}
               </span>
             )}
+
+            <Label className="text-xs opacity-90" htmlFor="currency">
+              Preferred Currency
+            </Label>
+            <select
+              id="currency"
+              {...register("currency")}
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="USD">USD ($)</option>
+              <option value="AED">AED (د.إ)</option>
+              <option value="PKR">PKR (₨)</option>
+            </select>
 
             <Button type="submit" variant="outline" className="mt-2">
               Save

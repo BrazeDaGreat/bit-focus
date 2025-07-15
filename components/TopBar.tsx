@@ -2,14 +2,11 @@
  * Top Navigation Bar Component - Enhanced with Quick Task Creation
  * 
  * This component provides the secondary navigation bar that appears at the top
- * of the application interface. It has been updated to replace the comprehensive
- * TaskView popover with a streamlined QuickTaskAdd component for minimal friction
- * task creation workflows.
+ * of the application interface.
  * 
  * Features:
  * - Sidebar toggle for responsive navigation
  * - Quick access to external resources (Discord, GitHub)
- * - Streamlined quick task creation interface
  * - Responsive button layout and sizing
  * - Consistent styling with application theme
  * 
@@ -19,14 +16,13 @@
  * - Responsive design for mobile and desktop
  * 
  * Dependencies:
- * - QuickTaskAdd component for task creation
  * - UI components for consistent styling
  * - React Icons for visual elements
  * 
  * @fileoverview Top navigation bar with enhanced task creation capabilities
  * @author BIT Focus Development Team
  * @since v0.1.0-alpha
- * @updated v0.7.1-alpha - Replaced TaskView with QuickTaskAdd
+ * @updated v0.8.2-alpha
  */
 
 "use client";
@@ -34,7 +30,6 @@
 import { FaDiscord, FaGithub } from "react-icons/fa6";
 import { Button } from "./ui/button";
 import { SidebarTrigger } from "./ui/sidebar";
-import QuickTaskAdd from "./QuickTaskAdd";
 import type { JSX } from "react";
 
 /**
@@ -127,7 +122,7 @@ export default function TopBar(): JSX.Element {
       
       {/* Right Side: Quick Task Creation */}
       <div className="flex items-center gap-2">
-        <QuickTaskAdd />
+        
       </div>
     </div>
   );
