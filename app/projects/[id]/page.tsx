@@ -2,11 +2,12 @@
  * Individual Project Page - Comprehensive Project Management Interface
  *
  * This page provides detailed management capabilities for individual projects
- * including project information, milestones, and issues. It serves as the
- * main workspace for project management activities.
+ * including project information, milestones, and issues. Features separate
+ * dialog for project editing and drawer for notes management.
  *
  * Features:
- * - Project details editing with markdown support
+ * - Project details editing via dialog (title, status, version)
+ * - Notes management via right-side drawer with markdown support
  * - Milestone management with progress tracking
  * - Issue management within milestones
  * - Real-time progress calculations
@@ -19,9 +20,10 @@
  * - Markdown editor for project notes
  * - Theme-aware notifications
  *
- * @fileoverview Individual project management interface
+ * @fileoverview Individual project management interface with enhanced editing
  * @author BIT Focus Development Team
  * @since v0.9.0-alpha
+ * @updated v0.9.1-alpha - Separated project editing and notes management
  */
 
 "use client";
@@ -40,6 +42,7 @@ import {
   FaFlag,
   FaCheckCircle,
   FaExclamationCircle,
+  FaStickyNote,
 } from "react-icons/fa";
 import { MdSchedule, MdPlayArrow, MdCheck } from "react-icons/md";
 
@@ -62,6 +65,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -89,14 +100,306 @@ import {
   IssueLabel,
 } from "@/hooks/useProjects";
 import { useConfig } from "@/hooks/useConfig";
-import { cn } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
 import StatusBadge from "../StatusBadge";
 import Markdown from "react-markdown";
 
 /**
+ * Project Edit Dialog Component
+ *
+ * Provides a modal interface for editing project title, status, and version.
+ * Separated from notes editing for better UX and focused editing experience.
+ *
+ * @param {Object} props - Component props
+ * @param {Project} props.project - Project data to edit
+ * @param {function} props.onUpdate - Callback function after successful update
+ * @returns {JSX.Element} Project edit dialog
+ */
+function ProjectEditDialog({
+  project,
+  onUpdate,
+}: {
+  project: Project;
+  onUpdate: () => void;
+}): JSX.Element {
+  const [isOpen, setIsOpen] = useState(false);
+  const [title, setTitle] = useState(project.title);
+  const [status, setStatus] = useState(project.status);
+  const [version, setVersion] = useState(project.version);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { updateProject } = useProjects();
+
+  /**
+   * Handles form submission for project updates
+   * Updates title, status, and version only
+   */
+  const handleSave = async () => {
+    if (!title.trim()) {
+      toast.error("Project title is required");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await updateProject(project.id!, {
+        title: title.trim(),
+        status,
+        version: version.trim(),
+      });
+      toast.success("Project updated successfully!");
+      setIsOpen(false);
+      onUpdate();
+    } catch (error) {
+      console.error("Failed to update project:", error);
+      toast.error("Failed to update project");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  /**
+   * Resets form to original values when dialog opens
+   */
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (open) {
+      setTitle(project.title);
+      setStatus(project.status);
+      setVersion(project.version);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+          <FaEdit className="mr-2" />
+          Edit Project
+        </DropdownMenuItem>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit Project</DialogTitle>
+          <DialogDescription>
+            Update the project title, status, and version.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="edit-title">Project Title *</Label>
+            <Input
+              id="edit-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Project title..."
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select
+                value={status}
+                onValueChange={(value) => setStatus(value as Project["status"])}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Scheduled">Scheduled</SelectItem>
+                  <SelectItem value="Active">Active</SelectItem>
+                  <SelectItem value="Closed">Closed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-version">Version</Label>
+              <Input
+                id="edit-version"
+                value={version}
+                onChange={(e) => setVersion(e.target.value)}
+                placeholder="Project version..."
+              />
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setIsOpen(false)}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={isSubmitting}>
+            {isSubmitting ? "Saving..." : "Save Changes"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Project Notes Drawer Component
+ *
+ * Provides a right-side drawer for viewing and editing project notes
+ * with markdown support and dedicated editing interface.
+ *
+ * @param {Object} props - Component props
+ * @param {Project} props.project - Project data containing notes
+ * @param {function} props.onUpdate - Callback function after successful update
+ * @returns {JSX.Element} Project notes drawer
+ */
+function ProjectNotesDrawer({
+  project,
+  onUpdate,
+}: {
+  project: Project;
+  onUpdate: () => void;
+}): JSX.Element {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [notes, setNotes] = useState(project.notes);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { updateProject } = useProjects();
+
+  /**
+   * Handles saving updated notes
+   */
+  const handleSaveNotes = async () => {
+    setIsSubmitting(true);
+    try {
+      await updateProject(project.id!, { notes: notes.trim() });
+      toast.success("Notes updated successfully!");
+      setIsEditing(false);
+      onUpdate();
+    } catch (error) {
+      console.error("Failed to update notes:", error);
+      toast.error("Failed to update notes");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  /**
+   * Handles drawer state changes and resets editing mode
+   */
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (open) {
+      setNotes(project.notes);
+      setIsEditing(false);
+    }
+  };
+
+  /**
+   * Cancels editing and reverts to original notes
+   */
+  const handleCancelEdit = () => {
+    setNotes(project.notes);
+    setIsEditing(false);
+  };
+
+  return (
+    <Sheet open={isOpen} onOpenChange={handleOpenChange}>
+      <SheetTrigger asChild>
+        <Button variant="outline" className="gap-2">
+          <FaStickyNote />
+          Project Notes
+          {project.notes && (
+            <Badge variant="secondary" className="ml-1">
+              ●
+            </Badge>
+          )}
+        </Button>
+      </SheetTrigger>
+      <SheetContent side="right" className="w-full sm:max-w-lg px-2 py-6">
+        <SheetHeader>
+          <SheetTitle className="flex items-center justify-between">
+            <span>Project Notes</span>
+            {!isEditing && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsEditing(true)}
+                className="gap-1"
+              >
+                <FaEdit className="h-3 w-3" />
+                Edit
+              </Button>
+            )}
+          </SheetTitle>
+          <SheetDescription>
+            {isEditing
+              ? "Edit your project notes with markdown support."
+              : "View project notes and documentation."}
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="flex-1 py-6">
+          {isEditing ? (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="notes-textarea">
+                  Notes (Markdown supported)
+                </Label>
+                <Textarea
+                  id="notes-textarea"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Enter your project notes here... You can use markdown formatting."
+                  rows={15}
+                  className="resize-none"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleSaveNotes}
+                  disabled={isSubmitting}
+                  className="flex-1"
+                >
+                  {isSubmitting ? "Saving..." : "Save Notes"}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleCancelEdit}
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="prose prose-sm max-w-none">
+              {project.notes ? (
+                <div className="md">
+                  <Markdown>{project.notes}</Markdown>
+                </div>
+              ) : (
+                <div className="text-center text-muted-foreground py-8">
+                  <FaStickyNote className="mx-auto h-12 w-12 mb-4 opacity-30" />
+                  <p>No notes yet</p>
+                  <p className="text-sm">Click Edit to add project notes</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+/**
  * Project Header Component
  *
- * Displays project title, status, and basic information with edit capabilities.
+ * Displays project title, status, and basic information with separated
+ * edit controls for project details and notes management.
+ *
+ * @param {Object} props - Component props
+ * @param {Project} props.project - Project data to display
+ * @param {function} props.onUpdate - Callback function after updates
+ * @returns {JSX.Element} Project header with action controls
  */
 function ProjectHeader({
   project,
@@ -106,29 +409,11 @@ function ProjectHeader({
   onUpdate: () => void;
 }): JSX.Element {
   const router = useRouter();
-  const [isEditing, setIsEditing] = useState(false);
-  const [title, setTitle] = useState(project.title);
-  const [status, setStatus] = useState(project.status);
-  const [notes, setNotes] = useState(project.notes);
-  const [version, setVersion] = useState(project.version);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const { updateProject, deleteProject } = useProjects();
+  const { deleteProject } = useProjects();
 
-  const handleSave = async () => {
-    setIsSubmitting(true);
-    try {
-      await updateProject(project.id!, { title, status, notes, version });
-      toast.success("Project updated successfully!");
-      setIsEditing(false);
-      onUpdate();
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (error) {
-      toast.error("Failed to update project");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
+  /**
+   * Handles project deletion with confirmation
+   */
   const handleDelete = async () => {
     if (
       !confirm(
@@ -142,124 +427,50 @@ function ProjectHeader({
       await deleteProject(project.id!);
       toast.success("Project deleted successfully!");
       router.push("/projects");
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
+      console.error("Failed to delete project:", error);
       toast.error("Failed to delete project");
     }
   };
 
-  if (isEditing) {
-    return (
-      <Card>
-        <CardHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Project Title</Label>
-              <Input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Project title..."
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select
-                value={status}
-                onValueChange={(value) => setStatus(value as Project["status"])}
-              >
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Scheduled">Scheduled</SelectItem>
-                  <SelectItem value="Active">Active</SelectItem>
-                  <SelectItem value="Closed">Closed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Version</Label>
-              <Input
-                value={version}
-                onChange={(e) => setVersion(e.target.value)}
-                placeholder="Project version..."
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Notes</Label>
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Project description and notes..."
-                rows={4}
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={handleSave} disabled={isSubmitting}>
-                {isSubmitting ? "Saving..." : "Save"}
-              </Button>
-              <Button variant="outline" onClick={() => setIsEditing(false)}>
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
-    );
-  }
-
   return (
-    <>
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.push("/projects")}
-        >
-          <FaArrowLeft />
-        </Button>
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">{project.title}</h1>
-            <Badge variant="outline">v{project.version}</Badge>
-            <StatusBadge status={project.status} />
-            {/* <Badge
-              variant={statusConfigs[project.status].variant}
-              className="gap-1"
-            >
-              {statusConfigs[project.status].icon}
-              {project.status}
-            </Badge> */}
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => router.push("/projects")}
+          >
+            <FaArrowLeft />
+          </Button>
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold">{project.title}</h1>
+              <Badge variant="outline">v{project.version}</Badge>
+              <StatusBadge status={project.status} />
+            </div>
           </div>
         </div>
+        <div className="flex items-center gap-2">
+          <ProjectNotesDrawer project={project} onUpdate={onUpdate} />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon">
+                <FaEdit />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <ProjectEditDialog project={project} onUpdate={onUpdate} />
+              <DropdownMenuItem onClick={handleDelete} className="text-red-600">
+                <FaTrash className="mr-2" />
+                Delete Project
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon">
-            <FaEdit />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent>
-          <DropdownMenuItem onClick={() => setIsEditing(true)}>
-            <FaEdit className="mr-2" />
-            Edit Project
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={handleDelete} className="text-red-600">
-            <FaTrash className="mr-2" />
-            Delete Project
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
     </div>
-    {project.notes &&
-    <Card className="p-8">
-      <CardDescription className="md">
-        <Markdown>{project.notes}</Markdown>
-      </CardDescription>
-    </Card>
-    }
-    </>
   );
 }
 
@@ -267,6 +478,11 @@ function ProjectHeader({
  * Milestone Card Component
  *
  * Displays milestone information with progress and issue management.
+ *
+ * @param {Object} props - Component props
+ * @param {MilestoneWithProgress} props.milestone - Milestone data with progress
+ * @param {function} props.onUpdate - Callback function after updates
+ * @returns {JSX.Element} Milestone card with management controls
  */
 function MilestoneCard({
   milestone,
@@ -276,11 +492,11 @@ function MilestoneCard({
   onUpdate: () => void;
 }): JSX.Element {
   const { currency } = useConfig();
-  const { getIssuesForMilestone, deleteMilestone } = useProjects();
-  const [showIssues, setShowIssues] = useState(false);
+  const { deleteMilestone } = useProjects();
 
-  const issues = getIssuesForMilestone(milestone.id!);
-
+  /**
+   * Gets currency symbol based on configuration
+   */
   const getCurrencySymbol = (curr: string) => {
     switch (curr) {
       case "USD":
@@ -294,6 +510,9 @@ function MilestoneCard({
     }
   };
 
+  /**
+   * Handles milestone deletion with confirmation
+   */
   const handleDelete = async () => {
     if (
       !confirm(
@@ -307,8 +526,8 @@ function MilestoneCard({
       await deleteMilestone(milestone.id!);
       toast.success("Milestone deleted successfully!");
       onUpdate();
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
+      console.error("Failed to delete milestone:", error);
       toast.error("Failed to delete milestone");
     }
   };
@@ -379,38 +598,16 @@ function MilestoneCard({
           <div className="flex items-center gap-2">
             <FaDollarSign className="text-muted-foreground" />
             <span>
-              {getCurrencySymbol(currency)}
-              {milestone.budget}
+              {getCurrencySymbol(currency)} {formatNumber(milestone.budget)}
             </span>
           </div>
         </div>
 
         {/* Issues Toggle */}
         <div className="flex items-center justify-between">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowIssues(!showIssues)}
-          >
-            {showIssues ? "Hide" : "Show"} Issues ({issues.length})
-          </Button>
+          <IssuesDrawer milestone={milestone} onUpdate={onUpdate} />
           <CreateIssueDialog milestoneId={milestone.id!} onUpdate={onUpdate} />
         </div>
-
-        {/* Issues List */}
-        {showIssues && (
-          <div className="space-y-2 border-t pt-4">
-            {issues.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                No issues yet
-              </p>
-            ) : (
-              issues.map((issue) => (
-                <IssueItem key={issue.id} issue={issue} onUpdate={onUpdate} />
-              ))
-            )}
-          </div>
-        )}
       </CardContent>
     </Card>
   );
@@ -419,7 +616,12 @@ function MilestoneCard({
 /**
  * Issue Item Component
  *
- * Displays individual issue with status management.
+ * Displays individual issue with status management and actions.
+ *
+ * @param {Object} props - Component props
+ * @param {Issue} props.issue - Issue data to display
+ * @param {function} props.onUpdate - Callback function after updates
+ * @returns {JSX.Element} Issue item with management controls
  */
 function IssueItem({
   issue,
@@ -430,17 +632,23 @@ function IssueItem({
 }): JSX.Element {
   const { updateIssue, deleteIssue } = useProjects();
 
+  /**
+   * Toggles issue status between Open and Close
+   */
   const handleStatusToggle = async () => {
     const newStatus = issue.status === "Open" ? "Close" : "Open";
     try {
       await updateIssue(issue.id!, { status: newStatus });
       onUpdate();
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
+      console.error("Failed to update issue status:", error);
       toast.error("Failed to update issue status");
     }
   };
 
+  /**
+   * Handles issue deletion with confirmation
+   */
   const handleDelete = async () => {
     if (!confirm("Are you sure you want to delete this issue?")) return;
 
@@ -448,8 +656,8 @@ function IssueItem({
       await deleteIssue(issue.id!);
       toast.success("Issue deleted successfully!");
       onUpdate();
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
+      console.error("Failed to delete issue:", error);
       toast.error("Failed to delete issue");
     }
   };
@@ -517,6 +725,13 @@ function IssueItem({
 
 /**
  * Create Milestone Dialog Component
+ *
+ * Provides a modal interface for creating new milestones within a project.
+ *
+ * @param {Object} props - Component props
+ * @param {number} props.projectId - ID of the parent project
+ * @param {function} props.onUpdate - Callback function after creation
+ * @returns {JSX.Element} Milestone creation dialog
  */
 function CreateMilestoneDialog({
   projectId,
@@ -533,6 +748,9 @@ function CreateMilestoneDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { addMilestone } = useProjects();
 
+  /**
+   * Handles milestone creation form submission
+   */
   const handleSubmit = async () => {
     if (!title.trim() || !deadline || !budget) {
       toast.error("Please fill in all required fields");
@@ -555,8 +773,8 @@ function CreateMilestoneDialog({
       setDeadline("");
       setBudget("");
       onUpdate();
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
+      console.error("Failed to create milestone:", error);
       toast.error("Failed to create milestone");
     } finally {
       setIsSubmitting(false);
@@ -580,9 +798,9 @@ function CreateMilestoneDialog({
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="title">Title *</Label>
+            <Label htmlFor="milestone-title">Title *</Label>
             <Input
-              id="title"
+              id="milestone-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Milestone title..."
@@ -608,9 +826,9 @@ function CreateMilestoneDialog({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="deadline">Deadline *</Label>
+              <Label htmlFor="milestone-deadline">Deadline *</Label>
               <Input
-                id="deadline"
+                id="milestone-deadline"
                 type="date"
                 value={deadline}
                 onChange={(e) => setDeadline(e.target.value)}
@@ -618,9 +836,9 @@ function CreateMilestoneDialog({
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="budget">Budget *</Label>
+            <Label htmlFor="milestone-budget">Budget *</Label>
             <Input
-              id="budget"
+              id="milestone-budget"
               type="number"
               min="0"
               step="0.01"
@@ -645,6 +863,13 @@ function CreateMilestoneDialog({
 
 /**
  * Create Issue Dialog Component
+ *
+ * Provides a modal interface for creating new issues within a milestone.
+ *
+ * @param {Object} props - Component props
+ * @param {number} props.milestoneId - ID of the parent milestone
+ * @param {function} props.onUpdate - Callback function after creation
+ * @returns {JSX.Element} Issue creation dialog
  */
 function CreateIssueDialog({
   milestoneId,
@@ -661,6 +886,9 @@ function CreateIssueDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { addIssue } = useProjects();
 
+  /**
+   * Handles issue creation form submission
+   */
   const handleSubmit = async () => {
     if (!title.trim() || !dueDate) {
       toast.error("Please fill in title and due date");
@@ -683,8 +911,8 @@ function CreateIssueDialog({
       setDueDate("");
       setDescription("");
       onUpdate();
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
+      console.error("Failed to create issue:", error);
       toast.error("Failed to create issue");
     } finally {
       setIsSubmitting(false);
@@ -708,9 +936,9 @@ function CreateIssueDialog({
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="title">Title *</Label>
+            <Label htmlFor="issue-title">Title *</Label>
             <Input
-              id="title"
+              id="issue-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Issue title..."
@@ -736,9 +964,9 @@ function CreateIssueDialog({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="dueDate">Due Date *</Label>
+              <Label htmlFor="issue-dueDate">Due Date *</Label>
               <Input
-                id="dueDate"
+                id="issue-dueDate"
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
@@ -746,9 +974,9 @@ function CreateIssueDialog({
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="issue-description">Description</Label>
             <Textarea
-              id="description"
+              id="issue-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Issue description..."
@@ -771,6 +999,11 @@ function CreateIssueDialog({
 
 /**
  * Main Project Detail Page Component
+ *
+ * Renders the complete project management interface with separated
+ * editing controls for project details and notes.
+ *
+ * @returns {JSX.Element} Complete project detail page
  */
 export default function ProjectDetailPage(): JSX.Element {
   const { theme } = useTheme();
@@ -787,6 +1020,9 @@ export default function ProjectDetailPage(): JSX.Element {
 
   const project = getProjectWithStats(projectId);
 
+  /**
+   * Triggers component refresh after data updates
+   */
   const handleUpdate = () => {
     setRefreshKey((prev) => prev + 1);
   };
@@ -864,7 +1100,7 @@ export default function ProjectDetailPage(): JSX.Element {
             <FaDollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{project.totalBudget}</div>
+            <div className="text-2xl font-bold">{formatNumber(project.totalBudget)}</div>
             <p className="text-xs text-muted-foreground">
               Across all milestones
             </p>
@@ -913,5 +1149,229 @@ export default function ProjectDetailPage(): JSX.Element {
       {/* Toast Notifications */}
       <Toaster theme={(theme ?? "system") as "system" | "light" | "dark"} />
     </div>
+  );
+}
+
+/**
+ * Issues Drawer Component
+ *
+ * Provides a right-side drawer for viewing and managing issues within a milestone.
+ * Displays all issues with their status, labels, and management controls.
+ */
+function IssuesDrawer({
+  milestone,
+  onUpdate,
+}: {
+  milestone: MilestoneWithProgress;
+  onUpdate: () => void;
+}): JSX.Element {
+  const [isOpen, setIsOpen] = useState(false);
+  const { getIssuesForMilestone } = useProjects();
+  const issues = getIssuesForMilestone(milestone.id!);
+
+  return (
+    <Sheet open={isOpen} onOpenChange={setIsOpen}>
+      <SheetTrigger asChild>
+        <Button variant="outline" size="sm">
+          {issues.length === 0 ? "No Issues" : `Show Issues (${issues.length})`}
+        </Button>
+      </SheetTrigger>
+      <SheetContent side="right" className="w-full sm:max-w-lg px-2 py-6">
+        <SheetHeader>
+          <SheetTitle className="flex items-center justify-between">
+            <span>Issues - {milestone.title}</span>
+            <CreateIssueDialog
+              milestoneId={milestone.id!}
+              onUpdate={onUpdate}
+            />
+          </SheetTitle>
+          <SheetDescription>
+            Manage issues within this milestone. Track progress and completion
+            status.
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="flex-1 py-6">
+          {issues.length === 0 ? (
+            <div className="text-center text-muted-foreground py-8">
+              <FaExclamationCircle className="mx-auto h-12 w-12 mb-4 opacity-30" />
+              <p>No issues yet</p>
+              <p className="text-sm">
+                Create your first issue to start tracking tasks
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {issues.map((issue) => (
+                <IssueItem key={issue.id} issue={issue} onUpdate={onUpdate} />
+              ))}
+            </div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+/**
+ * Edit Issue Dialog Component
+ *
+ * Provides a modal interface for editing existing issues.
+ * Allows modification of title, label, due date, description, and status.
+ */
+function EditIssueDialog({
+  issue,
+  onUpdate,
+}: {
+  issue: Issue;
+  onUpdate: () => void;
+}): JSX.Element {
+  const [isOpen, setIsOpen] = useState(false);
+  const [title, setTitle] = useState(issue.title);
+  const [label, setLabel] = useState<IssueLabel>(issue.label as IssueLabel);
+  const [dueDate, setDueDate] = useState(
+    issue.dueDate.toISOString().split("T")[0]
+  );
+  const [description, setDescription] = useState(issue.description);
+  const [status, setStatus] = useState(issue.status);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { updateIssue } = useProjects();
+
+  /**
+   * Handles form submission for issue updates
+   */
+  const handleSave = async () => {
+    if (!title.trim() || !dueDate) {
+      toast.error("Title and due date are required");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await updateIssue(issue.id!, {
+        title: title.trim(),
+        label,
+        dueDate: new Date(dueDate),
+        description: description.trim(),
+        status,
+      });
+      toast.success("Issue updated successfully!");
+      setIsOpen(false);
+      onUpdate();
+    } catch (error) {
+      console.error("Failed to update issue:", error);
+      toast.error("Failed to update issue");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  /**
+   * Resets form to original values when dialog opens
+   */
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (open) {
+      setTitle(issue.title);
+      setLabel(issue.label as IssueLabel);
+      setDueDate(issue.dueDate.toISOString().split("T")[0]);
+      setDescription(issue.description);
+      setStatus(issue.status);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+          <EditIssueDialog issue={issue} onUpdate={onUpdate} />
+        </DropdownMenuItem>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit Issue</DialogTitle>
+          <DialogDescription>
+            Update the issue details and tracking information.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="edit-issue-title">Title *</Label>
+            <Input
+              id="edit-issue-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Issue title..."
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Label</Label>
+              <Select
+                value={label}
+                onValueChange={(value) => setLabel(value as IssueLabel)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ISSUE_LABELS.map((l) => (
+                    <SelectItem key={l} value={l}>
+                      {l}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-issue-dueDate">Due Date *</Label>
+              <Input
+                id="edit-issue-dueDate"
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Status</Label>
+            <Select
+              value={status}
+              onValueChange={(value) => setStatus(value as Issue["status"])}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Open">Open</SelectItem>
+                <SelectItem value="Close">Close</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-issue-description">Description</Label>
+            <Textarea
+              id="edit-issue-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Issue description..."
+              rows={3}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setIsOpen(false)}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={isSubmitting}>
+            {isSubmitting ? "Saving..." : "Save Changes"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

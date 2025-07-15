@@ -69,6 +69,7 @@ import {
 import { useProjects, type Project } from "@/hooks/useProjects";
 import { useConfig } from "@/hooks/useConfig";
 import StatusBadge from "./StatusBadge";
+import { formatNumber } from "@/lib/utils";
 
 /**
  * Project Card Component
@@ -134,7 +135,7 @@ function ProjectCard({ project }: { project: any }): JSX.Element {
               <FaDollarSign className="text-muted-foreground" />
               <span>
                 {getCurrencySymbol(currency)}
-                {project.totalBudget}
+                {formatNumber(project.totalBudget)}
               </span>
             </div>
           </div>

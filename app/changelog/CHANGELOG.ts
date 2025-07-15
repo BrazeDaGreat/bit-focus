@@ -1,11 +1,15 @@
-export const VERSION = "v0.9.0-alpha";
+export const VERSION = "v0.9.1-alpha";
 
 const CHANGELOG = `
-## \`v0.9.0-alpha\` (2025-07-03)
+## \`v0.9.0-alpha\` (2025-07-15)
 ### Added
 - BIT-Focus: Projects. Core project management functionality.
 - StatusBadge component.
 - Changes to Database, etc.
+### \`v0.9.1-alpha\` (2025-07-15)
+- Fixed the issue where the total budget was not being displayed correctly.
+- Tweaked the Projects UI.
+- Added markdown support for project notes.
 
 ## \`v0.8.0-alpha\` (2025-07-03)
 ### Added
