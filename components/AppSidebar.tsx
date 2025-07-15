@@ -16,7 +16,6 @@
  * Navigation Items:
  * - Home: Dashboard and analytics overview
  * - Focus: Timer interface and session management
- * - Todo: Comprehensive task management (NEW)
  * - Changelog: Version history and updates
  * 
  * Dependencies:
@@ -28,7 +27,7 @@
  * @fileoverview Main application sidebar with enhanced navigation including Todo page
  * @author BIT Focus Development Team
  * @since v0.1.0-alpha
- * @updated v0.7.1-alpha - Added dedicated Todo page navigation
+ * @updated v0.8.2-alpha
  */
 
 "use client";
@@ -54,7 +53,7 @@ import {
 import { IoColorPalette } from "react-icons/io5";
 import { FaHome, FaMoon, FaSun } from "react-icons/fa";
 import { IoIosTimer } from "react-icons/io";
-import { FaGear, FaGem, FaList, FaReadme, FaWater } from "react-icons/fa6";
+import { FaGear, FaGem, FaReadme, FaWater } from "react-icons/fa6";
 import { useTheme } from "next-themes";
 import EditConfig, { EditConfigSkeleton } from "./sidebar/EditConfig";
 import { usePathname, useRouter } from "next/navigation";
@@ -74,7 +73,6 @@ import { usePomo } from "@/hooks/PomoContext";
 const items = [
   { title: "Home", url: "/", icon: <FaHome /> },
   { title: "Focus", url: "/focus", icon: <IoIosTimer /> },
-  { title: "Todo", url: "/todo", icon: <FaList /> }, // NEW: Dedicated Todo page
   { title: "Changelog", url: "/changelog", icon: <FaReadme /> },
 ];
 

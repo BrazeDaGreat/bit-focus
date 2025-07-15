@@ -8,7 +8,6 @@
  * Database Schema:
  * - Configuration: User settings and preferences
  * - Focus: Focus session tracking and analytics
- * - Tasks: Enhanced task management with priority levels and completion tracking
  * - Notes: Document and board-style note storage
  *
  * Features:
@@ -32,7 +31,7 @@
  * @fileoverview Database schema and configuration for local data storage
  * @author BIT Focus Development Team
  * @since v0.1.0-alpha
- * @updated v0.7.1-alpha - Added priority field and subtask completion tracking
+ * @updated v0.8.2-alpha
  */
 
 import Dexie from "dexie";
@@ -77,29 +76,6 @@ class BitFocusDB extends Dexie {
    */
   focus: Dexie.Table<
     { id?: number; tag: string; startTime: Date; endTime: Date },
-    number
-  >;
-
-  /**
-   * Tasks Table (Enhanced with Completion Tracking)
-   *
-   * Stores task and todo items with subtasks, due dates, priority levels,
-   * completion tracking, and categorization. Indexed on duedate, tags,
-   * priority, and completed status for efficient task management queries.
-   *
-   * @type {Dexie.Table<TaskRecord, number>}
-   */
-  tasks: Dexie.Table<
-    {
-      id?: number;
-      task: string;
-      subtasks: string[];
-      duedate: Date;
-      tags: string[];
-      priority: number; // 1-4, with 1 being default (lowest priority)
-      completed: boolean; // Overall task completion status
-      completedSubtasks: boolean[]; // Individual subtask completion states
-    },
     number
   >;
 
@@ -199,7 +175,6 @@ class BitFocusDB extends Dexie {
     // Table reference assignment for type safety
     this.configuration = this.table("configuration");
     this.focus = this.table("focus");
-    this.tasks = this.table("tasks");
     this.notes = this.table("notes");
   }
 }

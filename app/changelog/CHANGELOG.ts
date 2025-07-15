@@ -12,6 +12,10 @@ const CHANGELOG = `
 ### \`v0.8.1-alpha\` (2025-07-03)
 - Bumped \`package.json\` version.
 - Better webhook messages support with the new Todo functionality.
+### \`v0.8.2-alpha\` (2025-07-15)
+- Removed Todo functionality.
+- Removed all instances of UI related to Todo.
+- Removed \`/todo\`.
 ***
 
 ## \`v0.7.0-alpha\` (2025-07-03)
