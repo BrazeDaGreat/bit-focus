@@ -419,8 +419,9 @@ export const useProjects = create<ProjectsState>((set, get) => ({
 
     const milestones = state.getMilestonesForProject(id);
     const totalBudget = milestones.reduce((sum, m) => sum + m.budget, 0);
+
     const progress = milestones.length > 0 
-      ? milestones.reduce((sum, m) => sum + m.progress, 0) / milestones.length 
+      ? milestones.reduce((sum, m) => sum + (m.status === "Closed" ? 100 : m.progress), 0) / milestones.length
       : 0;
 
     return {
@@ -450,7 +451,9 @@ export const useProjects = create<ProjectsState>((set, get) => ({
       const issues = state.issues.filter((i) => i.milestoneId === milestone.id);
       const completedIssues = issues.filter((i) => i.status === "Close").length;
       const totalIssues = issues.length;
-      const progress = totalIssues > 0 ? Math.round((completedIssues / totalIssues) * 100) : 0;
+
+      let progress = totalIssues > 0 ? Math.round((completedIssues / totalIssues) * 100) : 0;
+      if (milestone.status === "Closed") progress = 100;
 
       return {
         ...milestone,
