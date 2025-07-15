@@ -12,6 +12,8 @@ const CHANGELOG = `
 - Added markdown support for project notes.
 ### \`v0.9.2-alpha\` (2025-07-15)
 - Removed \`useTask.ts\` hook.
+- Removed \`QuickTaskAdd.tsx\` component.
+- Removed \`TaskView.tsx\` component.
 
 ## \`v0.8.0-alpha\` (2025-07-03)
 ### Added
