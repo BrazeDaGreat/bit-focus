@@ -100,7 +100,7 @@ import {
   IssueLabel,
 } from "@/hooks/useProjects";
 import { useConfig } from "@/hooks/useConfig";
-import { cn, formatNumber } from "@/lib/utils";
+import { cn, formatDate, formatNumber, getCurrencySymbol } from "@/lib/utils";
 import StatusBadge from "../StatusBadge";
 import Markdown from "react-markdown";
 
@@ -469,22 +469,6 @@ function MilestoneCard({
   const { deleteMilestone } = useProjects();
 
   /**
-   * Gets currency symbol based on configuration
-   */
-  const getCurrencySymbol = (curr: string) => {
-    switch (curr) {
-      case "USD":
-        return "$";
-      case "AED":
-        return "د.إ";
-      case "PKR":
-        return "₨";
-      default:
-        return "$";
-    }
-  };
-
-  /**
    * Handles milestone deletion with confirmation
    */
   const handleDelete = async () => {
@@ -550,7 +534,12 @@ function MilestoneCard({
           </div>
           <div className="flex items-center gap-2">
             <FaClock className="text-muted-foreground" />
-            <span>Due {new Date(milestone.deadline).toLocaleDateString()}</span>
+            <span>
+              {milestone.deadline 
+                ? `Due ${formatDate(milestone.deadline)}`
+                : "No deadline"
+              }
+            </span>
           </div>
         </div>
 
@@ -647,9 +636,11 @@ function IssueItem({ issue }: { issue: Issue }): JSX.Element {
             {issue.description}
           </p>
         )}
-        <p className="text-xs text-muted-foreground">
-          Due: {new Date(issue.dueDate).toLocaleDateString()}
-        </p>
+        {issue.dueDate && (
+          <p className="text-xs text-muted-foreground">
+            Due: {formatDate(issue.dueDate)}
+          </p>
+        )}
       </div>
       <div className="flex items-center gap-1">
         <Button
@@ -705,8 +696,8 @@ function CreateMilestoneDialog({
    * Handles milestone creation form submission
    */
   const handleSubmit = async () => {
-    if (!title.trim() || !deadline || !budget) {
-      toast.error("Please fill in all required fields");
+    if (!title.trim() || !budget) {
+      toast.error("Please fill in title and budget");
       return;
     }
 
@@ -716,7 +707,7 @@ function CreateMilestoneDialog({
         projectId,
         title.trim(),
         status,
-        new Date(deadline),
+        deadline ? new Date(deadline) : undefined,
         parseFloat(budget)
       );
       toast.success("Milestone created successfully!");
@@ -778,7 +769,7 @@ function CreateMilestoneDialog({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="milestone-deadline">Deadline *</Label>
+              <Label htmlFor="milestone-deadline">Deadline</Label>
               <Input
                 id="milestone-deadline"
                 type="date"
@@ -839,8 +830,8 @@ function CreateIssueDialog({
    * Handles issue creation form submission
    */
   const handleSubmit = async () => {
-    if (!title.trim() || !dueDate) {
-      toast.error("Please fill in title and due date");
+    if (!title.trim()) {
+      toast.error("Please fill in the title");
       return;
     }
 
@@ -850,7 +841,7 @@ function CreateIssueDialog({
         milestoneId,
         title.trim(),
         label,
-        new Date(dueDate),
+        dueDate ? new Date(dueDate) : undefined,
         description.trim()
       );
       toast.success("Issue created successfully!");
@@ -912,7 +903,7 @@ function CreateIssueDialog({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="issue-dueDate">Due Date *</Label>
+              <Label htmlFor="issue-dueDate">Due Date</Label>
               <Input
                 id="issue-dueDate"
                 type="date"
@@ -1153,7 +1144,7 @@ function EditIssueDialog({ issue }: { issue: Issue }): JSX.Element {
   const [title, setTitle] = useState(issue.title);
   const [label, setLabel] = useState<IssueLabel>(issue.label as IssueLabel);
   const [dueDate, setDueDate] = useState(
-    issue.dueDate.toISOString().split("T")[0]
+    issue.dueDate ? issue.dueDate.toISOString().split("T")[0] : ""
   );
   const [description, setDescription] = useState(issue.description);
   const [status, setStatus] = useState(issue.status);
@@ -1164,20 +1155,27 @@ function EditIssueDialog({ issue }: { issue: Issue }): JSX.Element {
    * Handles form submission for issue updates
    */
   const handleSave = async () => {
-    if (!title.trim() || !dueDate) {
-      toast.error("Title and due date are required");
+    if (!title.trim()) {
+      toast.error("Title is required");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await updateIssue(issue.id!, {
+      const updateData: Partial<Issue> = {
         title: title.trim(),
         label,
-        dueDate: new Date(dueDate),
         description: description.trim(),
         status,
-      });
+      };
+      
+      if (dueDate) {
+        updateData.dueDate = new Date(dueDate);
+      } else {
+        updateData.dueDate = undefined;
+      }
+
+      await updateIssue(issue.id!, updateData);
       toast.success("Issue updated successfully!");
       setIsOpen(false);
     } catch (error) {
@@ -1196,7 +1194,7 @@ function EditIssueDialog({ issue }: { issue: Issue }): JSX.Element {
     if (open) {
       setTitle(issue.title);
       setLabel(issue.label as IssueLabel);
-      setDueDate(issue.dueDate.toISOString().split("T")[0]);
+      setDueDate(issue.dueDate ? issue.dueDate.toISOString().split("T")[0] : "");
       setDescription(issue.description);
       setStatus(issue.status);
     }
@@ -1247,7 +1245,7 @@ function EditIssueDialog({ issue }: { issue: Issue }): JSX.Element {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-issue-dueDate">Due Date *</Label>
+              <Label htmlFor="edit-issue-dueDate">Due Date</Label>
               <Input
                 id="edit-issue-dueDate"
                 type="date"
@@ -1314,7 +1312,7 @@ function EditMilestoneDialog({
   const [title, setTitle] = useState(milestone.title);
   const [status, setStatus] = useState(milestone.status);
   const [deadline, setDeadline] = useState(
-    milestone.deadline.toISOString().split("T")[0]
+    milestone.deadline ? milestone.deadline.toISOString().split("T")[0] : ""
   );
   const [budget, setBudget] = useState(milestone.budget.toString());
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1324,8 +1322,8 @@ function EditMilestoneDialog({
    * Handles form submission for milestone updates
    */
   const handleSave = async () => {
-    if (!title.trim() || !deadline || !budget) {
-      toast.error("Please fill in all required fields");
+    if (!title.trim() || !budget) {
+      toast.error("Please fill in title and budget");
       return;
     }
 
@@ -1337,12 +1335,19 @@ function EditMilestoneDialog({
 
     setIsSubmitting(true);
     try {
-      await updateMilestone(milestone.id!, {
+      const updateData: Partial<Milestone> = {
         title: title.trim(),
         status,
-        deadline: new Date(deadline),
         budget: budgetValue,
-      });
+      };
+      
+      if (deadline) {
+        updateData.deadline = new Date(deadline);
+      } else {
+        updateData.deadline = undefined;
+      }
+
+      await updateMilestone(milestone.id!, updateData);
       toast.success("Milestone updated successfully!");
       setIsOpen(false);
     } catch (error) {
@@ -1361,7 +1366,7 @@ function EditMilestoneDialog({
     if (open) {
       setTitle(milestone.title);
       setStatus(milestone.status);
-      setDeadline(milestone.deadline.toISOString().split("T")[0]);
+      setDeadline(milestone.deadline ? milestone.deadline.toISOString().split("T")[0] : "");
       setBudget(milestone.budget.toString());
     }
   };
@@ -1411,7 +1416,7 @@ function EditMilestoneDialog({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-milestone-deadline">Deadline *</Label>
+              <Label htmlFor="edit-milestone-deadline">Deadline</Label>
               <Input
                 id="edit-milestone-deadline"
                 type="date"

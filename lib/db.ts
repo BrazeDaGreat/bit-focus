@@ -101,7 +101,7 @@ class BitFocusDB extends Dexie {
       projectId: number;
       title: string;
       status: "Scheduled" | "Active" | "Closed";
-      deadline: Date;
+      deadline?: Date;
       budget: number;
       createdAt: Date;
       updatedAt: Date;
@@ -118,7 +118,7 @@ class BitFocusDB extends Dexie {
       milestoneId: number;
       title: string;
       label: string;
-      dueDate: Date;
+      dueDate?: Date;
       status: "Open" | "Close";
       description: string;
       createdAt: Date;
