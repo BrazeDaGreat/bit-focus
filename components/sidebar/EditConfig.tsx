@@ -156,7 +156,7 @@ const EditConfig = () => {
               </span>
             )}
 
-            <Label className="text-xs opacity-90" htmlFor="name">
+            <Label className="text-xs opacity-90" htmlFor="webhook">
               Webhook URL
             </Label>
             <Input
