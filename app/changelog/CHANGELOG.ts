@@ -1,4 +1,4 @@
-export const VERSION = "v0.9.4-alpha";
+export const VERSION = "v0.9.5-alpha";
 
 const CHANGELOG = `
 ## \`v0.9.0-alpha\` (2025-07-15)
@@ -28,6 +28,11 @@ const CHANGELOG = `
 - Refactor: Milestone information appears above the Progress bar, as compared to below.
 - Refactor: Progress bar colors are now accent and accent-foreground.
 - Removed: package-lock.json
+### \`v0.9.5-alpha\` (2025-07-17)
+- Refactor: Due Dates are now optional for Milestones and Issues.
+- Refactor: Changed Dirham's symbol to \`Dh\` until the new symbol is unicode-supported.
+- Added: A single \`getCurrencySymbol()\` function in \`utils.ts\`.
+- Added: New \`formatDate()\` function in \`utils.ts\`, due dates now show up in a more readable format.
 ***
 
 ## \`v0.8.0-alpha\` (2025-07-03)

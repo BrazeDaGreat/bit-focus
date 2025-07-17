@@ -9,10 +9,11 @@
  * Categories:
  * - CSS Class Management: Utility for merging and managing Tailwind classes
  * - Time Calculations: Functions for computing time differences and durations
- * - Time Formatting: Multiple formatting options for displaying time data
  * - Color Generation: Deterministic color generation from strings
  * - Data Processing: Focus session aggregation and analysis
  * - Tag Management: Color management for categorization tags
+ * - Currency Management: Currency symbol management
+ * - Formatting: Time, Numbers, Dates.
  *
  * Key Features:
  * - Type-safe time calculations with multiple output formats
@@ -569,10 +570,9 @@ export function getTagColor(
   return stringToHexColor(tag, alpha);
 }
 
-
 /**
  * @deprecated use `Number.toLocaleString();` instead
- * 
+ *
  * Format Number with Commas
  *
  * Takes a number and returns a string with commas for better readability
@@ -593,4 +593,74 @@ export function getTagColor(
  */
 export function formatNumber(num: number): string {
   return num.toLocaleString();
+}
+
+/**
+ * Gets currency symbol based on configuration
+ *
+ * This function takes a currency code and returns the corresponding
+ * currency symbol. The function uses a switch statement to map the
+ * currency code to the symbol. If no match is found, the function
+ * returns the default symbol, which is the dollar sign.
+ *
+ * @param {string} currency - The currency code
+ * @returns {string} The currency symbol
+ *
+ * @example
+ * ```typescript
+ * getCurrencySymbol("USD")
+ * // Returns: "$"
+ * getCurrencySymbol("AED")
+ * // Returns: "د.إ"
+ * getCurrencySymbol("PKR")
+ * // Returns: "₨"
+ * ```
+ *
+ * @see {@link https://en.wikipedia.org/wiki/Currency_symbol} for currency symbols
+ */
+export function getCurrencySymbol(currency: string): string {
+  switch (currency) {
+    case "USD":
+      return "$";
+    case "AED":
+      return "Dh";
+    case "PKR":
+      return "₨";
+    default:
+      return "$";
+  }
+}
+
+
+/**
+ * Formats a JavaScript Date object into a string with the format "DDod MMM, YY".
+ * Example output: "27th Jun, 25"
+ *
+ * - Day is zero-padded if needed (01-31)
+ * - Day suffix is added (st, nd, rd, th)
+ * - Month is abbreviated to 3 letters (e.g., Jan, Feb, Mar)
+ * - Year is two digits
+ *
+ * @param {Date} date - The Date object to format.
+ * @returns {string} The formatted date string.
+ */
+export function formatDate(date: Date): string {
+  const day = date.getDate();
+  const month = date.toLocaleString('en-US', { month: 'short' });
+  const year = date.getFullYear().toString().slice(-2);
+
+  const getDaySuffix = (day: number): string => {
+    if (day >= 11 && day <= 13) return 'th';
+    switch (day % 10) {
+      case 1: return 'st';
+      case 2: return 'nd';
+      case 3: return 'rd';
+      default: return 'th';
+    }
+  };
+
+  const daySuffix = getDaySuffix(day);
+  const dayStr = `${day}${daySuffix}`;
+
+  return `${dayStr} ${month}, ${year}`;
 }

@@ -68,8 +68,8 @@ export interface Milestone {
   title: string;
   /** Milestone status */
   status: "Scheduled" | "Active" | "Closed";
-  /** Milestone deadline */
-  deadline: Date;
+  /** Milestone deadline (optional) */
+  deadline?: Date;
   /** Budget amount (in preferred currency) */
   budget: number;
   /** Creation timestamp */
@@ -77,6 +77,7 @@ export interface Milestone {
   /** Last update timestamp */
   updatedAt: Date;
 }
+
 
 /**
  * Issue Data Interface
@@ -90,8 +91,8 @@ export interface Issue {
   title: string;
   /** Issue label from predefined list */
   label: string;
-  /** Issue due date */
-  dueDate: Date;
+  /** Issue due date (optional) */
+  dueDate?: Date;
   /** Issue status */
   status: "Open" | "Close";
   /** Issue description */
@@ -173,7 +174,7 @@ interface ProjectsState {
     projectId: number,
     title: string,
     status: Milestone["status"],
-    deadline: Date,
+    deadline: Date | undefined,
     budget: number
   ) => Promise<void>;
   /** Update an existing milestone */
@@ -187,7 +188,7 @@ interface ProjectsState {
     milestoneId: number,
     title: string,
     label: string,
-    dueDate: Date,
+    dueDate: Date | undefined,
     description: string
   ) => Promise<void>;
   /** Update an existing issue */
@@ -301,15 +302,17 @@ export const useProjects = create<ProjectsState>((set, get) => ({
    */
   addMilestone: async (projectId, title, status, deadline, budget) => {
     const now = new Date();
-    const id = await db.milestones.add({
+    const milestoneData = {
       projectId,
       title,
       status,
-      deadline,
       budget,
       createdAt: now,
       updatedAt: now,
-    });
+      ...(deadline && { deadline })
+    };
+    
+    const id = await db.milestones.add(milestoneData);
 
     set((state) => ({
       milestones: [
@@ -355,16 +358,18 @@ export const useProjects = create<ProjectsState>((set, get) => ({
    */
   addIssue: async (milestoneId, title, label, dueDate, description) => {
     const now = new Date();
-    const id = await db.issues.add({
+    const issueData = {
       milestoneId,
       title,
       label,
-      dueDate,
-      status: "Open",
+      status: "Open" as "Open" | "Close",
       description,
       createdAt: now,
       updatedAt: now,
-    });
+      ...(dueDate && { dueDate })
+    };
+    
+    const id = await db.issues.add(issueData);
 
     set((state) => ({
       issues: [
@@ -375,7 +380,7 @@ export const useProjects = create<ProjectsState>((set, get) => ({
           title,
           label,
           dueDate,
-          status: "Open",
+          status: "Open" as "Open" | "Close",
           description,
           createdAt: now,
           updatedAt: now,
@@ -383,7 +388,6 @@ export const useProjects = create<ProjectsState>((set, get) => ({
       ],
     }));
   },
-
   /**
    * Update Issue
    */

@@ -69,7 +69,7 @@ import {
 import { useProjects, type Project } from "@/hooks/useProjects";
 import { useConfig } from "@/hooks/useConfig";
 import StatusBadge from "./StatusBadge";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, getCurrencySymbol } from "@/lib/utils";
 
 /**
  * Project Card Component
@@ -84,19 +84,6 @@ import { formatNumber } from "@/lib/utils";
 function ProjectCard({ project }: { project: any }): JSX.Element {
   const router = useRouter();
   const { currency } = useConfig();
-
-  const getCurrencySymbol = (curr: string) => {
-    switch (curr) {
-      case "USD":
-        return "$";
-      case "AED":
-        return "د.إ";
-      case "PKR":
-        return "₨";
-      default:
-        return "$";
-    }
-  };
 
   return (
     <Card
