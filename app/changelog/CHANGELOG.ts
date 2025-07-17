@@ -1,4 +1,4 @@
-export const VERSION = "v0.9.3-alpha";
+export const VERSION = "v0.9.4-alpha";
 
 const CHANGELOG = `
 ## \`v0.9.0-alpha\` (2025-07-15)
@@ -18,6 +18,17 @@ const CHANGELOG = `
 - A closed milestone is now counted as 100% progress.
 - Issues can now be edited.
 - Milestones can now be edited.
+### \`v0.9.4-alpha\` (2025-07-17)
+- Fixed: The page re-renders upon any state change.
+- Fixed: Edit Milestone dialog box doesn't stay open.
+- Fixed: Webhook Label points to the name field.
+- Fixed: Edit Issue crashes the website.
+- Refactor: Milestones appear in a grid now.
+- Refactor: Currency symbol replaces hardcoded Dollar icon.
+- Refactor: Milestone information appears above the Progress bar, as compared to below.
+- Refactor: Progress bar colors are now accent and accent-foreground.
+- Removed: package-lock.json
+***
 
 ## \`v0.8.0-alpha\` (2025-07-03)
 ### Added

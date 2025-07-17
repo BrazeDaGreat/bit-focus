@@ -23,7 +23,7 @@
  * @fileoverview Individual project management interface with enhanced editing
  * @author BIT Focus Development Team
  * @since v0.9.0-alpha
- * @updated v0.9.1-alpha - Separated project editing and notes management
+ * @updated v0.9.4-alpha - Fixed state management and dialog issues
  */
 
 "use client";
@@ -112,16 +112,9 @@ import Markdown from "react-markdown";
  *
  * @param {Object} props - Component props
  * @param {Project} props.project - Project data to edit
- * @param {function} props.onUpdate - Callback function after successful update
  * @returns {JSX.Element} Project edit dialog
  */
-function ProjectEditDialog({
-  project,
-  onUpdate,
-}: {
-  project: Project;
-  onUpdate: () => void;
-}): JSX.Element {
+function ProjectEditDialog({ project }: { project: Project }): JSX.Element {
   const [isOpen, setIsOpen] = useState(false);
   const [title, setTitle] = useState(project.title);
   const [status, setStatus] = useState(project.status);
@@ -148,7 +141,6 @@ function ProjectEditDialog({
       });
       toast.success("Project updated successfully!");
       setIsOpen(false);
-      onUpdate();
     } catch (error) {
       console.error("Failed to update project:", error);
       toast.error("Failed to update project");
@@ -247,16 +239,9 @@ function ProjectEditDialog({
  *
  * @param {Object} props - Component props
  * @param {Project} props.project - Project data containing notes
- * @param {function} props.onUpdate - Callback function after successful update
  * @returns {JSX.Element} Project notes drawer
  */
-function ProjectNotesDrawer({
-  project,
-  onUpdate,
-}: {
-  project: Project;
-  onUpdate: () => void;
-}): JSX.Element {
+function ProjectNotesDrawer({ project }: { project: Project }): JSX.Element {
   const [isOpen, setIsOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [notes, setNotes] = useState(project.notes);
@@ -272,7 +257,6 @@ function ProjectNotesDrawer({
       await updateProject(project.id!, { notes: notes.trim() });
       toast.success("Notes updated successfully!");
       setIsEditing(false);
-      onUpdate();
     } catch (error) {
       console.error("Failed to update notes:", error);
       toast.error("Failed to update notes");
@@ -398,16 +382,9 @@ function ProjectNotesDrawer({
  *
  * @param {Object} props - Component props
  * @param {Project} props.project - Project data to display
- * @param {function} props.onUpdate - Callback function after updates
  * @returns {JSX.Element} Project header with action controls
  */
-function ProjectHeader({
-  project,
-  onUpdate,
-}: {
-  project: Project;
-  onUpdate: () => void;
-}): JSX.Element {
+function ProjectHeader({ project }: { project: Project }): JSX.Element {
   const router = useRouter();
   const { deleteProject } = useProjects();
 
@@ -453,7 +430,7 @@ function ProjectHeader({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <ProjectNotesDrawer project={project} onUpdate={onUpdate} />
+          <ProjectNotesDrawer project={project} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon">
@@ -461,7 +438,7 @@ function ProjectHeader({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <ProjectEditDialog project={project} onUpdate={onUpdate} />
+              <ProjectEditDialog project={project} />
               <DropdownMenuItem onClick={handleDelete} className="text-red-600">
                 <FaTrash className="mr-2" />
                 Delete Project
@@ -481,15 +458,12 @@ function ProjectHeader({
  *
  * @param {Object} props - Component props
  * @param {MilestoneWithProgress} props.milestone - Milestone data with progress
- * @param {function} props.onUpdate - Callback function after updates
  * @returns {JSX.Element} Milestone card with management controls
  */
 function MilestoneCard({
   milestone,
-  onUpdate,
 }: {
   milestone: MilestoneWithProgress;
-  onUpdate: () => void;
 }): JSX.Element {
   const { currency } = useConfig();
   const { deleteMilestone } = useProjects();
@@ -525,7 +499,6 @@ function MilestoneCard({
     try {
       await deleteMilestone(milestone.id!);
       toast.success("Milestone deleted successfully!");
-      onUpdate();
     } catch (error) {
       console.error("Failed to delete milestone:", error);
       toast.error("Failed to delete milestone");
@@ -559,9 +532,7 @@ function MilestoneCard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem>
-                <EditMilestoneDialog milestone={milestone} onUpdate={onUpdate} />
-              </DropdownMenuItem>
+              <EditMilestoneDialog milestone={milestone} />
               <DropdownMenuItem onClick={handleDelete} className="text-red-600">
                 <FaTrash className="mr-2" />
                 Delete Milestone
@@ -571,6 +542,18 @@ function MilestoneCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Info Grid */}
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="flex items-center gap-2">
+            {getCurrencySymbol(currency)}
+            <span>{formatNumber(milestone.budget)}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <FaClock className="text-muted-foreground" />
+            <span>Due {new Date(milestone.deadline).toLocaleDateString()}</span>
+          </div>
+        </div>
+
         {/* Progress */}
         <div>
           <div className="flex justify-between text-sm mb-1">
@@ -580,32 +563,18 @@ function MilestoneCard({
               {milestone.totalIssues})
             </span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="w-full bg-accent rounded-full h-2">
             <div
-              className="bg-blue-600 h-2 rounded-full transition-all"
+              className="bg-accent-foreground h-2 rounded-full transition-all"
               style={{ width: `${milestone.progress}%` }}
             />
           </div>
         </div>
 
-        {/* Info Grid */}
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div className="flex items-center gap-2">
-            <FaClock className="text-muted-foreground" />
-            <span>Due {new Date(milestone.deadline).toLocaleDateString()}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <FaDollarSign className="text-muted-foreground" />
-            <span>
-              {getCurrencySymbol(currency)} {formatNumber(milestone.budget)}
-            </span>
-          </div>
-        </div>
-
         {/* Issues Toggle */}
         <div className="flex items-center justify-between">
-          <IssuesDrawer milestone={milestone} onUpdate={onUpdate} />
-          <CreateIssueDialog milestoneId={milestone.id!} onUpdate={onUpdate} />
+          <IssuesDrawer milestone={milestone} />
+          <CreateIssueDialog milestoneId={milestone.id!} />
         </div>
       </CardContent>
     </Card>
@@ -619,16 +588,9 @@ function MilestoneCard({
  *
  * @param {Object} props - Component props
  * @param {Issue} props.issue - Issue data to display
- * @param {function} props.onUpdate - Callback function after updates
  * @returns {JSX.Element} Issue item with management controls
  */
-function IssueItem({
-  issue,
-  onUpdate,
-}: {
-  issue: Issue;
-  onUpdate: () => void;
-}): JSX.Element {
+function IssueItem({ issue }: { issue: Issue }): JSX.Element {
   const { updateIssue, deleteIssue } = useProjects();
 
   /**
@@ -638,7 +600,6 @@ function IssueItem({
     const newStatus = issue.status === "Open" ? "Close" : "Open";
     try {
       await updateIssue(issue.id!, { status: newStatus });
-      onUpdate();
     } catch (error) {
       console.error("Failed to update issue status:", error);
       toast.error("Failed to update issue status");
@@ -654,7 +615,6 @@ function IssueItem({
     try {
       await deleteIssue(issue.id!);
       toast.success("Issue deleted successfully!");
-      onUpdate();
     } catch (error) {
       console.error("Failed to delete issue:", error);
       toast.error("Failed to delete issue");
@@ -707,9 +667,7 @@ function IssueItem({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            <DropdownMenuItem>
-              <EditIssueDialog issue={issue} onUpdate={onUpdate} />
-            </DropdownMenuItem>
+            <EditIssueDialog issue={issue} />
             <DropdownMenuItem onClick={handleDelete} className="text-red-600">
               <FaTrash className="mr-2 h-3 w-3" />
               Delete Issue
@@ -728,15 +686,12 @@ function IssueItem({
  *
  * @param {Object} props - Component props
  * @param {number} props.projectId - ID of the parent project
- * @param {function} props.onUpdate - Callback function after creation
  * @returns {JSX.Element} Milestone creation dialog
  */
 function CreateMilestoneDialog({
   projectId,
-  onUpdate,
 }: {
   projectId: number;
-  onUpdate: () => void;
 }): JSX.Element {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -770,7 +725,6 @@ function CreateMilestoneDialog({
       setStatus("Scheduled");
       setDeadline("");
       setBudget("");
-      onUpdate();
     } catch (error) {
       console.error("Failed to create milestone:", error);
       toast.error("Failed to create milestone");
@@ -866,15 +820,12 @@ function CreateMilestoneDialog({
  *
  * @param {Object} props - Component props
  * @param {number} props.milestoneId - ID of the parent milestone
- * @param {function} props.onUpdate - Callback function after creation
  * @returns {JSX.Element} Issue creation dialog
  */
 function CreateIssueDialog({
   milestoneId,
-  onUpdate,
 }: {
   milestoneId: number;
-  onUpdate: () => void;
 }): JSX.Element {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -908,7 +859,6 @@ function CreateIssueDialog({
       setLabel(ISSUE_LABELS[0]);
       setDueDate("");
       setDescription("");
-      onUpdate();
     } catch (error) {
       console.error("Failed to create issue:", error);
       toast.error("Failed to create issue");
@@ -998,8 +948,8 @@ function CreateIssueDialog({
 /**
  * Main Project Detail Page Component
  *
- * Renders the complete project management interface with separated
- * editing controls for project details and notes.
+ * Renders the complete project management interface with reactive
+ * state management that doesn't cause unnecessary re-renders.
  *
  * @returns {JSX.Element} Complete project detail page
  */
@@ -1010,20 +960,11 @@ export default function ProjectDetailPage(): JSX.Element {
 
   const { getProjectWithStats, loadProjects, loadingProjects } = useProjects();
 
-  const [refreshKey, setRefreshKey] = useState(0);
-
   useEffect(() => {
     loadProjects();
-  }, [loadProjects, refreshKey]);
+  }, [loadProjects]);
 
   const project = getProjectWithStats(projectId);
-
-  /**
-   * Triggers component refresh after data updates
-   */
-  const handleUpdate = () => {
-    setRefreshKey((prev) => prev + 1);
-  };
 
   if (loadingProjects) {
     return (
@@ -1056,7 +997,7 @@ export default function ProjectDetailPage(): JSX.Element {
   return (
     <div className="flex-1 p-8 space-y-8">
       {/* Project Header */}
-      <ProjectHeader project={project} onUpdate={handleUpdate} />
+      <ProjectHeader project={project} />
 
       {/* Project Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1067,9 +1008,9 @@ export default function ProjectDetailPage(): JSX.Element {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{project.progress}%</div>
-            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+            <div className="w-full bg-accent rounded-full h-2 mt-2">
               <div
-                className="bg-blue-600 h-2 rounded-full transition-all"
+                className="bg-accent-foreground h-2 rounded-full transition-all"
                 style={{ width: `${project.progress}%` }}
               />
             </div>
@@ -1098,7 +1039,9 @@ export default function ProjectDetailPage(): JSX.Element {
             <FaDollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatNumber(project.totalBudget)}</div>
+            <div className="text-2xl font-bold">
+              {formatNumber(project.totalBudget)}
+            </div>
             <p className="text-xs text-muted-foreground">
               Across all milestones
             </p>
@@ -1115,10 +1058,7 @@ export default function ProjectDetailPage(): JSX.Element {
               Track progress with milestones and issues
             </p>
           </div>
-          <CreateMilestoneDialog
-            projectId={projectId}
-            onUpdate={handleUpdate}
-          />
+          <CreateMilestoneDialog projectId={projectId} />
         </div>
 
         {project.milestones.length === 0 ? (
@@ -1132,13 +1072,9 @@ export default function ProjectDetailPage(): JSX.Element {
             </CardDescription>
           </Card>
         ) : (
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
             {project.milestones.map((milestone) => (
-              <MilestoneCard
-                key={milestone.id}
-                milestone={milestone}
-                onUpdate={handleUpdate}
-              />
+              <MilestoneCard key={milestone.id} milestone={milestone} />
             ))}
           </div>
         )}
@@ -1158,10 +1094,8 @@ export default function ProjectDetailPage(): JSX.Element {
  */
 function IssuesDrawer({
   milestone,
-  onUpdate,
 }: {
   milestone: MilestoneWithProgress;
-  onUpdate: () => void;
 }): JSX.Element {
   const [isOpen, setIsOpen] = useState(false);
   const { getIssuesForMilestone } = useProjects();
@@ -1178,10 +1112,7 @@ function IssuesDrawer({
         <SheetHeader>
           <SheetTitle className="flex items-center justify-between">
             <span>Issues - {milestone.title}</span>
-            <CreateIssueDialog
-              milestoneId={milestone.id!}
-              onUpdate={onUpdate}
-            />
+            <CreateIssueDialog milestoneId={milestone.id!} />
           </SheetTitle>
           <SheetDescription>
             Manage issues within this milestone. Track progress and completion
@@ -1201,7 +1132,7 @@ function IssuesDrawer({
           ) : (
             <div className="space-y-3">
               {issues.map((issue) => (
-                <IssueItem key={issue.id} issue={issue} onUpdate={onUpdate} />
+                <IssueItem key={issue.id} issue={issue} />
               ))}
             </div>
           )}
@@ -1217,13 +1148,7 @@ function IssuesDrawer({
  * Provides a modal interface for editing existing issues.
  * Allows modification of title, label, due date, description, and status.
  */
-function EditIssueDialog({
-  issue,
-  onUpdate,
-}: {
-  issue: Issue;
-  onUpdate: () => void;
-}): JSX.Element {
+function EditIssueDialog({ issue }: { issue: Issue }): JSX.Element {
   const [isOpen, setIsOpen] = useState(false);
   const [title, setTitle] = useState(issue.title);
   const [label, setLabel] = useState<IssueLabel>(issue.label as IssueLabel);
@@ -1255,7 +1180,6 @@ function EditIssueDialog({
       });
       toast.success("Issue updated successfully!");
       setIsOpen(false);
-      onUpdate();
     } catch (error) {
       console.error("Failed to update issue:", error);
       toast.error("Failed to update issue");
@@ -1282,7 +1206,8 @@ function EditIssueDialog({
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-          <EditIssueDialog issue={issue} onUpdate={onUpdate} />
+          <FaEdit className="mr-2" />
+          Edit Issue
         </DropdownMenuItem>
       </DialogTrigger>
       <DialogContent>
@@ -1382,10 +1307,8 @@ function EditIssueDialog({
  */
 function EditMilestoneDialog({
   milestone,
-  onUpdate,
 }: {
   milestone: MilestoneWithProgress;
-  onUpdate: () => void;
 }): JSX.Element {
   const [isOpen, setIsOpen] = useState(false);
   const [title, setTitle] = useState(milestone.title);
@@ -1422,7 +1345,6 @@ function EditMilestoneDialog({
       });
       toast.success("Milestone updated successfully!");
       setIsOpen(false);
-      onUpdate();
     } catch (error) {
       console.error("Failed to update milestone:", error);
       toast.error("Failed to update milestone");
@@ -1474,7 +1396,9 @@ function EditMilestoneDialog({
               <Label>Status</Label>
               <Select
                 value={status}
-                onValueChange={(value) => setStatus(value as Milestone["status"])}
+                onValueChange={(value) =>
+                  setStatus(value as Milestone["status"])
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
