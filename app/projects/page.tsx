@@ -32,10 +32,10 @@ import { useTheme } from "next-themes";
 import { toast, Toaster } from "sonner";
 import {
   FaPlus,
-  FaProjectDiagram,
   FaClock,
-  FaDollarSign,
+  FaProjectDiagram,
 } from "react-icons/fa";
+import { VscSourceControl } from "react-icons/vsc";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -115,15 +115,12 @@ function ProjectCard({ project }: { project: any }): JSX.Element {
           {/* Statistics */}
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div className="flex items-center gap-2">
-              <FaProjectDiagram className="text-muted-foreground" />
+              <VscSourceControl className="text-muted-foreground" />
               <span>v{project.version}</span>
             </div>
             <div className="flex items-center gap-2">
-              <FaDollarSign className="text-muted-foreground" />
-              <span>
-                {getCurrencySymbol(currency)}
-                {formatNumber(project.totalBudget)}
-              </span>
+              {getCurrencySymbol(currency)}
+              <span>{formatNumber(project.totalBudget)}</span>
             </div>
           </div>
 
