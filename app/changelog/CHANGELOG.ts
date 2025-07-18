@@ -1,4 +1,4 @@
-export const VERSION = "v0.9.5-alpha";
+export const VERSION = "v0.9.6-alpha";
 
 const CHANGELOG = `
 ## \`v0.9.0-alpha\` (2025-07-15)
@@ -33,6 +33,10 @@ const CHANGELOG = `
 - Refactor: Changed Dirham's symbol to \`Dh\` until the new symbol is unicode-supported.
 - Added: A single \`getCurrencySymbol()\` function in \`utils.ts\`.
 - Added: New \`formatDate()\` function in \`utils.ts\`, due dates now show up in a more readable format.
+### \`v0.9.6-alpha\`
+- Refactor: Changed icon for version.
+- Refactor: Project's page budget also uses the currency symbol now, instead of dollar icon.
+- Refactor: Issue sheet redesign, now looks much better.
 ***
 
 ## \`v0.8.0-alpha\` (2025-07-03)

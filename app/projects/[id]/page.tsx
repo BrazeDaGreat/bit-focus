@@ -32,6 +32,7 @@ import { useEffect, useState, type JSX } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { toast, Toaster } from "sonner";
+import { GoDotFill } from "react-icons/go";
 import {
   FaArrowLeft,
   FaEdit,
@@ -40,9 +41,10 @@ import {
   FaClock,
   FaDollarSign,
   FaFlag,
-  FaCheckCircle,
   FaExclamationCircle,
   FaStickyNote,
+  FaChevronUp,
+  FaChevronDown,
 } from "react-icons/fa";
 import { MdSchedule, MdPlayArrow, MdCheck } from "react-icons/md";
 
@@ -103,6 +105,7 @@ import { useConfig } from "@/hooks/useConfig";
 import { cn, formatDate, formatNumber, getCurrencySymbol } from "@/lib/utils";
 import StatusBadge from "../StatusBadge";
 import Markdown from "react-markdown";
+import { FaCalendar, FaRegCircle, FaRegCircleCheck } from "react-icons/fa6";
 
 /**
  * Project Edit Dialog Component
@@ -535,10 +538,9 @@ function MilestoneCard({
           <div className="flex items-center gap-2">
             <FaClock className="text-muted-foreground" />
             <span>
-              {milestone.deadline 
+              {milestone.deadline
                 ? `Due ${formatDate(milestone.deadline)}`
-                : "No deadline"
-              }
+                : "No deadline"}
             </span>
           </div>
         </div>
@@ -581,6 +583,7 @@ function MilestoneCard({
  */
 function IssueItem({ issue }: { issue: Issue }): JSX.Element {
   const { updateIssue, deleteIssue } = useProjects();
+  const [showDescription, setShowDescription] = useState(false);
 
   /**
    * Toggles issue status between Open and Close
@@ -611,60 +614,55 @@ function IssueItem({ issue }: { issue: Issue }): JSX.Element {
   };
 
   return (
-    <div className="flex items-center justify-between p-3 border rounded-lg">
-      <div className="flex-1">
-        <div className="flex items-center gap-2 mb-1">
-          <span
-            className={cn(
-              "font-medium text-sm",
-              issue.status === "Close" && "line-through text-muted-foreground"
-            )}
-          >
-            {issue.title}
-          </span>
+    <div className={cn("flex flex-col justify-between p-3 border rounded-md", issue.status==="Close" && "opacity-60")}>
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" onClick={handleStatusToggle}>
+          {issue.status === "Open" ? <FaRegCircle /> : <FaRegCircleCheck />}
+        </Button>
+        <span
+          className={cn(
+            "font-semibold",
+            issue.status === "Close" && "line-through text-muted-foreground"
+          )}
+        >
+          {issue.title}
+        </span>
+      </div>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 pl-2.25 opacity-80">
+          {issue.dueDate && (
+            <>
+              <FaCalendar />
+              <span>{formatDate(issue.dueDate)}</span>
+              <div className="w-2"></div>
+              <GoDotFill className="w-2 h-2 opacity-60" />
+              <div className="w-2"></div>
+            </>
+          )}
           <Badge variant="outline" className="text-xs">
             {issue.label}
           </Badge>
-          {issue.status === "Open" ? (
-            <FaExclamationCircle className="text-orange-500 h-3 w-3" />
-          ) : (
-            <FaCheckCircle className="text-green-500 h-3 w-3" />
-          )}
         </div>
-        {issue.description && (
-          <p className="text-xs text-muted-foreground line-clamp-1">
-            {issue.description}
-          </p>
-        )}
-        {issue.dueDate && (
-          <p className="text-xs text-muted-foreground">
-            Due: {formatDate(issue.dueDate)}
-          </p>
-        )}
-      </div>
-      <div className="flex items-center gap-1">
-        <Button
-          size="sm"
-          variant={issue.status === "Open" ? "default" : "outline"}
-          onClick={handleStatusToggle}
-          className="h-7 px-2 text-xs"
-        >
-          {issue.status === "Open" ? "Close" : "Reopen"}
-        </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7">
-              <FaEdit className="h-3 w-3" />
+        <div className="flex gap-1">
+          {issue.description && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setShowDescription(!showDescription);
+              }}
+            >
+              {showDescription ? <FaChevronUp /> : <FaChevronDown />}
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <EditIssueDialog issue={issue} />
-            <DropdownMenuItem onClick={handleDelete} className="text-red-600">
-              <FaTrash className="mr-2 h-3 w-3" />
-              Delete Issue
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          )}
+          <EditIssueDialog issue={issue} />
+          <Button onClick={handleDelete} variant="ghost" size="icon">
+            <FaTrash />
+          </Button>
+        </div>
+      </div>
+      <div className={cn("transition-all overflow-hidden text-muted-foreground", showDescription ? "max-h-20 py-2" : "max-h-0 py-0")}>
+        {issue.description}
       </div>
     </div>
   );
@@ -1099,7 +1097,7 @@ function IssuesDrawer({
           {issues.length === 0 ? "No Issues" : `Show Issues (${issues.length})`}
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="w-full sm:max-w-lg px-2 py-6">
+      <SheetContent side="right" className="w-full sm:max-w-2xl px-2 py-6">
         <SheetHeader>
           <SheetTitle className="flex items-center justify-between">
             <span>Issues - {milestone.title}</span>
@@ -1168,7 +1166,7 @@ function EditIssueDialog({ issue }: { issue: Issue }): JSX.Element {
         description: description.trim(),
         status,
       };
-      
+
       if (dueDate) {
         updateData.dueDate = new Date(dueDate);
       } else {
@@ -1194,7 +1192,9 @@ function EditIssueDialog({ issue }: { issue: Issue }): JSX.Element {
     if (open) {
       setTitle(issue.title);
       setLabel(issue.label as IssueLabel);
-      setDueDate(issue.dueDate ? issue.dueDate.toISOString().split("T")[0] : "");
+      setDueDate(
+        issue.dueDate ? issue.dueDate.toISOString().split("T")[0] : ""
+      );
       setDescription(issue.description);
       setStatus(issue.status);
     }
@@ -1203,10 +1203,13 @@ function EditIssueDialog({ issue }: { issue: Issue }): JSX.Element {
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-          <FaEdit className="mr-2" />
-          Edit Issue
-        </DropdownMenuItem>
+        <Button
+          onSelect={(e) => e.preventDefault()}
+          variant="ghost"
+          size="icon"
+        >
+          <FaEdit />
+        </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -1340,7 +1343,7 @@ function EditMilestoneDialog({
         status,
         budget: budgetValue,
       };
-      
+
       if (deadline) {
         updateData.deadline = new Date(deadline);
       } else {
@@ -1366,7 +1369,9 @@ function EditMilestoneDialog({
     if (open) {
       setTitle(milestone.title);
       setStatus(milestone.status);
-      setDeadline(milestone.deadline ? milestone.deadline.toISOString().split("T")[0] : "");
+      setDeadline(
+        milestone.deadline ? milestone.deadline.toISOString().split("T")[0] : ""
+      );
       setBudget(milestone.budget.toString());
     }
   };
