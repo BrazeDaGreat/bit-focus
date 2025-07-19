@@ -1,4 +1,4 @@
-export const VERSION = "v0.9.7-alpha";
+export const VERSION = "v0.9.8-alpha";
 
 const CHANGELOG = `
 ## \`v0.9.0-alpha\` (2025-07-15)
@@ -41,6 +41,9 @@ const CHANGELOG = `
 - Fix: Issues Sheet is now scrollable.
 - Fix: Project Notes Sheet is now scrollable.
 - Feature: Upcoming Issues are now shown on Home page.
+### \`v0.9.8-alpha\` (2025-17-20)
+- Feature: Added \`SaveManager.exportJSON()\` and \`SaveManager.importJSON()\` functions.
+- Research: Completed the test of \`BIT: DCP\` protocol for syncing data. (More soon).
 ***
 
 ## \`v0.8.0-alpha\` (2025-07-03)
