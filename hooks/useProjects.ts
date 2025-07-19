@@ -78,7 +78,6 @@ export interface Milestone {
   updatedAt: Date;
 }
 
-
 /**
  * Issue Data Interface
  */
@@ -128,6 +127,21 @@ export interface ProjectWithStats extends Project {
 }
 
 /**
+ * Categorized Upcoming Issues Interface
+ * 
+ * Defines the structure for categorized upcoming issues with
+ * separate arrays for different time periods.
+ */
+export interface CategorizedUpcomingIssues {
+  /** Issues due today */
+  today: (Issue & { milestone: Milestone; project: Project })[];
+  /** Issues due tomorrow */
+  tomorrow: (Issue & { milestone: Milestone; project: Project })[];
+  /** Issues due in the next 7 days (excluding today and tomorrow) */
+  next7days: (Issue & { milestone: Milestone; project: Project })[];
+}
+
+/**
  * Predefined Issue Labels
  */
 export const ISSUE_LABELS = [
@@ -143,7 +157,7 @@ export const ISSUE_LABELS = [
   "Maintenance",
 ] as const;
 
-export type IssueLabel = typeof ISSUE_LABELS[number];
+export type IssueLabel = (typeof ISSUE_LABELS)[number];
 
 /**
  * Projects State Management Interface
@@ -162,7 +176,12 @@ interface ProjectsState {
   /** Load all project data from database */
   loadProjects: () => Promise<void>;
   /** Create a new project */
-  addProject: (title: string, status: Project["status"], version: string, notes: string) => Promise<void>;
+  addProject: (
+    title: string,
+    status: Project["status"],
+    version: string,
+    notes: string
+  ) => Promise<void>;
   /** Update an existing project */
   updateProject: (id: number, updates: Partial<Project>) => Promise<void>;
   /** Delete a project and all associated data */
@@ -205,6 +224,8 @@ interface ProjectsState {
   getMilestonesForProject: (projectId: number) => MilestoneWithProgress[];
   /** Get issues for a milestone */
   getIssuesForMilestone: (milestoneId: number) => Issue[];
+  /** Get issues due within the next N days with project context */
+  getUpcomingIssues: () => CategorizedUpcomingIssues;
 }
 
 /**
@@ -254,7 +275,10 @@ export const useProjects = create<ProjectsState>((set, get) => ({
     });
 
     set((state) => ({
-      projects: [...state.projects, { id, title, status, version, notes, createdAt: now, updatedAt: now }],
+      projects: [
+        ...state.projects,
+        { id, title, status, version, notes, createdAt: now, updatedAt: now },
+      ],
     }));
   },
 
@@ -277,7 +301,9 @@ export const useProjects = create<ProjectsState>((set, get) => ({
    */
   deleteProject: async (id) => {
     // Get all milestones for this project
-    const projectMilestones = get().milestones.filter((m) => m.projectId === id);
+    const projectMilestones = get().milestones.filter(
+      (m) => m.projectId === id
+    );
     const milestoneIds = projectMilestones.map((m) => m.id!);
 
     // Delete all issues for these milestones
@@ -309,15 +335,24 @@ export const useProjects = create<ProjectsState>((set, get) => ({
       budget,
       createdAt: now,
       updatedAt: now,
-      ...(deadline && { deadline })
+      ...(deadline && { deadline }),
     };
-    
+
     const id = await db.milestones.add(milestoneData);
 
     set((state) => ({
       milestones: [
         ...state.milestones,
-        { id, projectId, title, status, deadline, budget, createdAt: now, updatedAt: now },
+        {
+          id,
+          projectId,
+          title,
+          status,
+          deadline,
+          budget,
+          createdAt: now,
+          updatedAt: now,
+        },
       ],
     }));
   },
@@ -366,9 +401,9 @@ export const useProjects = create<ProjectsState>((set, get) => ({
       description,
       createdAt: now,
       updatedAt: now,
-      ...(dueDate && { dueDate })
+      ...(dueDate && { dueDate }),
     };
-    
+
     const id = await db.issues.add(issueData);
 
     set((state) => ({
@@ -424,9 +459,13 @@ export const useProjects = create<ProjectsState>((set, get) => ({
     const milestones = state.getMilestonesForProject(id);
     const totalBudget = milestones.reduce((sum, m) => sum + m.budget, 0);
 
-    const progress = milestones.length > 0 
-      ? milestones.reduce((sum, m) => sum + (m.status === "Closed" ? 100 : m.progress), 0) / milestones.length
-      : 0;
+    const progress =
+      milestones.length > 0
+        ? milestones.reduce(
+            (sum, m) => sum + (m.status === "Closed" ? 100 : m.progress),
+            0
+          ) / milestones.length
+        : 0;
 
     return {
       ...project,
@@ -441,7 +480,9 @@ export const useProjects = create<ProjectsState>((set, get) => ({
    */
   getAllProjectsWithStats: () => {
     const state = get();
-    return state.projects.map((project) => state.getProjectWithStats(project.id!)!);
+    return state.projects.map(
+      (project) => state.getProjectWithStats(project.id!)!
+    );
   },
 
   /**
@@ -449,14 +490,17 @@ export const useProjects = create<ProjectsState>((set, get) => ({
    */
   getMilestonesForProject: (projectId) => {
     const state = get();
-    const milestones = state.milestones.filter((m) => m.projectId === projectId);
-    
+    const milestones = state.milestones.filter(
+      (m) => m.projectId === projectId
+    );
+
     return milestones.map((milestone) => {
       const issues = state.issues.filter((i) => i.milestoneId === milestone.id);
       const completedIssues = issues.filter((i) => i.status === "Close").length;
       const totalIssues = issues.length;
 
-      let progress = totalIssues > 0 ? Math.round((completedIssues / totalIssues) * 100) : 0;
+      let progress =
+        totalIssues > 0 ? Math.round((completedIssues / totalIssues) * 100) : 0;
       if (milestone.status === "Closed") progress = 100;
 
       return {
@@ -474,5 +518,102 @@ export const useProjects = create<ProjectsState>((set, get) => ({
   getIssuesForMilestone: (milestoneId) => {
     const state = get();
     return state.issues.filter((i) => i.milestoneId === milestoneId);
+  },
+
+  /**
+   * Get Upcoming Issues Categorized by Time Period
+   *
+   * Retrieves all open issues categorized by when they are due:
+   * today, tomorrow, and within the next 7 days. Each category
+   * includes milestone and project context for navigation.
+   * Results within each category are sorted by due date (earliest first).
+   *
+   * @returns {CategorizedUpcomingIssues} Object with categorized issue arrays
+   *
+   * @example
+   * ```typescript
+   * const { today, tomorrow, next7days } = getUpcomingIssues();
+   * 
+   * // Handle today's issues
+   * if (today.length > 0) {
+   *   console.log(`${today.length} issues due today`);
+   * }
+   * ```
+   */
+  getUpcomingIssues: () => {
+    const state = get();
+    
+    // Get current date boundaries
+    const now = new Date();
+    
+    // Today: start and end of today
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(now);
+    todayEnd.setHours(23, 59, 59, 999);
+    
+    // Tomorrow: start and end of tomorrow
+    const tomorrowStart = new Date(now);
+    tomorrowStart.setDate(now.getDate() + 1);
+    tomorrowStart.setHours(0, 0, 0, 0);
+    const tomorrowEnd = new Date(now);
+    tomorrowEnd.setDate(now.getDate() + 1);
+    tomorrowEnd.setHours(23, 59, 59, 999);
+    
+    // Next 7 days: from day after tomorrow to 7 days from now
+    const next7daysStart = new Date(now);
+    next7daysStart.setDate(now.getDate() + 2);
+    next7daysStart.setHours(0, 0, 0, 0);
+    const next7daysEnd = new Date(now);
+    next7daysEnd.setDate(now.getDate() + 7);
+    next7daysEnd.setHours(23, 59, 59, 999);
+
+    const categorizedIssues: CategorizedUpcomingIssues = {
+      today: [],
+      tomorrow: [],
+      next7days: []
+    };
+
+    for (const issue of state.issues) {
+      // Only include open issues with due dates
+      if (issue.dueDate && issue.status === "Open") {
+        const dueDate = new Date(issue.dueDate);
+        
+        // Find milestone and project for this issue
+        const milestone = state.milestones.find(
+          (m) => m.id === issue.milestoneId
+        );
+        const project = milestone
+          ? state.projects.find((p) => p.id === milestone.projectId)
+          : undefined;
+
+        if (milestone && project) {
+          const issueWithContext = {
+            ...issue,
+            milestone,
+            project,
+          };
+
+          // Categorize by due date
+          if (dueDate >= todayStart && dueDate <= todayEnd) {
+            categorizedIssues.today.push(issueWithContext);
+          } else if (dueDate >= tomorrowStart && dueDate <= tomorrowEnd) {
+            categorizedIssues.tomorrow.push(issueWithContext);
+          } else if (dueDate >= next7daysStart && dueDate <= next7daysEnd) {
+            categorizedIssues.next7days.push(issueWithContext);
+          }
+        }
+      }
+    }
+
+    // Sort each category by due date (earliest first)
+    const sortByDueDate = (a: Issue, b: Issue) => 
+      new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime();
+
+    categorizedIssues.today.sort(sortByDueDate);
+    categorizedIssues.tomorrow.sort(sortByDueDate);
+    categorizedIssues.next7days.sort(sortByDueDate);
+
+    return categorizedIssues;
   },
 }));

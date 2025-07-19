@@ -39,12 +39,13 @@ import { FocusSession, useFocus } from "@/hooks/useFocus";
 import {
   cn,
   durationFromSeconds,
+  formatDate,
   formatTimeNew,
   reduceSessions,
   whiteText,
 } from "@/lib/utils";
 import { useTheme } from "next-themes";
-import { Toaster } from "sonner";
+import { toast, Toaster } from "sonner";
 import { MdTimelapse } from "react-icons/md";
 import { TbClockHeart } from "react-icons/tb";
 
@@ -53,7 +54,7 @@ import isBetween from "dayjs/plugin/isBetween";
 import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FaHashtag, FaPlus, FaTrash } from "react-icons/fa6";
+import { FaCalendar, FaChevronDown, FaChevronUp, FaHashtag, FaPlus, FaRegCircle, FaRegCircleCheck, FaTrash } from "react-icons/fa6";
 import { Button } from "@/components/ui/button";
 import { useTag } from "@/hooks/useTag";
 import {
@@ -65,6 +66,11 @@ import { useForm } from "react-hook-form";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { type JSX, useState } from "react";
+import { FaProjectDiagram } from "react-icons/fa";
+import { Badge } from "@/components/ui/badge";
+import { GoDotFill } from "react-icons/go";
+import { Issue, Milestone, Project, useProjects } from "@/hooks/useProjects";
+import { useRouter } from "next/navigation";
 
 // Extend dayjs with required plugins for date range calculations
 dayjs.extend(isBetween);
@@ -98,10 +104,10 @@ export default function Home(): JSX.Element {
   const { theme } = useTheme();
 
   return (
-    <div className="">
-      <div
-        className={cn("flex-1 p-4 gap-4 flex flex-col", "container mx-auto")}
-      >
+    <div className="flex-1 p-8 space-y-8 container mx-auto flex flex-col">
+      {/* <div
+        className={cn("flex-1 gap-4 ")}
+      > */}
         {/* Page Header */}
         <div>
           <h1 className="text-3xl font-bold">BIT Focus</h1>
@@ -113,16 +119,23 @@ export default function Home(): JSX.Element {
           <CardTimeFocused />
         </div>
 
-        {/* Tag Management Section */}
-        <div className={cn("flex")}>
+        <div className={cn("flex gap-4", "flex-col lg:flex-row")}>
+          <UpcomingIssuesCard />
           <SavedTags />
         </div>
 
+        <div className={cn("flex")}>
+        </div>
+
+        {/* Tag Management Section */}
+        <div className={cn("flex")}>
+        </div>
+
         {/* Development Notice */}
-        <h1 className="text-sm opacity-60 my-8">
+        <h1 className="text-sm opacity-60 my-2">
           This feature is under development.
         </h1>
-      </div>
+      {/* </div> */}
 
       {/* Theme-aware Toast Notifications */}
       <Toaster theme={(theme ?? "system") as "system" | "light" | "dark"} />
@@ -196,7 +209,7 @@ function SavedTags(): JSX.Element {
   };
 
   return (
-    <Card className="px-4 py-6">
+    <Card className="px-4 py-6 w-full lg:w-72">
       <CardTitle className="flex gap-12 items-center justify-between">
         {/* Header Section */}
         <div className="flex gap-2">
@@ -267,7 +280,7 @@ function SavedTags(): JSX.Element {
       </CardTitle>
 
       {/* Saved Tags Display */}
-      <CardDescription className="flex flex-col gap-2 items-center max-h-32 overflow-y-auto">
+      <CardDescription className="flex flex-col gap-2 px-2 items-center max-h-72 overflow-y-auto">
         {savedTags.map((t) => {
           return (
             <div
@@ -423,5 +436,295 @@ function CardTimeFocused(): JSX.Element {
         </div>
       </Card>
     </>
+  );
+}
+
+/**
+ * Upcoming Issues Card Component with Categories
+ * 
+ * Displays issues categorized by time periods: today, tomorrow, and next 7 days.
+ * Each category is clearly labeled and can be collapsed/expanded for better UX.
+ * 
+ * Features:
+ * - Categorized issue display by time period
+ * - Collapsible sections for each category
+ * - Issue count indicators for each category
+ * - Consistent styling across categories
+ * - Empty state handling per category
+ * 
+ * @component
+ * @returns {JSX.Element} Categorized issues overview card
+ */
+function UpcomingIssuesCard(): JSX.Element {
+  const { getUpcomingIssues, loadingProjects } = useProjects();
+  
+  // Show skeleton during loading
+  if (loadingProjects) {
+    return <Skeleton className="h-64" />;
+  }
+  
+  const { today, tomorrow, next7days } = getUpcomingIssues();
+  const totalIssues = today.length + tomorrow.length + next7days.length;
+
+  
+  // Show empty state when no upcoming issues
+  if (totalIssues === 0) {
+    return (
+      <Card className="px-4 py-6 flex-1">
+        <CardTitle className="flex gap-2 items-center">
+          <FaCalendar />
+          <span>Upcoming Issues</span>
+        </CardTitle>
+        <CardDescription className="text-center py-8 h-full flex flex-col items-center justify-center">
+          <FaCalendar className="mx-auto h-8 w-8 text-muted-foreground mb-2 opacity-30" />
+          <p>No issues due in the next 7 days</p>
+          <p className="text-xs mt-1">You&apos;re all caught up!</p>
+        </CardDescription>
+      </Card>
+    );
+  }
+  
+  return (
+    <Card className="px-4 py-6 flex-1">
+      <CardTitle className="flex gap-2 items-center mb-4">
+        <FaCalendar />
+        <span>Upcoming Issues</span>
+        <Badge variant="secondary" className="ml-2">
+          {totalIssues}
+        </Badge>
+      </CardTitle>
+      <CardDescription className="space-y-4 max-h-72 overflow-y-auto">
+        {/* Today Section */}
+        <IssueCategorySection
+          title="Today"
+          count={today.length}
+          issues={today}
+        />
+        
+        {/* Tomorrow Section */}
+        <IssueCategorySection
+          title="Tomorrow"
+          count={tomorrow.length}
+          issues={tomorrow}
+        />
+        
+        {/* Next 7 Days Section */}
+        <IssueCategorySection
+          title="Next 7 days"
+          count={next7days.length}
+          issues={next7days}
+        />
+      </CardDescription>
+    </Card>
+  );
+}
+
+/**
+ * Issue Category Section Component
+ * 
+ * Renders a collapsible section for a specific time period category.
+ * Displays the category title, issue count, and toggleable issue list.
+ * 
+ * @component
+ * @param {Object} props - Component props
+ * @param {string} props.title - Category title (e.g., "Today", "Tomorrow")
+ * @param {number} props.count - Number of issues in this category
+ * @param {Array} props.issues - Array of issues for this category
+ * @param {boolean} props.isExpanded - Whether the section is expanded
+ * @param {() => void} props.onToggle - Function to toggle section expansion
+ * @param {"destructive" | "default" | "secondary"} props.variant - Badge styling variant
+ * @returns {JSX.Element} Category section with collapsible content
+ */
+function IssueCategorySection({
+  title,
+  count,
+  issues,
+}: {
+  title: string;
+  count: number;
+  issues: (Issue & { milestone: Milestone; project: Project })[];
+}): JSX.Element {
+  // Don't render empty categories
+  if (count === 0) return <></>;
+  
+  return (
+    <>
+      <div className="flex items-center text-xs text-muted-foreground">
+        <span>{title}</span>
+      </div>
+      {issues.map((issue) => (
+        <UpcomingIssueItem key={issue.id} issue={issue} />
+      ))}
+    </>
+  )
+
+  // return (
+  //   <div className="border rounded-md">
+  //     {/* Category Header */}
+  //     <Button
+  //       variant="ghost"
+  //       onClick={onToggle}
+  //       className="w-full justify-between p-3 h-auto"
+  //     >
+  //       <div className="flex items-center gap-2">
+  //         <span className="font-medium">{title}</span>
+  //         <Badge variant={variant} className="text-xs">
+  //           {count}
+  //         </Badge>
+  //       </div>
+  //       {isExpanded ? <FaChevronUp /> : <FaChevronDown />}
+  //     </Button>
+      
+  //     {/* Category Content */}
+  //     {isExpanded && (
+  //       <div className="border-t p-2 space-y-2">
+  //         {issues.map((issue) => (
+  //           <UpcomingIssueItem key={issue.id} issue={issue} />
+  //         ))}
+  //       </div>
+  //     )}
+  //   </div>
+  // );
+}
+
+/**
+ * Individual Upcoming Issue Item Component
+ * 
+ * Renders a single issue item similar to the project page design but
+ * optimized for the homepage with project navigation functionality.
+ * 
+ * Features:
+ * - Issue status toggle (Open/Close)
+ * - Due date and label display
+ * - Project and milestone context
+ * - Description toggle functionality
+ * - Direct navigation to parent project
+ * - Consistent styling with project page
+ * 
+ * @component
+ * @param {Object} props - Component props
+ * @param {Issue & { milestone: Milestone; project: Project }} props.issue - Issue with context
+ * @returns {JSX.Element} Individual issue item with navigation
+ * 
+ * @example
+ * ```tsx
+ * {upcomingIssues.map((issue) => (
+ *   <UpcomingIssueItem key={issue.id} issue={issue} />
+ * ))}
+ * ```
+ * 
+ * @see {@link useProjects} for issue management operations
+ */
+function UpcomingIssueItem({ 
+  issue 
+}: { 
+  issue: Issue & { milestone: Milestone; project: Project } 
+}): JSX.Element {
+  const { updateIssue } = useProjects();
+  const router = useRouter();
+  const [showDescription, setShowDescription] = useState(false);
+
+  /**
+   * Toggles issue status between Open and Close
+   * 
+   * @async
+   * @returns {Promise<void>}
+   */
+  const handleStatusToggle = async (): Promise<void> => {
+    const newStatus = issue.status === "Open" ? "Close" : "Open";
+    try {
+      await updateIssue(issue.id!, { status: newStatus });
+      toast.success(`Issue marked as ${newStatus.toLowerCase()}`);
+    } catch (error) {
+      console.error("Failed to update issue status:", error);
+      toast.error("Failed to update issue status");
+    }
+  };
+
+  /**
+   * Navigates to the parent project page
+   * 
+   * @returns {void}
+   */
+  const handleNavigateToProject = (): void => {
+    router.push(`/projects/${issue.project.id}`);
+  };
+
+  return (
+    <div className={cn(
+      "flex flex-col justify-between p-3 border rounded-md transition-all",
+      issue.status === "Close" && "opacity-60"
+    )}>
+      {/* Issue Title and Status Toggle */}
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" onClick={handleStatusToggle}>
+          {issue.status === "Open" ? <FaRegCircle /> : <FaRegCircleCheck />}
+        </Button>
+        <span className={cn(
+          "font-semibold",
+          issue.status === "Close" && "line-through text-muted-foreground"
+        )}>
+          {issue.title}
+        </span>
+      </div>
+      
+      {/* Project and Milestone Context */}
+      <div className="flex items-center text-xs text-muted-foreground pl-10 py-1">
+        <FaProjectDiagram className="mr-1 h-3 w-3" />
+        <span>{issue.project.title}</span>
+        <span className="mx-1">→</span>
+        <span>{issue.milestone.title}</span>
+      </div>
+      
+      {/* Issue Details and Actions */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 pl-10 opacity-80">
+          {issue.dueDate && (
+            <>
+              <FaCalendar />
+              <span>{formatDate(issue.dueDate)}</span>
+              <div className="w-2"></div>
+              <GoDotFill className="w-2 h-2 opacity-60" />
+              <div className="w-2"></div>
+            </>
+          )}
+          <Badge variant="outline" className="text-xs">
+            {issue.label}
+          </Badge>
+        </div>
+        
+        {/* Action Buttons */}
+        <div className="flex gap-1">
+          {issue.description && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowDescription(!showDescription)}
+              title={showDescription ? "Hide description" : "Show description"}
+            >
+              {showDescription ? <FaChevronUp /> : <FaChevronDown />}
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleNavigateToProject}
+            className="gap-1"
+            title={`Go to ${issue.project.title} project`}
+          >
+            <FaProjectDiagram className="h-3 w-3" />
+            View Project
+          </Button>
+        </div>
+      </div>
+      
+      {/* Expandable Description */}
+      <div className={cn(
+        "transition-all overflow-hidden text-muted-foreground pl-10",
+        showDescription ? "max-h-20 py-2" : "max-h-0 py-0"
+      )}>
+        {issue.description}
+      </div>
+    </div>
   );
 }

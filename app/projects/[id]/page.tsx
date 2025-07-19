@@ -28,7 +28,7 @@
 
 "use client";
 
-import { useEffect, useState, type JSX } from "react";
+import { useState, type JSX } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { toast, Toaster } from "sonner";
@@ -323,7 +323,7 @@ function ProjectNotesDrawer({ project }: { project: Project }): JSX.Element {
           </SheetDescription>
         </SheetHeader>
 
-        <div className="flex-1 py-6">
+        <div className="flex-1 py-6 overflow-y-auto">
           {isEditing ? (
             <div className="space-y-4">
               <div className="space-y-2">
@@ -947,11 +947,7 @@ export default function ProjectDetailPage(): JSX.Element {
   const params = useParams();
   const projectId = parseInt(params.id as string);
 
-  const { getProjectWithStats, loadProjects, loadingProjects } = useProjects();
-
-  useEffect(() => {
-    loadProjects();
-  }, [loadProjects]);
+  const { getProjectWithStats, loadingProjects } = useProjects();
 
   const project = getProjectWithStats(projectId);
 
@@ -1109,7 +1105,7 @@ function IssuesDrawer({
           </SheetDescription>
         </SheetHeader>
 
-        <div className="flex-1 py-6">
+        <div className="flex-1 py-6 overflow-y-auto">
           {issues.length === 0 ? (
             <div className="text-center text-muted-foreground py-8">
               <FaExclamationCircle className="mx-auto h-12 w-12 mb-4 opacity-30" />
