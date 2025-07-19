@@ -63,6 +63,7 @@ import PomoFooterTimer from "./sidebar/PomoFooterTimer";
 import { Skeleton } from "./ui/skeleton";
 import { VERSION } from "@/app/changelog/CHANGELOG";
 import { usePomo } from "@/hooks/PomoContext";
+import { useProjects } from "@/hooks/useProjects";
 
 /**
  * Enhanced Navigation Items Configuration
@@ -102,6 +103,8 @@ export function AppSidebar(): JSX.Element {
   const router = useRouter();
   const { pause, state, start } = usePomo();
   const { loadConfig, loadingConfig } = useConfig();
+  const { loadProjects } = useProjects()
+  
   
   // Track navigation state to prevent duplicate operations
   const isNavigatingRef = useRef(false);
@@ -113,6 +116,13 @@ export function AppSidebar(): JSX.Element {
   useEffect(() => {
     loadConfig();
   }, [loadConfig]);
+
+  /**
+   * Load Projects
+   */
+  useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
 
   /**
    * Optimized function to temporarily pause timer if it's running.
