@@ -1,4 +1,4 @@
-export const VERSION = "v0.9.9-alpha";
+export const VERSION = "v0.9.10-alpha";
 
 const CHANGELOG = `
 ## \`v0.9.0-alpha\` (2025-07-15)
@@ -47,6 +47,10 @@ const CHANGELOG = `
 - Research: Completed the test of \`BIT: DCP\` protocol for syncing data. (More soon).
 ### \`v0.9.9-alpha\` (2025-07-21)
 - Feature: Projects page now separates the projects into categories.
+### \`v0.9.10-alpha\` (2025-07-21)
+- Feature: Added new Milestone status: Paid, it is also treated as closed.
+- Feature: Added new Copy Earnings button to Projects page.
+- Feature: New \`setClipboard()\` function in \`utils.ts\`.
 ***
 
 ## \`v0.8.0-alpha\` (2025-07-03)
