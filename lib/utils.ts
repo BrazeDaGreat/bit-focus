@@ -664,3 +664,19 @@ export function formatDate(date: Date): string {
 
   return `${dayStr} ${month}, ${year}`;
 }
+
+/**
+ * Sets the clipboard to the given text.
+ *
+ * @param text - The text to set the clipboard to.
+ * @returns A Promise that resolves to true if the text was successfully copied to the clipboard, false otherwise.
+ */
+export async function setClipboard(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (err) {
+    console.error("Failed to copy text: ", err);
+    return false;
+  }
+}

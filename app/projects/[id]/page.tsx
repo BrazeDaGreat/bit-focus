@@ -46,7 +46,7 @@ import {
   FaChevronUp,
   FaChevronDown,
 } from "react-icons/fa";
-import { MdSchedule, MdPlayArrow, MdCheck } from "react-icons/md";
+import { MdSchedule, MdPlayArrow, MdCheck, MdMoney } from "react-icons/md";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -496,6 +496,7 @@ function MilestoneCard({
     Scheduled: { icon: <MdSchedule />, variant: "outline" as const },
     Active: { icon: <MdPlayArrow />, variant: "default" as const },
     Closed: { icon: <MdCheck />, variant: "secondary" as const },
+    Paid: { icon: <MdMoney />, variant: "default" as const },
   };
 
   return (
@@ -763,6 +764,7 @@ function CreateMilestoneDialog({
                   <SelectItem value="Scheduled">Scheduled</SelectItem>
                   <SelectItem value="Active">Active</SelectItem>
                   <SelectItem value="Closed">Closed</SelectItem>
+                  <SelectItem value="Paid">Paid</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1413,6 +1415,7 @@ function EditMilestoneDialog({
                   <SelectItem value="Scheduled">Scheduled</SelectItem>
                   <SelectItem value="Active">Active</SelectItem>
                   <SelectItem value="Closed">Closed</SelectItem>
+                  <SelectItem value="Paid">Paid</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -67,7 +67,7 @@ export interface Milestone {
   /** Milestone title */
   title: string;
   /** Milestone status */
-  status: "Scheduled" | "Active" | "Closed";
+  status: "Scheduled" | "Active" | "Closed" | "Paid";
   /** Milestone deadline (optional) */
   deadline?: Date;
   /** Budget amount (in preferred currency) */
@@ -462,7 +462,7 @@ export const useProjects = create<ProjectsState>((set, get) => ({
     const progress =
       milestones.length > 0
         ? milestones.reduce(
-            (sum, m) => sum + (m.status === "Closed" ? 100 : m.progress),
+            (sum, m) => sum + (m.status === "Closed" || m.status === "Paid" ? 100 : m.progress),
             0
           ) / milestones.length
         : 0;
@@ -501,7 +501,7 @@ export const useProjects = create<ProjectsState>((set, get) => ({
 
       let progress =
         totalIssues > 0 ? Math.round((completedIssues / totalIssues) * 100) : 0;
-      if (milestone.status === "Closed") progress = 100;
+      if (milestone.status === "Closed" || milestone.status === "Paid") progress = 100;
 
       return {
         ...milestone,

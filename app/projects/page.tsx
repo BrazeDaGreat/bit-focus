@@ -65,7 +65,8 @@ import {
 import { useProjects, type Project } from "@/hooks/useProjects";
 import { useConfig } from "@/hooks/useConfig";
 import StatusBadge from "./StatusBadge";
-import { formatNumber, getCurrencySymbol } from "@/lib/utils";
+import { formatNumber, getCurrencySymbol, setClipboard } from "@/lib/utils";
+import { FaClipboard } from "react-icons/fa6";
 
 /**
  * Project Card Component
@@ -249,6 +250,45 @@ function CreateProjectDialog(): JSX.Element {
   );
 }
 
+function CopyProjectToText(): JSX.Element {
+  const { getAllProjectsWithStats } = useProjects();
+  const projects = getAllProjectsWithStats();
+
+  function getEmojiByStatus(text: "Scheduled" | "Active" | "Closed" | "Paid") {
+    if (text === "Scheduled") return "";
+    if (text === "Active") return "‼️";
+    if (text === "Closed") return "❓";
+    if (text === "Paid") return "✅";
+  }
+
+  async function handleClick() {
+    const text: string[] = [];
+    let pending: number = 0;
+
+    projects.forEach(project => {
+      text.push(`\n*${project.title}*`)
+      project.milestones.forEach(milestone => {
+        if (milestone.budget === 0) return;
+        if (milestone.status === "Scheduled") return;
+        const emoji = getEmojiByStatus(milestone.status);
+        text.push(`- ${milestone.title} - Rs ${formatNumber(milestone.budget)} ${emoji}`);
+        if (milestone.status === "Closed") pending += milestone.budget
+      })
+    })
+
+    text.push(`\n\n*Pending: Rs ${formatNumber(pending)}*`)
+
+    const isCopied = await setClipboard(text.join("\n"));
+    if (isCopied) toast.success("Copied to clipboard");
+    else toast.error("Failed to copy to clipboard");
+  }
+
+  return <Button onClick={handleClick}>
+    <FaClipboard />
+    <span>Copy Earnings</span>
+  </Button>;
+}
+
 /**
  * Main Projects Page Component
  *
@@ -297,7 +337,7 @@ export default function ProjectsPage(): JSX.Element {
     );
   }
 
-  function ProjectCategoryTitle({text}: {text: string}) {
+  function ProjectCategoryTitle({ text }: { text: string }) {
     return <h2 className="text-sm text-muted-foreground">{text}</h2>;
   }
 
@@ -311,7 +351,11 @@ export default function ProjectsPage(): JSX.Element {
             Manage your projects, milestones, and issues
           </p>
         </div>
-        <CreateProjectDialog />
+
+        <div className="flex gap-2">
+          <CopyProjectToText />
+          <CreateProjectDialog />
+        </div>
       </div>
 
       {/* Projects Grid */}
