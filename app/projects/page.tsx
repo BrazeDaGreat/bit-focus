@@ -30,11 +30,7 @@ import { useEffect, useState, type JSX } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { toast, Toaster } from "sonner";
-import {
-  FaPlus,
-  FaClock,
-  FaProjectDiagram,
-} from "react-icons/fa";
+import { FaPlus, FaClock, FaProjectDiagram } from "react-icons/fa";
 import { VscSourceControl } from "react-icons/vsc";
 
 import { Button } from "@/components/ui/button";
@@ -301,6 +297,10 @@ export default function ProjectsPage(): JSX.Element {
     );
   }
 
+  function ProjectCategoryTitle({text}: {text: string}) {
+    return <h2 className="text-sm text-muted-foreground">{text}</h2>;
+  }
+
   return (
     <div className="flex-1 p-8 space-y-8 container mx-auto">
       {/* Header */}
@@ -327,10 +327,31 @@ export default function ProjectsPage(): JSX.Element {
           </CardDescription>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {projects.map((project) => (
-            <ProjectCard key={project.id} project={project} />
-          ))}
+        <div className="space-y-6">
+          <ProjectCategoryTitle text="Active Projects" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {projects
+              .filter((i) => i.status === "Active")
+              .map((project) => (
+                <ProjectCard key={project.id} project={project} />
+              ))}
+          </div>
+          <ProjectCategoryTitle text="Scheduled Projects" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {projects
+              .filter((i) => i.status === "Scheduled")
+              .map((project) => (
+                <ProjectCard key={project.id} project={project} />
+              ))}
+          </div>
+          <ProjectCategoryTitle text="Closed Projects" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {projects
+              .filter((i) => i.status === "Closed")
+              .map((project) => (
+                <ProjectCard key={project.id} project={project} />
+              ))}
+          </div>
         </div>
       )}
 
