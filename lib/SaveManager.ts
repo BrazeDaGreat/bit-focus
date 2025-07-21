@@ -95,7 +95,7 @@ type ExportedData = {
       id?: number;
       projectId: number;
       title: string;
-      status: "Scheduled" | "Active" | "Closed";
+      status: "Scheduled" | "Active" | "Closed" | "Paid";
       deadline?: string; // Serialized as ISO string (optional)
       budget: number;
       createdAt: string; // Serialized as ISO string
