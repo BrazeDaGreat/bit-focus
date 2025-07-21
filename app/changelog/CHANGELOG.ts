@@ -1,4 +1,4 @@
-export const VERSION = "v0.9.7-alpha";
+export const VERSION = "v0.9.9-alpha";
 
 const CHANGELOG = `
 ## \`v0.9.0-alpha\` (2025-07-15)
@@ -37,10 +37,16 @@ const CHANGELOG = `
 - Refactor: Changed icon for version.
 - Refactor: Project's page budget also uses the currency symbol now, instead of dollar icon.
 - Refactor: Issue sheet redesign, now looks much better.
-### \`v0.9.7-alpha\` (2025-17-19)
+### \`v0.9.7-alpha\` (2025-07-19)
 - Fix: Issues Sheet is now scrollable.
 - Fix: Project Notes Sheet is now scrollable.
 - Feature: Upcoming Issues are now shown on Home page.
+### \`v0.9.8-alpha\` (2025-07-20)
+- Feature: Added \`SaveManager.exportJSON()\` and \`SaveManager.importJSON()\` functions.
+- Feature: \`SaveManager\` now also import/exports the Projects, Milestones, and Issues.
+- Research: Completed the test of \`BIT: DCP\` protocol for syncing data. (More soon).
+### \`v0.9.9-alpha\` (2025-07-21)
+- Feature: Projects page now separates the projects into categories.
 ***
 
 ## \`v0.8.0-alpha\` (2025-07-03)

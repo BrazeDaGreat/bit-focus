@@ -120,9 +120,8 @@ export default function TopBar(): JSX.Element {
         />
       </div>
       
-      {/* Right Side: Quick Task Creation */}
       <div className="flex items-center gap-2">
-        
+        {""}
       </div>
     </div>
   );
