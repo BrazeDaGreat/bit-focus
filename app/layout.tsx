@@ -175,6 +175,9 @@ export default function RootLayout({
                 amethyst: "amethyst",
                 bluenight: "bluenight",
                 amoled: "amoled",
+                "pastel-blue": "pastel-blue",
+                "pastel-orange": "pastel-orange",
+                "pastel-purple": "pastel-purple",
               }}
               defaultTheme="system"
               enableSystem={true}

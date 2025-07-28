@@ -133,6 +133,8 @@ export interface ProjectWithStats extends Project {
  * separate arrays for different time periods.
  */
 export interface CategorizedUpcomingIssues {
+  /** Issues overdue */
+  overdue: (Issue & { milestone: Milestone; project: Project })[];
   /** Issues due today */
   today: (Issue & { milestone: Milestone; project: Project })[];
   /** Issues due tomorrow */
@@ -569,6 +571,7 @@ export const useProjects = create<ProjectsState>((set, get) => ({
     next7daysEnd.setHours(23, 59, 59, 999);
 
     const categorizedIssues: CategorizedUpcomingIssues = {
+      overdue: [],
       today: [],
       tomorrow: [],
       next7days: []
@@ -593,9 +596,11 @@ export const useProjects = create<ProjectsState>((set, get) => ({
             milestone,
             project,
           };
-
+          
           // Categorize by due date
-          if (dueDate >= todayStart && dueDate <= todayEnd) {
+          if (dueDate < todayStart) {
+            categorizedIssues.overdue.push(issueWithContext);
+          } else if (dueDate >= todayStart && dueDate <= todayEnd) {
             categorizedIssues.today.push(issueWithContext);
           } else if (dueDate >= tomorrowStart && dueDate <= tomorrowEnd) {
             categorizedIssues.tomorrow.push(issueWithContext);

@@ -1,6 +1,18 @@
-export const VERSION = "v0.9.10-alpha";
+export const VERSION = "v0.10.0-beta";
 
 const CHANGELOG = `
+## \`v0.10.0-beta\` (2025-07-28)
+### Added
+- New pastel themes (\`pastel-blue\`, \`pastel-orange\`, and \`pastel-purple\`)
+- New Home page design.
+- "Overdue" Issues are now shown on Home page.
+- Responsivity of Focus page.
+- Responsivity of Projects and individual Project page.
+### Fixed
+- Fixed Home page's skeleton issues.
+- Fixed Projects page's skeleton issues.
+
+***
 ## \`v0.9.0-alpha\` (2025-07-15)
 ### Added
 - BIT-Focus: Projects. Core project management functionality.
