@@ -106,6 +106,7 @@ import { cn, formatDate, formatNumber, getCurrencySymbol } from "@/lib/utils";
 import StatusBadge from "../StatusBadge";
 import Markdown from "react-markdown";
 import { FaCalendar, FaRegCircle, FaRegCircleCheck } from "react-icons/fa6";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 /**
  * Project Edit Dialog Component
@@ -390,6 +391,7 @@ function ProjectNotesDrawer({ project }: { project: Project }): JSX.Element {
 function ProjectHeader({ project }: { project: Project }): JSX.Element {
   const router = useRouter();
   const { deleteProject } = useProjects();
+  const isMobile = useIsMobile();
 
   /**
    * Handles project deletion with confirmation
@@ -415,21 +417,45 @@ function ProjectHeader({ project }: { project: Project }): JSX.Element {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.push("/projects")}
-          >
-            <FaArrowLeft />
-          </Button>
-          <div>
-            <div className="flex items-center gap-3">
+      <div
+        className={cn(
+          "flex items-center justify-between",
+          isMobile ? "flex-col gap-2" : ""
+        )}
+      >
+        <div
+          className={cn(
+            isMobile ? "flex-col" : "items-center",
+            "flex gap-4 w-full"
+          )}
+        >
+          {!isMobile && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.push("/projects")}
+            >
+              <FaArrowLeft />
+            </Button>
+          )}
+          {isMobile && (
+            <div className="flex">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => router.push("/projects")}
+              >
+                <FaArrowLeft />
+              </Button>
               <h1 className="text-2xl font-bold">{project.title}</h1>
-              <Badge variant="outline">v{project.version}</Badge>
-              <StatusBadge status={project.status} />
             </div>
+          )}
+          <div className={cn("flex gap-3 items-center", isMobile && "justify-center")}>
+            {!isMobile && (
+              <h1 className="text-2xl font-bold">{project.title}</h1>
+            )}
+            <Badge variant="outline">v{project.version}</Badge>
+            <StatusBadge status={project.status} />
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -442,7 +468,7 @@ function ProjectHeader({ project }: { project: Project }): JSX.Element {
             </DropdownMenuTrigger>
             <DropdownMenuContent>
               <ProjectEditDialog project={project} />
-              <DropdownMenuItem onClick={handleDelete} className="text-red-600">
+              <DropdownMenuItem onClick={handleDelete}>
                 <FaTrash className="mr-2" />
                 Delete Project
               </DropdownMenuItem>
@@ -470,6 +496,7 @@ function MilestoneCard({
 }): JSX.Element {
   const { currency } = useConfig();
   const { deleteMilestone } = useProjects();
+  const isMobile = useIsMobile();
 
   /**
    * Handles milestone deletion with confirmation
@@ -502,9 +529,9 @@ function MilestoneCard({
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <CardTitle className="text-lg">{milestone.title}</CardTitle>
+        <div className={cn("flex justify-between", isMobile ? "flex-col" : "items-center")}>
+          <div className={"flex items-center gap-3"}>
+            <CardTitle className={cn(isMobile ? "text-base" : "text-lg")}>{milestone.title}</CardTitle>
             <Badge
               variant={statusConfigs[milestone.status].variant}
               className="gap-1"
@@ -515,13 +542,13 @@ function MilestoneCard({
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" className={cn(isMobile && "self-end")}>
                 <FaEdit />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
               <EditMilestoneDialog milestone={milestone} />
-              <DropdownMenuItem onClick={handleDelete} className="text-red-600">
+              <DropdownMenuItem onClick={handleDelete}>
                 <FaTrash className="mr-2" />
                 Delete Milestone
               </DropdownMenuItem>
@@ -531,7 +558,7 @@ function MilestoneCard({
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Info Grid */}
-        <div className="grid grid-cols-2 gap-4 text-sm">
+        <div className={cn("grid grid-cols-2 gap-4 text-sm", isMobile && "grid-cols-1")}>
           <div className="flex items-center gap-2">
             {getCurrencySymbol(currency)}
             <span>{formatNumber(milestone.budget)}</span>
@@ -615,7 +642,12 @@ function IssueItem({ issue }: { issue: Issue }): JSX.Element {
   };
 
   return (
-    <div className={cn("flex flex-col justify-between p-3 border rounded-md", issue.status==="Close" && "opacity-60")}>
+    <div
+      className={cn(
+        "flex flex-col justify-between p-3 border rounded-md",
+        issue.status === "Close" && "opacity-60"
+      )}
+    >
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="icon" onClick={handleStatusToggle}>
           {issue.status === "Open" ? <FaRegCircle /> : <FaRegCircleCheck />}
@@ -662,7 +694,12 @@ function IssueItem({ issue }: { issue: Issue }): JSX.Element {
           </Button>
         </div>
       </div>
-      <div className={cn("transition-all overflow-hidden text-muted-foreground", showDescription ? "max-h-20 py-2" : "max-h-0 py-0")}>
+      <div
+        className={cn(
+          "transition-all overflow-hidden text-muted-foreground",
+          showDescription ? "max-h-20 py-2" : "max-h-0 py-0"
+        )}
+      >
         {issue.description}
       </div>
     </div>
@@ -948,6 +985,7 @@ export default function ProjectDetailPage(): JSX.Element {
   const { theme } = useTheme();
   const params = useParams();
   const projectId = parseInt(params.id as string);
+  const isMobile = useIsMobile();
 
   const { getProjectWithStats, loadingProjects } = useProjects();
 
@@ -1041,9 +1079,12 @@ export default function ProjectDetailPage(): JSX.Element {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold">Milestones</h2>
-            <p className="text-sm text-muted-foreground">
-              Track progress with milestones and issues
-            </p>
+            {
+              !isMobile &&
+              <p className="text-sm text-muted-foreground">
+                Track progress with milestones and issues
+              </p>
+            }
           </div>
           <CreateMilestoneDialog projectId={projectId} />
         </div>

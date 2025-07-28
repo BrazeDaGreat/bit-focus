@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/card";
 import { usePomo } from "@/hooks/PomoContext";
 import { FocusSession, useFocus } from "@/hooks/useFocus";
-import { calculateTime, formatTime, formatTimeNew } from "@/lib/utils";
+import { calculateTime, cn, formatTime, formatTimeNew } from "@/lib/utils";
 import { useTheme } from "next-themes";
 import {
   FaCalendar,
@@ -76,6 +76,7 @@ import GraphDialog from "./Graph";
 import { usePip, usePipSpace } from "@/hooks/usePip";
 import PipTimer from "@/components/PipTimer";
 import SaveManager from "@/lib/SaveManager";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 /**
  * Main Focus Page Component
@@ -107,6 +108,7 @@ import SaveManager from "@/lib/SaveManager";
 export default function Focus(): JSX.Element {
   const { theme } = useTheme();
   const { state, start, pause, reset } = usePomo();
+  const isMobile = useIsMobile();
 
   // Calculate current timer display values
   const minutes = Math.floor(state.elapsedSeconds / 60);
@@ -193,16 +195,15 @@ export default function Focus(): JSX.Element {
   }, [data, update]);
 
   return (
-    <div className="flex-1 p-8 gap-8 flex flex-col items-center justify-center">
+    <div className={cn("flex-1 p-8 gap-8 flex flex-col items-center justify-center")}>
       {/* Main Timer Card */}
-      <div className="">
-        <Card className="min-w-96">
+        <Card className={cn(isMobile ? "w-full max-w-96" : "min-w-96")}>
           <CardTitle className="text-md flex items-center justify-center gap-2 opacity-60">
             <RiFocus2Line />
             <span>Focus Session</span>
           </CardTitle>
           <CardDescription className="text-center flex flex-col gap-6">
-            <span className="text-8xl font-semibold">
+            <span className={cn(isMobile ? "text-6xl font-black" : "text-8xl font-semibold")}>
               {formatTime(minutes, seconds)}
             </span>
             <TagSelector />
@@ -233,25 +234,26 @@ export default function Focus(): JSX.Element {
             )}
             
             {/* Picture-in-Picture Button */}
-            <Button
-              onClick={show}
-              size={"icon"}
-              className="py-6 w-1/6"
-              variant={"secondary"}
-            >
-              <FaExternalLinkAlt />
-            </Button>
+            {!isMobile && 
+              <Button
+                onClick={show}
+                size={"icon"}
+                className="py-6 w-1/6"
+                variant={"secondary"}
+              >
+                <FaExternalLinkAlt />
+              </Button>
+            }
           </CardFooter>
         </Card>
-      </div>
 
       {/* Focus Sessions List Card */}
-      <div className="">
-        <Card className="min-w-96">
+      {/* <div className=""> */}
+        <Card className={cn(isMobile ? "w-full max-w-96" : "min-w-96")}>
           <CardTitle className="px-6 flex items-center justify-between">
             <div className="flex gap-1 text-sm items-center opacity-70">
               <FaTableList />
-              <span>Focus Report</span>
+              {!isMobile && <span>Focus Report</span>}
             </div>
             <div className="flex gap-1">
               <BITFdata />
@@ -264,7 +266,7 @@ export default function Focus(): JSX.Element {
             ))}
           </CardDescription>
         </Card>
-      </div>
+      {/* </div> */}
 
       {/* Theme-aware Toast Notifications */}
       <Toaster theme={(theme ?? "system") as "system" | "light" | "dark"} />
@@ -300,6 +302,7 @@ export default function Focus(): JSX.Element {
 function BITFdata(): JSX.Element {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   /**
    * Handles data export operation
@@ -412,7 +415,7 @@ function BITFdata(): JSX.Element {
         <DropdownMenuTrigger asChild>
           <Button size="sm" variant="ghost">
             <FaFileCsv className="mr-2" />
-            BITF Data
+            {!isMobile && "BITF Data"}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent>
@@ -471,6 +474,7 @@ interface FocusOptionProps {
  */
 function FocusOption({ item }: FocusOptionProps): JSX.Element {
   const { removeFocusSession } = useFocus();
+  const isMobile = useIsMobile();
 
   // Calculate session duration and format date
   const time = calculateTime(item.startTime, item.endTime);
@@ -492,10 +496,10 @@ function FocusOption({ item }: FocusOptionProps): JSX.Element {
       <DropdownMenuTrigger asChild>
         <Button
           variant="secondary"
-          className="w-full flex justify-between items-center h-12"
+          className={cn("w-full flex justify-between items-center", isMobile ? "flex-col items-center justify-center h-18" : "h-12")}
         >
           {/* Session Duration Display */}
-          <div className="flex gap-2 items-center">
+          <div className={cn("flex gap-2 items-center")}>
             <FaRegClock />
             <span className="font-semibold">
               {formatTimeNew(time, "H:M:S", "text")}
@@ -503,9 +507,9 @@ function FocusOption({ item }: FocusOptionProps): JSX.Element {
           </div>
           
           {/* Tag and Expand Icon */}
-          <div className="flex gap-4 items-center">
+          <div className={cn("flex gap-4 items-center")}>
             <TagBadge tag={item.tag} />
-            <RiExpandUpDownLine />
+            {!isMobile && <RiExpandUpDownLine />}
           </div>
         </Button>
       </DropdownMenuTrigger>

@@ -53,7 +53,7 @@ import {
 import { IoColorPalette } from "react-icons/io5";
 import { FaHome, FaMoon, FaProjectDiagram, FaSun } from "react-icons/fa";
 import { IoIosTimer } from "react-icons/io";
-import { FaGear, FaGem, FaReadme, FaWater } from "react-icons/fa6";
+import { FaGear, FaGem, FaPaintbrush, FaReadme, FaWater } from "react-icons/fa6";
 import { useTheme } from "next-themes";
 import EditConfig, { EditConfigSkeleton } from "./sidebar/EditConfig";
 import { usePathname, useRouter } from "next/navigation";
@@ -243,13 +243,26 @@ export function AppSidebar(): JSX.Element {
 const ThemeSelectorSkeleton = (): JSX.Element => <Skeleton className="h-9" />;
 
 /**
- * Theme Selector Component
+ * Theme Selector Component with Pastel Theme Support
  * 
- * Provides theme switching capabilities with multiple theme options
- * including light, dark, and custom branded themes.
+ * Provides comprehensive theme switching capabilities with multiple theme options
+ * including standard themes, branded themes, and new pastel themes designed
+ * for comfortable extended use. The pastel themes feature soft, muted colors
+ * that are easy on the eyes during long productivity sessions.
+ * 
+ * Theme Categories:
+ * - Standard: Light, Dark, System
+ * - Branded: Amethyst, Blue Night, AMOLED
+ * - Pastel: Pastel Blue, Pastel Orange, Pastel Purple
  * 
  * @component
- * @returns {JSX.Element} Theme selection dropdown interface
+ * @returns {JSX.Element} Theme selection dropdown interface with pastel options
+ * 
+ * @example
+ * ```tsx
+ * // Used within the sidebar footer
+ * <ThemeSelector />
+ * ```
  */
 const ThemeSelector = (): JSX.Element => {
   const { setTheme, theme } = useTheme();
@@ -269,12 +282,18 @@ const ThemeSelector = (): JSX.Element => {
         />
       </SelectTrigger>
       <SelectContent>
+        {/* Standard Themes */}
         <SelectItem value="light">
           <FaSun /> Light
         </SelectItem>
         <SelectItem value="dark">
           <FaMoon /> Dark
         </SelectItem>
+        <SelectItem value="system">
+          <FaGear /> System
+        </SelectItem>
+        
+        {/* Branded Themes */}
         <SelectItem value="amethyst">
           <FaGem className="text-purple-400" /> Amethyst
         </SelectItem>
@@ -284,8 +303,16 @@ const ThemeSelector = (): JSX.Element => {
         <SelectItem value="amoled">
           <IoColorPalette className="text-neutral-500" /> AMOLED v2
         </SelectItem>
-        <SelectItem value="system">
-          <FaGear /> System
+        
+        {/* New Pastel Themes */}
+        <SelectItem value="pastel-blue">
+          <FaPaintbrush className="text-blue-300" /> Pastel Blue
+        </SelectItem>
+        <SelectItem value="pastel-orange">
+          <FaPaintbrush className="text-orange-300" /> Pastel Orange
+        </SelectItem>
+        <SelectItem value="pastel-purple">
+          <FaPaintbrush className="text-purple-300" /> Pastel Purple
         </SelectItem>
       </SelectContent>
     </Select>

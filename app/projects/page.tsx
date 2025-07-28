@@ -41,7 +41,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -65,8 +64,9 @@ import {
 import { useProjects, type Project } from "@/hooks/useProjects";
 import { useConfig } from "@/hooks/useConfig";
 import StatusBadge from "./StatusBadge";
-import { formatNumber, getCurrencySymbol, setClipboard } from "@/lib/utils";
+import { cn, formatNumber, getCurrencySymbol, setClipboard } from "@/lib/utils";
 import { FaClipboard } from "react-icons/fa6";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 /**
  * Project Card Component
@@ -299,43 +299,14 @@ function CopyProjectToText(): JSX.Element {
  */
 export default function ProjectsPage(): JSX.Element {
   const { theme } = useTheme();
-  const { getAllProjectsWithStats, loadProjects, loadingProjects } =
+  const { getAllProjectsWithStats, loadProjects } =
     useProjects();
-
+  const isMobile = useIsMobile();
   useEffect(() => {
     loadProjects();
   }, [loadProjects]);
 
   const projects = getAllProjectsWithStats();
-  // const activeProjects = projects.filter(p => p.status === "Active");
-  // const totalBudget = projects.reduce((sum, p) => sum + p.totalBudget, 0);
-  // const avgProgress = projects.length > 0
-  //   ? projects.reduce((sum, p) => sum + p.progress, 0) / projects.length
-  //   : 0;
-
-  if (loadingProjects) {
-    return (
-      <div className="flex-1 p-8 space-y-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <Skeleton className="h-8 w-32 mb-2" />
-            <Skeleton className="h-4 w-64" />
-          </div>
-          <Skeleton className="h-10 w-32" />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[...Array(3)].map((_, i) => (
-            <Skeleton key={i} className="h-24" />
-          ))}
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[...Array(6)].map((_, i) => (
-            <Skeleton key={i} className="h-64" />
-          ))}
-        </div>
-      </div>
-    );
-  }
 
   function ProjectCategoryTitle({ text }: { text: string }) {
     return <h2 className="text-sm text-muted-foreground">{text}</h2>;
@@ -344,7 +315,7 @@ export default function ProjectsPage(): JSX.Element {
   return (
     <div className="flex-1 p-8 space-y-8 container mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className={cn("flex items-center justify-between", isMobile ? "flex-col gap-2" : "")}>
         <div>
           <h1 className="text-3xl font-bold">Projects</h1>
           <p className="text-muted-foreground">
