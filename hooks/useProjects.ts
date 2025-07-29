@@ -34,7 +34,7 @@
  */
 
 import { create } from "zustand";
-import db from "@/lib/db";
+import db, { QuickLink } from "@/lib/db";
 
 /**
  * Project Data Interface
@@ -54,6 +54,8 @@ export interface Project {
   createdAt: Date;
   /** Last update timestamp */
   updatedAt: Date;
+  /** Quick links */
+  quickLinks: QuickLink[];
 }
 
 /**
@@ -128,7 +130,7 @@ export interface ProjectWithStats extends Project {
 
 /**
  * Categorized Upcoming Issues Interface
- * 
+ *
  * Defines the structure for categorized upcoming issues with
  * separate arrays for different time periods.
  */
@@ -228,6 +230,14 @@ interface ProjectsState {
   getIssuesForMilestone: (milestoneId: number) => Issue[];
   /** Get issues due within the next N days with project context */
   getUpcomingIssues: () => CategorizedUpcomingIssues;
+
+  // Quick Link operations
+  /** Add a new quick link to a project */
+  addQuickLink: (projectId: number, quickLink: QuickLink) => Promise<void>;
+  /** Update an existing quick link */
+  updateQuickLink: (projectId: number, quickLink: QuickLink) => Promise<void>;
+  /** Delete a quick link */
+  deleteQuickLink: (projectId: number, quickLinkId: string) => Promise<void>;
 }
 
 /**
@@ -272,6 +282,7 @@ export const useProjects = create<ProjectsState>((set, get) => ({
       status,
       version,
       notes,
+      quickLinks: [],
       createdAt: now,
       updatedAt: now,
     });
@@ -279,7 +290,16 @@ export const useProjects = create<ProjectsState>((set, get) => ({
     set((state) => ({
       projects: [
         ...state.projects,
-        { id, title, status, version, notes, createdAt: now, updatedAt: now },
+        {
+          id,
+          title,
+          status,
+          version,
+          notes,
+          quickLinks: [],
+          createdAt: now,
+          updatedAt: now,
+        },
       ],
     }));
   },
@@ -464,7 +484,9 @@ export const useProjects = create<ProjectsState>((set, get) => ({
     const progress =
       milestones.length > 0
         ? milestones.reduce(
-            (sum, m) => sum + (m.status === "Closed" || m.status === "Paid" ? 100 : m.progress),
+            (sum, m) =>
+              sum +
+              (m.status === "Closed" || m.status === "Paid" ? 100 : m.progress),
             0
           ) / milestones.length
         : 0;
@@ -503,7 +525,8 @@ export const useProjects = create<ProjectsState>((set, get) => ({
 
       let progress =
         totalIssues > 0 ? Math.round((completedIssues / totalIssues) * 100) : 0;
-      if (milestone.status === "Closed" || milestone.status === "Paid") progress = 100;
+      if (milestone.status === "Closed" || milestone.status === "Paid")
+        progress = 100;
 
       return {
         ...milestone,
@@ -535,7 +558,7 @@ export const useProjects = create<ProjectsState>((set, get) => ({
    * @example
    * ```typescript
    * const { today, tomorrow, next7days } = getUpcomingIssues();
-   * 
+   *
    * // Handle today's issues
    * if (today.length > 0) {
    *   console.log(`${today.length} issues due today`);
@@ -544,16 +567,16 @@ export const useProjects = create<ProjectsState>((set, get) => ({
    */
   getUpcomingIssues: () => {
     const state = get();
-    
+
     // Get current date boundaries
     const now = new Date();
-    
+
     // Today: start and end of today
     const todayStart = new Date(now);
     todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date(now);
     todayEnd.setHours(23, 59, 59, 999);
-    
+
     // Tomorrow: start and end of tomorrow
     const tomorrowStart = new Date(now);
     tomorrowStart.setDate(now.getDate() + 1);
@@ -561,7 +584,7 @@ export const useProjects = create<ProjectsState>((set, get) => ({
     const tomorrowEnd = new Date(now);
     tomorrowEnd.setDate(now.getDate() + 1);
     tomorrowEnd.setHours(23, 59, 59, 999);
-    
+
     // Next 7 days: from day after tomorrow to 7 days from now
     const next7daysStart = new Date(now);
     next7daysStart.setDate(now.getDate() + 2);
@@ -574,14 +597,14 @@ export const useProjects = create<ProjectsState>((set, get) => ({
       overdue: [],
       today: [],
       tomorrow: [],
-      next7days: []
+      next7days: [],
     };
 
     for (const issue of state.issues) {
       // Only include open issues with due dates
       if (issue.dueDate && issue.status === "Open") {
         const dueDate = new Date(issue.dueDate);
-        
+
         // Find milestone and project for this issue
         const milestone = state.milestones.find(
           (m) => m.id === issue.milestoneId
@@ -596,7 +619,7 @@ export const useProjects = create<ProjectsState>((set, get) => ({
             milestone,
             project,
           };
-          
+
           // Categorize by due date
           if (dueDate < todayStart) {
             categorizedIssues.overdue.push(issueWithContext);
@@ -612,7 +635,7 @@ export const useProjects = create<ProjectsState>((set, get) => ({
     }
 
     // Sort each category by due date (earliest first)
-    const sortByDueDate = (a: Issue, b: Issue) => 
+    const sortByDueDate = (a: Issue, b: Issue) =>
       new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime();
 
     categorizedIssues.today.sort(sortByDueDate);
@@ -620,5 +643,73 @@ export const useProjects = create<ProjectsState>((set, get) => ({
     categorizedIssues.next7days.sort(sortByDueDate);
 
     return categorizedIssues;
+  },
+
+  /**
+   * Add a new quick link to a project
+   */
+  addQuickLink: async (projectId: number, quickLink: Omit<QuickLink, "id">) => {
+    const project = get().projects.find((p) => p.id === projectId);
+    if (project) {
+      const newQuickLink = {
+        id: String(project.quickLinks!.length + 1),
+        ...quickLink,
+      };
+      const updatedQuickLinks = [...project.quickLinks!, newQuickLink];
+
+      // Update database
+      await db.projects.update(projectId, { quickLinks: updatedQuickLinks });
+
+      // Update local state
+      set((state) => ({
+        projects: state.projects.map((p) =>
+          p.id === projectId ? { ...p, quickLinks: updatedQuickLinks } : p
+        ),
+      }));
+    }
+  },
+
+  /**
+   * Update an existing quick link
+   */
+  updateQuickLink: async (projectId: number, quickLink: QuickLink) => {
+    const project = get().projects.find((p) => p.id === projectId);
+    if (project) {
+      const updatedQuickLinks = project.quickLinks?.map((q) =>
+        q.id === quickLink.id ? quickLink : q
+      );
+
+      // Update database
+      await db.projects.update(projectId, { quickLinks: updatedQuickLinks });
+
+      // Update local state
+      set((state) => ({
+        projects: state.projects.map((p) =>
+          p.id === projectId ? { ...p, quickLinks: updatedQuickLinks } : p
+        ),
+      }));
+    }
+  },
+
+  /**
+   * Delete a quick link
+   */
+  deleteQuickLink: async (projectId: number, quickLinkId: string) => {
+    const project = get().projects.find((p) => p.id === projectId);
+    if (project) {
+      const updatedQuickLinks = project.quickLinks?.filter(
+        (q) => q.id !== quickLinkId
+      );
+
+      // Update database
+      await db.projects.update(projectId, { quickLinks: updatedQuickLinks });
+
+      // Update local state
+      set((state) => ({
+        projects: state.projects.map((p) =>
+          p.id === projectId ? { ...p, quickLinks: updatedQuickLinks } : p
+        ),
+      }));
+    }
   },
 }));

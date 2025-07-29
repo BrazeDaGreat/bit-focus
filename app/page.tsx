@@ -45,7 +45,8 @@ import {
   whiteText,
 } from "@/lib/utils";
 import { useTheme } from "next-themes";
-import { toast, Toaster } from "sonner";
+import { toast } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
 import { MdTimelapse } from "react-icons/md";
 import { TbClockHeart } from "react-icons/tb";
 

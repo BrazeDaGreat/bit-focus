@@ -29,7 +29,8 @@
 import { useEffect, useState, type JSX } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { toast, Toaster } from "sonner";
+import { toast } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
 import { FaPlus, FaClock, FaProjectDiagram } from "react-icons/fa";
 import { VscSourceControl } from "react-icons/vsc";
 
