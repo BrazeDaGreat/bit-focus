@@ -14,7 +14,7 @@ const CHANGELOG = `
 ### \`v0.10.1-beta\` (2025-07-29)
 - New: Notepad component in App Sidebar, \`useNotepad()\` hook.
 - New: \`<KeyboardKey />\` UI component.
-### \`v0.10.2\` (2025-07-29) **LTS**
+### \`v0.10.2 (LTS)\` (2025-07-29)
 - Fixed: Transparent Toaster issues.
 - New: Quick Links feature in Projects page.
 - New: \`getIconFromLink()\` function.
