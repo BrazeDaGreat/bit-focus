@@ -1,15 +1,15 @@
 /**
- * Database Configuration - IndexedDB Schema and Management (Enhanced with Project Management)
+ * Database Configuration - IndexedDB Schema and Management (Enhanced with Project Management + Quick Links)
  *
  * This module defines the database schema and configuration for the BIT Focus
  * application using Dexie.js as an IndexedDB wrapper. Updated to include
- * project management functionality with projects, milestones, and issues.
+ * project management functionality with projects, milestones, issues, and quick links.
  *
  * Database Schema:
  * - Configuration: User settings including preferred currency
  * - Focus: Focus session tracking and analytics
  * - Notes: Document and board-style note storage
- * - Projects: Project management with markdown notes
+ * - Projects: Project management with markdown notes and quick links
  * - Milestones: Project milestones with budgets and deadlines
  * - Issues: Issue tracking within milestones
  *
@@ -20,24 +20,39 @@
  * - Structured data models for consistency
  * - Version management for schema evolution
  * - Project management with hierarchical structure
+ * - Quick links for project-related URLs
  *
  * Dependencies:
  * - Dexie.js for IndexedDB abstraction
  * - TypeScript for type safety
  *
- * @fileoverview Database schema with project management capabilities
+ * @fileoverview Database schema with project management and quick links capabilities
  * @author BIT Focus Development Team
  * @since v0.1.0-alpha
- * @updated v0.9.0-alpha - Added project management functionality
+ * @updated v0.10.2-lts - Added quick links support to projects
  */
 
 import Dexie from "dexie";
 
 /**
- * BIT Focus Database Class with Project Management
+ * Quick Link Interface
+ *
+ * Defines the structure of a quick link within a project.
+ */
+export interface QuickLink {
+  /** Unique identifier for the quick link */
+  id?: string;
+  /** Display title for the link */
+  title: string;
+  /** Target URL */
+  url: string;
+}
+
+/**
+ * BIT Focus Database Class with Project Management and Quick Links
  *
  * Extends Dexie to provide a type-safe database interface for the BIT Focus
- * application including comprehensive project management capabilities.
+ * application including comprehensive project management capabilities and quick links.
  *
  * @class
  * @extends {Dexie}
@@ -77,7 +92,7 @@ class BitFocusDB extends Dexie {
   >;
 
   /**
-   * Projects Table
+   * Projects Table (Enhanced with Quick Links)
    */
   projects: Dexie.Table<
     {
@@ -86,6 +101,7 @@ class BitFocusDB extends Dexie {
       status: "Scheduled" | "Active" | "Closed";
       notes: string;
       version: string;
+      quickLinks: QuickLink[];
       createdAt: Date;
       updatedAt: Date;
     },
@@ -200,6 +216,29 @@ class BitFocusDB extends Dexie {
           .modify((config) => {
             if (config.currency === undefined) {
               config.currency = "USD"; // Default currency
+            }
+          });
+      });
+
+    // Database version 5 schema definition (add quick links to projects)
+    this.version(5)
+      .stores({
+        configuration: "name",
+        focus: "++id, tag, startTime, endTime",
+        tasks: "++id, task, duedate, tags, priority, completed",
+        notes: "++id, title, type, parentId, createdAt, updatedAt",
+        projects: "++id, title, status, createdAt, updatedAt",
+        milestones: "++id, projectId, title, status, deadline, createdAt, updatedAt",
+        issues: "++id, milestoneId, title, label, dueDate, status, createdAt, updatedAt",
+      })
+      .upgrade((tx) => {
+        // Add quickLinks field to existing projects
+        return tx
+          .table("projects")
+          .toCollection()
+          .modify((project) => {
+            if (project.quickLinks === undefined) {
+              project.quickLinks = [];
             }
           });
       });

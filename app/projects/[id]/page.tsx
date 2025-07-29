@@ -24,6 +24,7 @@
  * @author BIT Focus Development Team
  * @since v0.9.0-alpha
  * @updated v0.9.4-alpha - Fixed state management and dialog issues
+ * @updated v0.10.2-lts - Added quick links support
  */
 
 "use client";
@@ -31,7 +32,8 @@
 import { useState, type JSX } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { toast, Toaster } from "sonner";
+import { toast } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
 import { GoDotFill } from "react-icons/go";
 import {
   FaArrowLeft,
@@ -105,8 +107,9 @@ import { useConfig } from "@/hooks/useConfig";
 import { cn, formatDate, formatNumber, getCurrencySymbol } from "@/lib/utils";
 import StatusBadge from "../StatusBadge";
 import Markdown from "react-markdown";
-import { FaCalendar, FaRegCircle, FaRegCircleCheck } from "react-icons/fa6";
+import { FaCalendar, FaCheck, FaLink, FaRegCircle, FaRegCircleCheck, FaX } from "react-icons/fa6";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import getIconFromLink from "@/lib/getIconFromLink";
 
 /**
  * Project Edit Dialog Component
@@ -986,8 +989,10 @@ export default function ProjectDetailPage(): JSX.Element {
   const params = useParams();
   const projectId = parseInt(params.id as string);
   const isMobile = useIsMobile();
+  const [linkDelMode, setLinkDelMode] = useState(false);
 
-  const { getProjectWithStats, loadingProjects } = useProjects();
+
+  const { getProjectWithStats, loadingProjects, deleteQuickLink } = useProjects();
 
   const project = getProjectWithStats(projectId);
 
@@ -1025,7 +1030,7 @@ export default function ProjectDetailPage(): JSX.Element {
       <ProjectHeader project={project} />
 
       {/* Project Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Progress</CardTitle>
@@ -1070,6 +1075,52 @@ export default function ProjectDetailPage(): JSX.Element {
             <p className="text-xs text-muted-foreground">
               Across all milestones
             </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Quick Links</CardTitle>
+            <div className="flex space-x-2">
+              <AddQuickLinkDialog projectId={projectId} />
+              <Button title={linkDelMode ? "Disable Delete Mode" : "Enable Delete Mode"} onClick={() => setLinkDelMode(!linkDelMode)} variant={"outline"} size={"icon"} className={cn(linkDelMode ? "text-destructive hover:text-destructive/80" : "")}>
+                {linkDelMode ? <FaCheck /> : <FaTrash />}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {project.quickLinks.length === 0 && <div className="flex flex-col items-center justify-center opacity-60">
+              <FaLink className="h-4 w-4 text-muted-foreground mb-2" />
+              <p className="text-xs text-muted-foreground">No quick links added yet</p>
+              </div>}
+            <div className="flex space-x-2">
+              {project.quickLinks.map((quickLink) => (
+                <Button
+                  key={quickLink.url}
+                  onClick={() => {
+                    if (linkDelMode) {
+                      deleteQuickLink(projectId, quickLink.title)
+                      toast.success("Quick link deleted")
+                    } else {
+                     window.open(quickLink.url, "_blank")
+                    }
+                  }}
+                  variant={"outline"}
+                  size={"icon"}
+                  title={linkDelMode ? `Delete ${quickLink.title}` : quickLink.title}
+                  className="relative"
+                >
+                  {/* {linkDelMode && ( */}
+                    <div className={cn("w-3 h-3 bg-destructive absolute -top-1.5 -right-1.5 rounded-full flex items-center justify-center cursor-pointer transition-opacity duration-100 ease-in-out", linkDelMode ? "opacity-100" : "opacity-0")}
+                    
+                    >
+                      <FaX className="!w-2 !h-2 text-white" />
+                    </div>
+                  {/* )} */}
+                  { getIconFromLink(quickLink.url) }
+                </Button>
+              ))}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -1480,6 +1531,91 @@ function EditMilestoneDialog({
               value={budget}
               onChange={(e) => setBudget(e.target.value)}
               placeholder="0.00"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setIsOpen(false)}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={isSubmitting}>
+            {isSubmitting ? "Saving..." : "Save Changes"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Add Quick Link Dialog Component
+ * 
+ * This component provides a dialog for adding new quick links to a project.
+ * It includes a form for entering the URL and label of the quick link.
+ * 
+ * @param projectId - The ID of the project to which the quick link will be added
+ */
+function AddQuickLinkDialog({ projectId }: { projectId: number }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [url, setUrl] = useState("");
+  const [title, setTitle] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { addQuickLink } = useProjects();
+
+  const handleSave = async () => {
+    if (!url.trim() || !title.trim()) {
+      toast.error("Please fill in both URL and title");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await addQuickLink(projectId, { url, title, id: title });
+      toast.success("Quick link added successfully!");
+      setIsOpen(false);
+    } catch (error) {
+      console.error("Failed to add quick link:", error);
+      toast.error("Failed to add quick link");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="icon" title="Add Quick Link">
+          <FaLink />
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add Quick Link</DialogTitle>
+          <DialogDescription>
+            Add a new quick link to this project.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="quick-link-url">URL *</Label>
+            <Input
+              id="quick-link-url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://example.com"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="quick-link-title">Title *</Label>
+            <Input
+              id="quick-link-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Quick Link Title"
             />
           </div>
         </div>

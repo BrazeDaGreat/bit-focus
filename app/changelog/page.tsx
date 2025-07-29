@@ -20,7 +20,7 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { Toaster } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
 import Markdown from "react-markdown";
 import CHANGELOG from "./CHANGELOG";
 import type { JSX } from "react";

@@ -57,7 +57,8 @@ import {
   FaTableList,
 } from "react-icons/fa6";
 import { RiExpandUpDownLine, RiFocus2Line } from "react-icons/ri";
-import { toast, Toaster } from "sonner";
+import { toast } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
 import {
   DropdownMenu,
   DropdownMenuContent,

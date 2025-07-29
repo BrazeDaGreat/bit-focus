@@ -40,7 +40,7 @@
  * @updated v0.9.7-alpha
  */
 
-import db from "./db";
+import db, { QuickLink } from "./db";
 
 /**
  * Enhanced Exported Data Structure Interface
@@ -87,6 +87,7 @@ type ExportedData = {
       status: "Scheduled" | "Active" | "Closed";
       notes: string;
       version: string;
+      quickLinks: QuickLink[];
       createdAt: string; // Serialized as ISO string
       updatedAt: string; // Serialized as ISO string
     }[];
