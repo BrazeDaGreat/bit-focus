@@ -51,19 +51,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { IoColorPalette } from "react-icons/io5";
-import { FaHome, FaMoon, FaProjectDiagram, FaSun } from "react-icons/fa";
+import { FaChevronUp, FaHome, FaMoon, FaProjectDiagram, FaSun } from "react-icons/fa";
 import { IoIosTimer } from "react-icons/io";
 import { FaGear, FaGem, FaPaintbrush, FaReadme, FaWater } from "react-icons/fa6";
 import { useTheme } from "next-themes";
 import EditConfig, { EditConfigSkeleton } from "./sidebar/EditConfig";
 import { usePathname, useRouter } from "next/navigation";
 import { useConfig } from "@/hooks/useConfig";
-import { useEffect, useRef, useCallback, type JSX } from "react";
+import { useEffect, useRef, useCallback, type JSX, useState } from "react";
 import PomoFooterTimer from "./sidebar/PomoFooterTimer";
 import { Skeleton } from "./ui/skeleton";
 import { VERSION } from "@/app/changelog/CHANGELOG";
 import { usePomo } from "@/hooks/PomoContext";
 import { useProjects } from "@/hooks/useProjects";
+import Notepad from "./sidebar/Notepad";
+import { cn } from "@/lib/utils";
 
 /**
  * Enhanced Navigation Items Configuration
@@ -104,6 +106,7 @@ export function AppSidebar(): JSX.Element {
   const { pause, state, start } = usePomo();
   const { loadConfig, loadingConfig } = useConfig();
   const { loadProjects } = useProjects()
+  const [ showNotepad, setShowNotepad ] = useState(true);
   
   
   // Track navigation state to prevent duplicate operations
@@ -221,8 +224,16 @@ export function AppSidebar(): JSX.Element {
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
+          <SidebarGroup>
+            <SidebarGroupLabel className="flex items-center justify-between hover:bg-primary/20 my-0.5 select-none cursor-pointer" onClick={() => setShowNotepad(!showNotepad)}>
+              <span>Notepad</span>
+              <FaChevronUp className={cn("!w-2 !h-2", !showNotepad && "rotate-180", "transition-transform duration-200 ease-in-out")} />
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <Notepad className={cn(showNotepad ? "h-[232px]" : "h-0", "overflow-hidden transition-all duration-300 ease-in-out")} />
+            </SidebarGroupContent>
+          </SidebarGroup>
         </SidebarContent>
-
         <SidebarFooter>
           <span className="text-center text-xs opacity-40 select-none">
             {VERSION}
