@@ -1,4 +1,4 @@
-export const VERSION = "v0.10.0-beta";
+export const VERSION = "v0.10.1-beta";
 
 const CHANGELOG = `
 ## \`v0.10.0-beta\` (2025-07-28)
@@ -11,6 +11,9 @@ const CHANGELOG = `
 ### Fixed
 - Fixed Home page's skeleton issues.
 - Fixed Projects page's skeleton issues.
+### \`v0.10.1-beta\` (2025-07-29)
+- New Notepad component in App Sidebar, \`useNotepad()\` hook.
+- New \`<KeyboardKey />\` UI component.
 
 ***
 ## \`v0.9.0-alpha\` (2025-07-15)
