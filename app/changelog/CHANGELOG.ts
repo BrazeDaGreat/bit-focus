@@ -1,6 +1,19 @@
-export const VERSION = "v0.10.2 (LTS)";
+export const VERSION = "v0.11.0-beta";
 
 const CHANGELOG = `
+## \`v0.11.0-beta\` (2025-08-12)
+- New "Rewards" System.
+- Each focus minute gives you 1 reward point, shown in TopBar.
+- You can spend these in the new Rewards page.
+- Inclusion of a Discount System for Rewards.
+- Custom-items on Rewards.
+- Features to Throw Away/Take Loan for Reward Points.
+Note: This feature is not practical, it's just meant to game-ify your daily todos, and maybe just give you a push, have fun.
+- New \`useRewards\` hook.
+- DB Version 6.
+- New \`rewards/page.tsx\` page.
+
+***
 ## \`v0.10.0-beta\` (2025-07-28)
 ### Added
 - New pastel themes (\`pastel-blue\`, \`pastel-orange\`, and \`pastel-purple\`)

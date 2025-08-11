@@ -25,6 +25,7 @@ import { durationFromSeconds, formatTime, formatTimeNew } from "@/lib/utils";
 import { useTag } from "@/hooks/useTag";
 import { sendMessage } from "@/lib/webhook";
 import { useConfig } from "./useConfig";
+import { useRewards } from "@/hooks/useRewards";
 
 /**
  * Handles the completion of a focus session by saving it to the database
@@ -47,7 +48,8 @@ const handleFinish = (
     name: string;
     tag: string;
     webhook: string;
-  }
+  },
+  addPoints: (points: number) => void
 ) => {
   const endTime = Date.now();
   const elapsedSeconds = Math.floor((endTime - startTime) / 1000);
@@ -68,6 +70,8 @@ const handleFinish = (
     });
     return;
   }
+
+  addPoints(Math.floor(elapsedSeconds / 60));
 
   addFocusSession(tag, new Date(startTime), new Date(endTime));
   toast(`Focused for ${formatTime(elapsedSeconds / 60, 0, 1)} seconds.`, {
@@ -90,6 +94,7 @@ interface PomoState {
     tag: string;
     webhook: string;
   };
+  addPoints: (points: number) => void;
 }
 
 type Action =
@@ -138,7 +143,8 @@ function pomoReducer(state: PomoState, action: Action): PomoState {
           state.addFocusSession,
           action.payload.tag,
           startTime,
-          state.data
+          state.data,
+          state.addPoints
         );
       }
       return {
@@ -181,6 +187,7 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
   const { loadFocusSessions, addFocusSession } = useFocus();
   const { name, webhook } = useConfig();
   const { tag } = useTag();
+  const { addPoints, loadRewards } = useRewards();
 
   const [state, dispatch] = useReducer(pomoReducer, {
     isRunning: false,
@@ -188,6 +195,7 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
     elapsedSeconds: 0,
     addFocusSession: addFocusSession,
     data: { name: "", webhook: "", tag: "" },
+    addPoints: addPoints,
   });
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -216,6 +224,11 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
       dispatch({ type: "RESET", payload: { elapsedSeconds: savedTime } });
     }
   }, []);
+
+  // Load persisted rewards state from localStorage on mount
+  useEffect(() => {
+    loadRewards();
+  }, [loadRewards]);
 
   /**
    * Debounced function to save timer state to localStorage.

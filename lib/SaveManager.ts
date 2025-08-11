@@ -114,6 +114,24 @@ type ExportedData = {
       createdAt: string; // Serialized as ISO string
       updatedAt: string; // Serialized as ISO string
     }[];
+    rewards: {
+      id?: number;
+      title: string;
+      description?: string;
+      cost: number;
+      category?: string;
+      emoji?: string;
+      createdAt: string;
+      updatedAt: string;
+    }[];
+    discounts: {
+      id?: number;
+      title: string;
+      percentage: number;
+      active: boolean;
+      createdAt: string;
+      updatedAt: string;
+    }[];
   };
 };
 
@@ -196,6 +214,18 @@ class SaveManager {
           dueDate: i.dueDate ? i.dueDate.toISOString() : undefined,
           createdAt: i.createdAt.toISOString(),
           updatedAt: i.updatedAt.toISOString(),
+        })),
+        // Serialize rewards with date conversion
+        rewards: (await db.rewards.toArray()).map((r) => ({
+          ...r,
+          createdAt: r.createdAt.toISOString(),
+          updatedAt: r.updatedAt.toISOString(),
+        })),
+        // Serialize discounts with date conversion
+        discounts: (await db.discounts.toArray()).map((d) => ({
+          ...d,
+          createdAt: d.createdAt.toISOString(),
+          updatedAt: d.updatedAt.toISOString(),
         })),
       },
     };
@@ -389,6 +419,16 @@ class SaveManager {
           createdAt: i.createdAt.toISOString(),
           updatedAt: i.updatedAt.toISOString(),
         })),
+        rewards: (await db.rewards.toArray()).map((r) => ({
+          ...r,
+          createdAt: r.createdAt.toISOString(),
+          updatedAt: r.updatedAt.toISOString(),
+        })),
+        discounts: (await db.discounts.toArray()).map((d) => ({
+          ...d,
+          createdAt: d.createdAt.toISOString(),
+          updatedAt: d.updatedAt.toISOString(),
+        })),
       },
     };
 
@@ -449,6 +489,18 @@ class SaveManager {
       updatedAt: new Date(i.updatedAt),
     }));
 
+    const rewards = (data.indexedDB.rewards || []).map((r) => ({
+      ...r,
+      createdAt: new Date(r.createdAt),
+      updatedAt: new Date(r.updatedAt),
+    }));
+  
+    const discounts = (data.indexedDB.discounts || []).map((d) => ({
+      ...d,
+      createdAt: new Date(d.createdAt),
+      updatedAt: new Date(d.updatedAt),
+    }));
+
     await db.transaction(
       "rw",
       [
@@ -458,6 +510,8 @@ class SaveManager {
         db.projects,
         db.milestones,
         db.issues,
+        db.rewards,
+        db.discounts,
       ],
       async () => {
         await db.configuration.clear();
@@ -466,6 +520,8 @@ class SaveManager {
         await db.projects.clear();
         await db.milestones.clear();
         await db.issues.clear();
+        await db.rewards.clear();
+        await db.discounts.clear();
 
         await db.configuration.bulkAdd(configuration);
         await db.focus.bulkAdd(focus);
@@ -479,6 +535,12 @@ class SaveManager {
         }
         if (issues.length > 0) {
           await db.issues.bulkAdd(issues);
+        }
+        if (rewards.length > 0) {
+          await db.rewards.bulkAdd(rewards);
+        }
+        if (discounts.length > 0) {
+          await db.discounts.bulkAdd(discounts);
         }
       }
     );
