@@ -29,7 +29,7 @@
 
 "use client";
 
-import { useState, type JSX } from "react";
+import { useEffect, useState, type JSX } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
@@ -110,6 +110,7 @@ import Markdown from "react-markdown";
 import { FaCalendar, FaCheck, FaLink, FaRegCircle, FaRegCircleCheck, FaX } from "react-icons/fa6";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import getIconFromLink from "@/lib/getIconFromLink";
+import Link from "next/link";
 
 /**
  * Project Edit Dialog Component
@@ -990,13 +991,25 @@ export default function ProjectDetailPage(): JSX.Element {
   const projectId = parseInt(params.id as string);
   const isMobile = useIsMobile();
   const [linkDelMode, setLinkDelMode] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
+  const { getProjectWithStats, loadingProjects, deleteQuickLink, loadProjects } = useProjects();
 
-  const { getProjectWithStats, loadingProjects, deleteQuickLink } = useProjects();
+  // Ensure projects are loaded on mount
+  useEffect(() => {
+    const loadData = async () => {
+      if (!dataLoaded) {
+        await loadProjects();
+        setDataLoaded(true);
+      }
+    };
+    loadData();
+  }, [loadProjects, dataLoaded]);
 
   const project = getProjectWithStats(projectId);
 
-  if (loadingProjects) {
+  // Show minimal loading state
+  if (!dataLoaded || loadingProjects) {
     return (
       <div className="flex-1 p-8 space-y-8">
         <Skeleton className="h-16 w-full" />
@@ -1006,6 +1019,22 @@ export default function ProjectDetailPage(): JSX.Element {
           ))}
         </div>
         <Skeleton className="h-96 w-full" />
+      </div>
+    );
+  }
+
+  if (!project) {
+    return (
+      <div className="flex-1 p-8 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-2">Project Not Found</h1>
+          <p className="text-muted-foreground mb-4">
+            The project you&apos;re looking for doesn&apos;t exist.
+          </p>
+          <Link href="/projects" prefetch={true}>
+            <Button>Go Back to Projects</Button>
+          </Link>
+        </div>
       </div>
     );
   }
@@ -1089,12 +1118,12 @@ export default function ProjectDetailPage(): JSX.Element {
             </div>
           </CardHeader>
           <CardContent>
-            {project.quickLinks.length === 0 && <div className="flex flex-col items-center justify-center opacity-60">
+            {project.quickLinks?.length === 0 && <div className="flex flex-col items-center justify-center opacity-60">
               <FaLink className="h-4 w-4 text-muted-foreground mb-2" />
               <p className="text-xs text-muted-foreground">No quick links added yet</p>
               </div>}
             <div className="flex space-x-2">
-              {project.quickLinks.map((quickLink) => (
+              {project.quickLinks?.map((quickLink) => (
                 <Button
                   key={quickLink.url}
                   onClick={() => {

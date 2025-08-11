@@ -49,6 +49,36 @@ export interface QuickLink {
 }
 
 /**
+ * Reward Item Interface
+ *
+ * Defines the structure of items in the rewards shop
+ */
+export interface RewardItem {
+  id?: number;
+  title: string;
+  description?: string;
+  cost: number;
+  category?: string;
+  emoji?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Special Discount Interface
+ *
+ * Defines discount configurations for the rewards system
+ */
+export interface SpecialDiscount {
+  id?: number;
+  title: string;
+  percentage: number; // 0-100
+  active: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
  * BIT Focus Database Class with Project Management and Quick Links
  *
  * Extends Dexie to provide a type-safe database interface for the BIT Focus
@@ -143,6 +173,16 @@ class BitFocusDB extends Dexie {
     number
   >;
 
+  /**
+   * Reward Items Table
+   */
+  rewards: Dexie.Table<RewardItem, number>;
+
+  /**
+   * Special Discounts Table
+   */
+  discounts: Dexie.Table<SpecialDiscount, number>;
+
   constructor() {
     super("BitFocusDB");
 
@@ -205,8 +245,10 @@ class BitFocusDB extends Dexie {
         tasks: "++id, task, duedate, tags, priority, completed",
         notes: "++id, title, type, parentId, createdAt, updatedAt",
         projects: "++id, title, status, createdAt, updatedAt",
-        milestones: "++id, projectId, title, status, deadline, createdAt, updatedAt",
-        issues: "++id, milestoneId, title, label, dueDate, status, createdAt, updatedAt",
+        milestones:
+          "++id, projectId, title, status, deadline, createdAt, updatedAt",
+        issues:
+          "++id, milestoneId, title, label, dueDate, status, createdAt, updatedAt",
       })
       .upgrade((tx) => {
         // Add currency field to existing configurations
@@ -228,8 +270,10 @@ class BitFocusDB extends Dexie {
         tasks: "++id, task, duedate, tags, priority, completed",
         notes: "++id, title, type, parentId, createdAt, updatedAt",
         projects: "++id, title, status, createdAt, updatedAt",
-        milestones: "++id, projectId, title, status, deadline, createdAt, updatedAt",
-        issues: "++id, milestoneId, title, label, dueDate, status, createdAt, updatedAt",
+        milestones:
+          "++id, projectId, title, status, deadline, createdAt, updatedAt",
+        issues:
+          "++id, milestoneId, title, label, dueDate, status, createdAt, updatedAt",
       })
       .upgrade((tx) => {
         // Add quickLinks field to existing projects
@@ -243,6 +287,21 @@ class BitFocusDB extends Dexie {
           });
       });
 
+    // Database version 6 schema definition (add rewards system)
+    this.version(6).stores({
+      configuration: "name",
+      focus: "++id, tag, startTime, endTime",
+      tasks: "++id, task, duedate, tags, priority, completed",
+      notes: "++id, title, type, parentId, createdAt, updatedAt",
+      projects: "++id, title, status, createdAt, updatedAt",
+      milestones:
+        "++id, projectId, title, status, deadline, createdAt, updatedAt",
+      issues:
+        "++id, milestoneId, title, label, dueDate, status, createdAt, updatedAt",
+      rewards: "++id, title, cost, category, createdAt, updatedAt",
+      discounts: "++id, title, percentage, active, createdAt, updatedAt",
+    });
+
     // Table reference assignment
     this.configuration = this.table("configuration");
     this.focus = this.table("focus");
@@ -250,6 +309,8 @@ class BitFocusDB extends Dexie {
     this.projects = this.table("projects");
     this.milestones = this.table("milestones");
     this.issues = this.table("issues");
+    this.rewards = this.table("rewards");
+    this.discounts = this.table("discounts");
   }
 }
 

@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 /**
  * Projects Page - Main Project Management Interface
  *
@@ -9,7 +11,7 @@
  * - Project listing with status indicators and progress
  * - Quick project creation interface
  * - Project statistics and overview cards
- * - Navigation to individual project details
+ * - Navigation to individual project details with prefetching
  * - Responsive grid layout for project cards
  * - Real-time progress calculations
  *
@@ -19,7 +21,7 @@
  * - Navigation system for project details
  * - Theme-aware toast notifications
  *
- * @fileoverview Main project management page interface
+ * @fileoverview Main project management page interface with optimized navigation
  * @author BIT Focus Development Team
  * @since v0.9.0-alpha
  */
@@ -27,7 +29,7 @@
 "use client";
 
 import { useEffect, useState, type JSX } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
@@ -70,68 +72,70 @@ import { FaClipboard } from "react-icons/fa6";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
 /**
- * Project Card Component
+ * Project Card Component with Optimized Navigation
  *
- * Renders an individual project card with statistics, progress, and navigation.
+ * Renders an individual project card with statistics, progress, and instant navigation.
+ * Uses Next.js Link component for route prefetching and optimized transitions.
  *
  * @param {Object} props - Component props
  * @param {ProjectWithStats} props.project - Project data with statistics
- * @returns {JSX.Element} Project card component
+ * @returns {JSX.Element} Project card component with prefetch navigation
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function ProjectCard({ project }: { project: any }): JSX.Element {
-  const router = useRouter();
   const { currency } = useConfig();
 
   return (
-    <Card
-      className="cursor-pointer hover:shadow-md transition-shadow"
-      onClick={() => router.push(`/projects/${project.id}`)}
+    <Link 
+      href={`/projects/${project.id}`}
+      prefetch={true}
+      className="block"
     >
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">{project.title}</CardTitle>
-          <StatusBadge status={project.status} />
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
-          {/* Progress Bar */}
-          <div>
-            <div className="flex justify-between text-sm mb-1">
-              <span>Progress</span>
-              <span>{project.progress}%</span>
-            </div>
-            <div className="w-full bg-accent rounded-full h-2">
-              <div
-                className="bg-accent-foreground h-2 rounded-full transition-all"
-                style={{ width: `${project.progress}%` }}
-              />
-            </div>
+      <Card className="cursor-pointer hover:shadow-md transition-shadow h-full">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">{project.title}</CardTitle>
+            <StatusBadge status={project.status} />
           </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {/* Progress Bar */}
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span>Progress</span>
+                <span>{project.progress}%</span>
+              </div>
+              <div className="w-full bg-accent rounded-full h-2">
+                <div
+                  className="bg-accent-foreground h-2 rounded-full transition-all"
+                  style={{ width: `${project.progress}%` }}
+                />
+              </div>
+            </div>
 
-          {/* Statistics */}
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <VscSourceControl className="text-muted-foreground" />
-              <span>v{project.version}</span>
+            {/* Statistics */}
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <VscSourceControl className="text-muted-foreground" />
+                <span>v{project.version}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {getCurrencySymbol(currency)}
+                <span>{formatNumber(project.totalBudget)}</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              {getCurrencySymbol(currency)}
-              <span>{formatNumber(project.totalBudget)}</span>
-            </div>
-          </div>
 
-          {/* Creation Date */}
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <FaClock />
-            <span>
-              Created {new Date(project.createdAt).toLocaleDateString()}
-            </span>
+            {/* Creation Date */}
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <FaClock />
+              <span>
+                Created {new Date(project.createdAt).toLocaleDateString()}
+              </span>
+            </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
 
@@ -151,7 +155,13 @@ function CreateProjectDialog(): JSX.Element {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { addProject } = useProjects();
 
-  const handleSubmit = async () => {
+  /**
+   * Handles form submission for creating a new project
+   * 
+   * @async
+   * @returns {Promise<void>}
+   */
+  const handleSubmit = async (): Promise<void> => {
     if (!title.trim()) {
       toast.error("Please enter a project title");
       return;
@@ -162,9 +172,11 @@ function CreateProjectDialog(): JSX.Element {
       await addProject(title.trim(), status, version.trim(), notes.trim());
       toast.success("Project created successfully!");
       setOpen(false);
+      // Reset form
       setTitle("");
       setStatus("Scheduled");
       setNotes("");
+      setVersion("1.0.0");
     } catch (error) {
       console.error("Failed to create project:", error);
       toast.error("Failed to create project");
@@ -176,35 +188,37 @@ function CreateProjectDialog(): JSX.Element {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2">
-          <FaPlus />
+        <Button>
+          <FaPlus className="mr-2" />
           New Project
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Create New Project</DialogTitle>
           <DialogDescription>
-            Create a new project to organize your milestones and issues.
+            Add a new project to track milestones and issues
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="title">Project Title *</Label>
+        <div className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <Label htmlFor="title">Project Title</Label>
             <Input
               id="title"
-              placeholder="Enter project title..."
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              placeholder="Enter project title"
+              disabled={isSubmitting}
             />
           </div>
-          <div className="space-y-2">
+          <div className="grid gap-2">
             <Label htmlFor="status">Status</Label>
             <Select
               value={status}
               onValueChange={(value) => setStatus(value as Project["status"])}
+              disabled={isSubmitting}
             >
-              <SelectTrigger>
+              <SelectTrigger id="status">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -214,34 +228,29 @@ function CreateProjectDialog(): JSX.Element {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
+          <div className="grid gap-2">
             <Label htmlFor="version">Version</Label>
             <Input
               id="version"
-              placeholder="Enter project version..."
               value={version}
               onChange={(e) => setVersion(e.target.value)}
+              placeholder="e.g., 1.0.0"
+              disabled={isSubmitting}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
+          <div className="grid gap-2">
+            <Label htmlFor="notes">Notes (Optional)</Label>
             <Textarea
               id="notes"
-              placeholder="Project description and notes..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              rows={4}
+              placeholder="Add project notes..."
+              className="min-h-[100px]"
+              disabled={isSubmitting}
             />
           </div>
         </div>
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => setOpen(false)}
-            disabled={isSubmitting}
-          >
-            Cancel
-          </Button>
           <Button onClick={handleSubmit} disabled={isSubmitting}>
             {isSubmitting ? "Creating..." : "Create Project"}
           </Button>
@@ -251,18 +260,38 @@ function CreateProjectDialog(): JSX.Element {
   );
 }
 
+/**
+ * Copy Projects to Text Component
+ * 
+ * Generates and copies a formatted text summary of project earnings
+ * 
+ * @returns {JSX.Element} Copy button component
+ */
 function CopyProjectToText(): JSX.Element {
   const { getAllProjectsWithStats } = useProjects();
   const projects = getAllProjectsWithStats();
 
-  function getEmojiByStatus(text: "Scheduled" | "Active" | "Closed" | "Paid") {
+  /**
+   * Gets emoji indicator based on milestone status
+   * 
+   * @param {string} text - Status text
+   * @returns {string} Emoji indicator
+   */
+  function getEmojiByStatus(text: "Scheduled" | "Active" | "Closed" | "Paid"): string {
     if (text === "Scheduled") return "";
     if (text === "Active") return "‼️";
     if (text === "Closed") return "❓";
     if (text === "Paid") return "✅";
+    return "";
   }
 
-  async function handleClick() {
+  /**
+   * Handles copying project earnings summary to clipboard
+   * 
+   * @async
+   * @returns {Promise<void>}
+   */
+  async function handleClick(): Promise<void> {
     const text: string[] = [];
     let pending: number = 0;
 
@@ -284,32 +313,41 @@ function CopyProjectToText(): JSX.Element {
     else toast.error("Failed to copy to clipboard");
   }
 
-  return <Button onClick={handleClick}>
-    <FaClipboard />
-    <span>Copy Earnings</span>
-  </Button>;
+  return (
+    <Button onClick={handleClick}>
+      <FaClipboard />
+      <span>Copy Earnings</span>
+    </Button>
+  );
 }
 
 /**
  * Main Projects Page Component
  *
  * Renders the complete projects management interface with overview statistics
- * and project listing capabilities.
+ * and project listing capabilities with optimized navigation.
  *
  * @returns {JSX.Element} Complete projects page interface
  */
 export default function ProjectsPage(): JSX.Element {
   const { theme } = useTheme();
-  const { getAllProjectsWithStats, loadProjects } =
-    useProjects();
+  const { getAllProjectsWithStats, loadProjects } = useProjects();
   const isMobile = useIsMobile();
+  
   useEffect(() => {
     loadProjects();
   }, [loadProjects]);
 
   const projects = getAllProjectsWithStats();
 
-  function ProjectCategoryTitle({ text }: { text: string }) {
+  /**
+   * Renders project category title
+   * 
+   * @param {Object} props - Component props
+   * @param {string} props.text - Category title text
+   * @returns {JSX.Element} Category title element
+   */
+  function ProjectCategoryTitle({ text }: { text: string }): JSX.Element {
     return <h2 className="text-sm text-muted-foreground">{text}</h2>;
   }
 
@@ -339,7 +377,6 @@ export default function ProjectsPage(): JSX.Element {
             <p className="text-muted-foreground mb-4">
               Get started by creating your first project
             </p>
-            {/* <CreateProjectDialog /> */}
           </CardDescription>
         </Card>
       ) : (
