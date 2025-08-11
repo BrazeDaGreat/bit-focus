@@ -1,4 +1,4 @@
-export const VERSION = "v0.11.1-beta";
+export const VERSION = "v0.11.2 (LTS)";
 
 const CHANGELOG = `
 ## \`v0.11.0-beta\` (2025-08-11)
@@ -17,7 +17,9 @@ Note: This feature is not practical, it's just meant to game-ify your daily todo
 - Changed: BITF Data moved into a separate \`components/BITFdata.tsx\`.
 - Changed: BITF Data button was moved from \`/focus\` page to \`TopBar.tsx\`.
 - Changed: Changed EMOJI_OPTIONS being icons, more in-line with the App's design system.
-
+### \`v0.11.2 (LTS)\` (2025-08-12)
+- Fixed: Improved navigation speed on \`projects/page.tsx\` and \`projects/[id]/page.tsx\`.
+- Fixed: Fixed missing Quick Links-related errors, adding support for older \`.bitf.json\` files (pre-\`v0.10.0-beta\`).
 ***
 ## \`v0.10.0-beta\` (2025-07-28)
 ### Added
