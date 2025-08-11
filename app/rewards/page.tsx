@@ -66,48 +66,34 @@ import {
   FaPercent,
   FaCartShopping,
   FaCheck,
+  FaHourglassEnd,
+  FaGamepad,
 } from "react-icons/fa6";
 import { FaTimes, FaCoffee } from "react-icons/fa";
 import { toast } from "sonner";
 import type { RewardItem, SpecialDiscount } from "@/lib/db";
+import { IoFastFood, IoFootball } from "react-icons/io5";
+import { IoIosPhonePortrait } from "react-icons/io";
 
 /**
  * Common emoji options for reward items
  */
 const EMOJI_OPTIONS = [
-  "🎮",
-  "📱",
-  "🍕",
-  "☕",
-  "🎬",
-  "🎵",
-  "📚",
-  "🏃",
-  "🎯",
-  "🎨",
-  "🍔",
-  "🍰",
-  "🎧",
-  "💤",
-  "🎭",
-  "🎪",
-  "🏖️",
-  "🎁",
-  "⭐",
-  "🏆",
+  <FaHourglassEnd key={1} />,
+  <FaGamepad key={2} />,
+  <IoFastFood key={3} />,
+  <IoIosPhonePortrait key={4} />,
+  <IoFootball key={5} />
 ];
 
 /**
  * Default categories for organizing rewards
  */
 const DEFAULT_CATEGORIES = [
-  "Entertainment",
-  "Food & Drink",
-  "Break Time",
-  "Social",
-  "Shopping",
+  "Breaks",
   "Gaming",
-  "Other",
+  "Treats",
+  "Others"
 ];
 
 /**
@@ -211,7 +197,7 @@ export default function RewardsPage(): JSX.Element {
     description: "",
     cost: "",
     category: DEFAULT_CATEGORIES[0],
-    emoji: EMOJI_OPTIONS[0],
+    emoji: `${0}`,
   });
 
   const [editingItem, setEditingItem] = useState<RewardItem | null>(null);
@@ -252,7 +238,7 @@ export default function RewardsPage(): JSX.Element {
       description: "",
       cost: "",
       category: DEFAULT_CATEGORIES[0],
-      emoji: EMOJI_OPTIONS[0],
+      emoji: `0`,
     });
   };
 
@@ -422,17 +408,17 @@ export default function RewardsPage(): JSX.Element {
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label className="text-right">Emoji</Label>
                   <div className="col-span-3 flex flex-wrap gap-2">
-                    {EMOJI_OPTIONS.map((emoji) => (
+                    {EMOJI_OPTIONS.map((emoji, i) => (
                       <button
-                        key={emoji}
+                        key={`${i}`}
                         type="button"
-                        onClick={() => setNewItem({ ...newItem, emoji })}
+                        onClick={() => setNewItem({ ...newItem, emoji: `${i}` })}
                         className={cn(
-                          "text-2xl p-1 rounded hover:bg-accent",
-                          newItem.emoji === emoji && "bg-accent"
+                          "text-2xl p-1 rounded hover:bg-accent", 
+                          newItem.emoji === `${i}` && "bg-accent"
                         )}
                       >
-                        {emoji}
+                        {EMOJI_OPTIONS[i]}
                       </button>
                     ))}
                   </div>
@@ -614,7 +600,9 @@ export default function RewardsPage(): JSX.Element {
                         <div className="flex justify-between items-start">
                           <div className="flex items-start gap-2">
                             {item.emoji && (
-                              <span className="text-2xl">{item.emoji}</span>
+                              <span className="text-2xl">
+                                {EMOJI_OPTIONS[parseInt(item.emoji)]}
+                              </span>
                             )}
                             <CardTitle className="text-base">
                               {item.title}
@@ -645,7 +633,6 @@ export default function RewardsPage(): JSX.Element {
                                 onClick={() =>
                                   item.id && deleteRewardItem(item.id)
                                 }
-                                className="text-destructive focus:text-destructive"
                               >
                                 <FaTrash className="size-3 mr-2" />
                                 Delete

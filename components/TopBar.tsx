@@ -1,27 +1,27 @@
 /**
  * Top Navigation Bar Component - Enhanced with Rewards System
- * 
+ *
  * This component provides the secondary navigation bar that appears at the top
  * of the application interface, now including a reward points display and
  * management dropdown.
- * 
+ *
  * Features:
  * - Sidebar toggle for responsive navigation
  * - Quick access to external resources (Discord, GitHub)
  * - Reward points display with dropdown actions
  * - Responsive button layout and sizing
  * - Consistent styling with application theme
- * 
+ *
  * Layout Structure:
  * - Left side: Sidebar trigger and external links
  * - Right side: Reward points with management dropdown
  * - Responsive design for mobile and desktop
- * 
+ *
  * Dependencies:
  * - UI components for consistent styling
  * - React Icons for visual elements
  * - Rewards hook for points management
- * 
+ *
  * @fileoverview Top navigation bar with rewards system integration
  * @author BIT Focus Development Team
  * @since v0.1.0-alpha
@@ -30,8 +30,13 @@
 
 "use client";
 
-import { FaDiscord, FaGithub, FaTrash, FaHandHoldingDollar } from "react-icons/fa6";
-import { FaCoffee } from "react-icons/fa"
+import {
+  FaDiscord,
+  FaGithub,
+  FaTrash,
+  FaHandHoldingDollar,
+} from "react-icons/fa6";
+import { FaCoffee } from "react-icons/fa";
 import { Button } from "./ui/button";
 import { SidebarTrigger } from "./ui/sidebar";
 import {
@@ -56,10 +61,11 @@ import { useRewards } from "@/hooks/useRewards";
 import { useState, useEffect, type JSX } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import BITFdata from "./BITFdata";
 
 /**
  * TopBar Button Props Interface
- * 
+ *
  * Defines the properties for individual action buttons in the top bar
  * including click handlers and icon display.
  */
@@ -72,10 +78,10 @@ interface TopBarButtonProps {
 
 /**
  * TopBar Button Component
- * 
+ *
  * Renders individual action buttons with consistent styling and behavior.
  * Handles click events with proper propagation control for overlay scenarios.
- * 
+ *
  * @component
  * @param {TopBarButtonProps} props - Button configuration
  * @returns {JSX.Element} Styled action button
@@ -101,10 +107,10 @@ function TopBarButton(props: TopBarButtonProps): JSX.Element {
 
 /**
  * Main TopBar Component
- * 
+ *
  * Renders the complete top navigation bar with sidebar controls, external
  * links, and the rewards system display with management dropdown.
- * 
+ *
  * @component
  * @returns {JSX.Element} Complete top navigation bar
  */
@@ -159,7 +165,7 @@ export default function TopBar(): JSX.Element {
         <div className="flex items-center justify-start gap-2">
           {/* Sidebar Toggle */}
           <SidebarTrigger />
-          
+
           {/* Discord Link */}
           <TopBarButton
             icon={<FaDiscord />}
@@ -167,7 +173,7 @@ export default function TopBar(): JSX.Element {
               window.open("https://discord.gg/XXkSFkdx8H", "_blank");
             }}
           />
-          
+
           {/* GitHub Repository Link */}
           <TopBarButton
             icon={<FaGithub />}
@@ -176,9 +182,11 @@ export default function TopBar(): JSX.Element {
             }
           />
         </div>
-        
-        {/* Right Side: Reward Points Display */}
+
         <div className="flex items-center gap-2">
+          {/* BITF Data Export */}
+          <BITFdata />
+          {/* Reward Points */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -221,7 +229,8 @@ export default function TopBar(): JSX.Element {
           <DialogHeader>
             <DialogTitle>Throw Away Reward Points</DialogTitle>
             <DialogDescription>
-              How many reward points would you like to throw away? This action cannot be undone.
+              How many reward points would you like to throw away? This action
+              cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -245,7 +254,10 @@ export default function TopBar(): JSX.Element {
             </p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setThrowAwayDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setThrowAwayDialogOpen(false)}
+            >
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleThrowAway}>
@@ -261,7 +273,8 @@ export default function TopBar(): JSX.Element {
           <DialogHeader>
             <DialogTitle>Take a Loan</DialogTitle>
             <DialogDescription>
-              How many reward points would you like to borrow? Make sure to return them afterwards.
+              How many reward points would you like to borrow? Make sure to
+              return them afterwards.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -283,16 +296,15 @@ export default function TopBar(): JSX.Element {
               Current balance: {rewardPoints.toFixed(0)} RP
             </p>
             <p className="text-sm text-muted-foreground">
-              After loan: {(rewardPoints + parseInt(loanAmount || "0")).toFixed(0)} RP
+              After loan:{" "}
+              {(rewardPoints + parseInt(loanAmount || "0")).toFixed(0)} RP
             </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setLoanDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleLoan}>
-              Take Loan
-            </Button>
+            <Button onClick={handleLoan}>Take Loan</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

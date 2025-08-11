@@ -1,7 +1,7 @@
-export const VERSION = "v0.11.0-beta";
+export const VERSION = "v0.11.1-beta";
 
 const CHANGELOG = `
-## \`v0.11.0-beta\` (2025-08-12)
+## \`v0.11.0-beta\` (2025-08-11)
 - New "Rewards" System.
 - Each focus minute gives you 1 reward point, shown in TopBar.
 - You can spend these in the new Rewards page.
@@ -12,6 +12,11 @@ Note: This feature is not practical, it's just meant to game-ify your daily todo
 - New \`useRewards\` hook.
 - DB Version 6.
 - New \`rewards/page.tsx\` page.
+### \`v0.11.1-beta\` (2025-08-12)
+- Fixed: Removed Destructive Text from Delete buttons.
+- Changed: BITF Data moved into a separate \`components/BITFdata.tsx\`.
+- Changed: BITF Data button was moved from \`/focus\` page to \`TopBar.tsx\`.
+- Changed: Changed EMOJI_OPTIONS being icons, more in-line with the App's design system.
 
 ***
 ## \`v0.10.0-beta\` (2025-07-28)
