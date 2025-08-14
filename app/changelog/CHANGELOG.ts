@@ -1,4 +1,4 @@
-export const VERSION = "v0.11.2 (LTS)";
+export const VERSION = "v0.11.3-beta";
 
 const CHANGELOG = `
 ## \`v0.11.0-beta\` (2025-08-11)
@@ -38,7 +38,8 @@ Note: This feature is not practical, it's just meant to game-ify your daily todo
 - Fixed: Transparent Toaster issues.
 - New: Quick Links feature in Projects page.
 - New: \`getIconFromLink()\` function.
-
+### \`v0.10.3-beta\` (2025-08-15)
+- Fixed: "Confirm Purchase" popup not showing icon.
 ***
 ## \`v0.9.0-alpha\` (2025-07-15)
 ### Added

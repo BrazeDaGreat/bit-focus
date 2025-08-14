@@ -784,7 +784,7 @@ export default function RewardsPage(): JSX.Element {
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-2">
                     {purchasingItem.emoji && (
-                      <span className="text-2xl">{purchasingItem.emoji}</span>
+                      <span className="text-2xl">{EMOJI_OPTIONS[parseInt(purchasingItem.emoji)]}</span>
                     )}
                     <CardTitle className="text-base">
                       {purchasingItem.title}
