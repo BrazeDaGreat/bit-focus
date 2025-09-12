@@ -208,47 +208,39 @@ export default function PomodoroSettings({ className, compact = false }: Pomodor
         {/* Timer Mode Selection */}
         <div className="space-y-3">
           <Label className="text-base font-medium">Timer Mode</Label>
-          <RadioGroup
-            value={state.mode}
-            onValueChange={handleModeChange}
-            className="grid grid-cols-1 sm:grid-cols-2 gap-4"
-          >
-            <div className="flex items-center space-x-3 border rounded-lg p-4 hover:bg-accent/50 transition-colors">
-              <RadioGroupItem value="standard" id="standard" />
+            <div className={cn("flex items-center space-x-3 border rounded-lg p-4 hover:bg-accent/50 transition-all cursor-pointer", state.mode === "standard" ? "shadow-lg bg-white/20 hover:bg-white/30" : "")} onClick={() => handleModeChange("standard")}>
               <div className="flex-1">
-                <Label htmlFor="standard" className="font-medium cursor-pointer">
+                <Label htmlFor="standard" className="font-semibold cursor-pointer">
                   Standard Timer
                 </Label>
                 <p className="text-sm text-muted-foreground">
-                  Count up from zero - traditional stopwatch mode
+                  Traditional stopwatch mode.
                 </p>
               </div>
             </div>
             
-            <div className="flex items-center space-x-3 border rounded-lg p-4 hover:bg-accent/50 transition-colors">
-              <RadioGroupItem value="pomodoro" id="pomodoro" />
+            <div className={cn("flex items-center space-x-3 border rounded-lg p-4 hover:bg-accent/50 transition-all cursor-pointer", state.mode !== "standard" ? "shadow-lg bg-white/20 hover:bg-white/30" : "")} onClick={() => handleModeChange("pomodoro")}>
               <div className="flex-1">
-                <Label htmlFor="pomodoro" className="font-medium cursor-pointer">
+                <Label htmlFor="pomodoro" className="font-semibold cursor-pointer">
                   Pomodoro Timer
                 </Label>
                 <p className="text-sm text-muted-foreground">
-                  Count down with focus and break cycles
+                  Count down focus timer.
                 </p>
               </div>
             </div>
-          </RadioGroup>
         </div>
 
         {/* Pomodoro Configuration */}
-        {state.mode === "pomodoro" && (
+        {(
           <>
             <Separator />
             
-            <div className="space-y-4">
+            <div className={cn("space-y-4 max-h-0 overflow-hidden transition-all", state.mode === "pomodoro" ? "max-h-128" : "")}>
               <Label className="text-base font-medium">Pomodoro Configuration</Label>
               
               {/* Presets */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 {POMODORO_PRESETS.map((preset) => (
                   <Button
                     key={preset.name}
@@ -277,8 +269,8 @@ export default function PomodoroSettings({ className, compact = false }: Pomodor
               </div>
 
               {/* Custom Settings */}
-              {selectedPreset === "Custom" && (
-                <div className="space-y-4 p-4 border rounded-lg bg-accent/20">
+              {(
+                <div className={cn("space-y-4 border rounded-lg bg-accent/20 max-h-0 overflow-hidden transition-all", selectedPreset === "Custom" ? "p-4 max-h-64" : "")}>
                   <Label className="text-sm font-medium">Custom Durations</Label>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -66,7 +66,7 @@ import {
   FaTableList,
   FaGear,
 } from "react-icons/fa6";
-import { RiExpandUpDownLine, RiFocus2Line } from "react-icons/ri";
+import { RiExpandUpDownLine } from "react-icons/ri";
 import { Toaster } from "@/components/ui/sonner";
 import {
   DropdownMenu,
@@ -123,8 +123,6 @@ export default function Focus(): JSX.Element {
     pause, 
     reset, 
     setMode,
-    nextPhase,
-    completePomodoro 
   } = usePomo();
   const isMobile = useIsMobile();
   const [showSettings, setShowSettings] = useState(false);
@@ -133,36 +131,6 @@ export default function Focus(): JSX.Element {
   const minutes = Math.floor(state.elapsedSeconds / 60);
   const seconds = state.elapsedSeconds % 60;
   const { focusSessions } = useFocus();
-
-  /**
-   * Get appropriate timer display text based on current mode and phase
-   */
-  const getTimerDisplayInfo = () => {
-    if (state.mode === "pomodoro") {
-      const isBreak = state.phase === "break";
-      const phaseText = isBreak ? "Break Time" : "Focus Time";
-      const phaseIcon = isBreak ? <FaCoffee /> : <GiTomato />;
-      const phaseColor = isBreak ? "text-amber-600" : "text-red-500";
-      
-      return {
-        title: phaseText,
-        icon: phaseIcon,
-        color: phaseColor,
-        subtitle: isBreak 
-          ? `Get some rest - ${state.pomodoroSettings.breakDuration} min break`
-          : `Stay focused - ${state.pomodoroSettings.focusDuration} min session`
-      };
-    } else {
-      return {
-        title: "Focus Session",
-        icon: <RiFocus2Line />,
-        color: "",
-        subtitle: ""
-      };
-    }
-  };
-
-  const timerInfo = getTimerDisplayInfo();
 
   // Picture-in-Picture integration with custom styling
   const { show } = usePip(PipTimer, {
@@ -261,22 +229,8 @@ export default function Focus(): JSX.Element {
         state.mode === "pomodoro" && state.phase === "break" && "border-amber-200 dark:border-amber-800"
       )}>
         <CardTitle className={cn(
-          "text-md flex items-center justify-center gap-2 opacity-60",
-          state.mode === "pomodoro" && timerInfo.color
+          "text-md flex items-center justify-center gap-2 opacity-60"
         )}>
-          {timerInfo.icon}
-          <span>{timerInfo.title}</span>
-        </CardTitle>
-        
-        <CardDescription className="text-center flex flex-col gap-6">
-          {/* Timer Display */}
-          <span className={cn(
-            isMobile ? "text-6xl font-black" : "text-8xl font-semibold",
-            state.mode === "pomodoro" && state.phase === "break" && "text-amber-600"
-          )}>
-            {formatTime(minutes, seconds)}
-          </span>
-
           {/* Mode Selection and Settings */}
           <div className="flex items-center justify-center gap-2 flex-wrap">
             <div className="flex items-center gap-1">
@@ -316,6 +270,16 @@ export default function Focus(): JSX.Element {
               </DialogContent>
             </Dialog>
           </div>
+        </CardTitle>
+        
+        <CardDescription className="text-center flex flex-col gap-6">
+          {/* Timer Display */}
+          <span className={cn(
+            isMobile ? "text-6xl font-black" : "text-8xl font-semibold",
+            state.mode === "pomodoro" && state.phase === "break" && "text-amber-600"
+          )}>
+            {formatTime(minutes, seconds)}
+          </span>
 
           {/* Pomodoro Info Display */}
           {state.mode === "pomodoro" && (
@@ -359,37 +323,6 @@ export default function Focus(): JSX.Element {
             </Button>
           )}
 
-          {/* Pomodoro Controls Dropdown */}
-          {state.mode === "pomodoro" && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  size={"icon"}
-                  className="py-6 w-1/6"
-                  variant={"outline"}
-                >
-                  <GiTomato />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuLabel>Pomodoro Actions</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={nextPhase}>
-                  <div className="flex items-center gap-2">
-                    {state.phase === "focus" ? <FaCoffee /> : <GiTomato />}
-                    Skip to {state.phase === "focus" ? "break" : "focus"}
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={completePomodoro}>
-                  <div className="flex items-center gap-2">
-                    <FaForwardFast />
-                    Complete session
-                  </div>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-          
           {/* Picture-in-Picture Button */}
           {!isMobile && (
             <Button
@@ -410,7 +343,7 @@ export default function Focus(): JSX.Element {
               <div 
                 className={cn(
                   "h-2 rounded-full transition-all duration-300",
-                  state.phase === "break" ? "bg-amber-500" : "bg-red-500"
+                  state.phase === "break" ? "bg-amber-500" : "bg-accent-foreground"
                 )}
                 style={{
                   width: `${
