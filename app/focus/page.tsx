@@ -9,6 +9,8 @@
  * 
  * Features:
  * - Large, prominent timer display with start/pause/reset controls
+ * - Timer mode selection (Standard/Pomodoro) with configuration
+ * - Pomodoro countdown timer with focus and break phases
  * - Tag selection and management for categorizing focus sessions
  * - Real-time session list with edit and delete capabilities
  * - Picture-in-Picture mode for minimized timer view
@@ -37,12 +39,22 @@ import {
   CardFooter,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+// import { Badge } from "@/components/ui/badge";
 import { usePomo } from "@/hooks/PomoContext";
 import { FocusSession, useFocus } from "@/hooks/useFocus";
 import { calculateTime, cn, formatTime, formatTimeNew } from "@/lib/utils";
 import { useTheme } from "next-themes";
 import {
   FaCalendar,
+  FaCoffee,
   FaExternalLinkAlt,
   FaPause,
   FaPlay,
@@ -52,8 +64,9 @@ import {
   FaForwardFast,
   FaRegClock,
   FaTableList,
+  FaGear,
 } from "react-icons/fa6";
-import { RiExpandUpDownLine, RiFocus2Line } from "react-icons/ri";
+import { RiExpandUpDownLine } from "react-icons/ri";
 import { Toaster } from "@/components/ui/sonner";
 import {
   DropdownMenu,
@@ -69,9 +82,11 @@ import { type JSX, useEffect, useState } from "react";
 import { EditFocusSession } from "./EditFocusSection";
 import TagSelector from "@/components/TagSelector";
 import GraphDialog from "./Graph";
+import PomodoroSettings from "@/components/PomodoroSettings";
 import { usePip, usePipSpace } from "@/hooks/usePip";
 import PipTimer from "@/components/PipTimer";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { GiTomato } from "react-icons/gi";
 
 /**
  * Main Focus Page Component
@@ -102,13 +117,38 @@ import { useIsMobile } from "@/hooks/useIsMobile";
  */
 export default function Focus(): JSX.Element {
   const { theme } = useTheme();
-  const { state, start, pause, reset } = usePomo();
+  const { 
+    state, 
+    start, 
+    pause, 
+    reset, 
+    setMode,
+  } = usePomo();
   const isMobile = useIsMobile();
+  const [showSettings, setShowSettings] = useState(false);
+
 
   // Calculate current timer display values
-  const minutes = Math.floor(state.elapsedSeconds / 60);
-  const seconds = state.elapsedSeconds % 60;
-  const { focusSessions } = useFocus();
+  const minutes = state.mode === "pomodoro" && state.phase === "focus"
+    ? Math.floor(Math.max(0, (state.pomodoroSettings.focusDuration * 60) - state.elapsedSeconds) / 60)
+    : state.mode === "pomodoro" && state.phase === "break"
+      ? Math.floor(Math.max(0, (state.pomodoroSettings.breakDuration * 60) - state.elapsedSeconds) / 60)
+      : Math.floor(state.elapsedSeconds / 60);
+
+  const seconds = state.mode === "pomodoro" && state.phase === "focus"
+    ? Math.max(0, (state.pomodoroSettings.focusDuration * 60) - state.elapsedSeconds) % 60
+    : state.mode === "pomodoro" && state.phase === "break"
+      ? Math.max(0, (state.pomodoroSettings.breakDuration * 60) - state.elapsedSeconds) % 60
+      : state.elapsedSeconds % 60;
+
+  
+  const { focusSessions, loadFocusSessions } = useFocus();
+  /**
+   * Loading the Focus Reports
+   */
+  useEffect(() => {
+    loadFocusSessions()
+  }, [loadFocusSessions])
 
   // Picture-in-Picture integration with custom styling
   const { show } = usePip(PipTimer, {
@@ -122,7 +162,7 @@ export default function Focus(): JSX.Element {
     div {
       width: 100vw;
       height: 100vh;
-      background-color: black;
+      background-color: ${state.mode === "pomodoro" && state.phase === "break" ? "#0f172a" : "black"};
       color: oklch(87% 0 0);
 
       display: flex;
@@ -134,6 +174,11 @@ export default function Focus(): JSX.Element {
     h1 {
       font-size: 2.25rem;
       font-weight: 800;
+    }
+    .phase-indicator {
+      font-size: 0.875rem;
+      opacity: 0.7;
+      margin-bottom: 0.5rem;
     }
 
     .button {
@@ -155,6 +200,9 @@ export default function Focus(): JSX.Element {
   const { data, update } = usePipSpace("piptimer", {
     time: state.elapsedSeconds,
     running: state.isRunning,
+    mode: state.mode,
+    phase: state.phase,
+    pomodoroSettings: state.pomodoroSettings,
     inc: {
       pause: 0,
       resume: 0,
@@ -166,11 +214,13 @@ export default function Focus(): JSX.Element {
    * Updates the shared state whenever the main timer changes
    */
   useEffect(() => {
-    if (state.isRunning) {
-      update({ time: state.elapsedSeconds, running: true });
-    } else {
-      update({ time: state.elapsedSeconds, running: false });
-    }
+    update({ 
+      time: state.elapsedSeconds, 
+      running: state.isRunning,
+      mode: state.mode,
+      phase: state.phase,
+      pomodoroSettings: state.pomodoroSettings
+    });
   }, [state, update]);
 
   /**
@@ -192,75 +242,162 @@ export default function Focus(): JSX.Element {
   return (
     <div className={cn("flex-1 p-8 gap-8 flex flex-col items-center justify-center")}>
       {/* Main Timer Card */}
-        <Card className={cn(isMobile ? "w-full max-w-96" : "min-w-96")}>
-          <CardTitle className="text-md flex items-center justify-center gap-2 opacity-60">
-            <RiFocus2Line />
-            <span>Focus Session</span>
-          </CardTitle>
-          <CardDescription className="text-center flex flex-col gap-6">
-            <span className={cn(isMobile ? "text-6xl font-black" : "text-8xl font-semibold")}>
-              {formatTime(minutes, seconds)}
-            </span>
-            <TagSelector />
-          </CardDescription>
+      <Card className={cn(
+        isMobile ? "w-full max-w-96" : "min-w-96",
+        "relative"
+      )}>
+        <CardTitle className={cn(
+          "text-md flex items-center justify-center gap-2 opacity-60"
+        )}>
+          {/* Mode Selection and Settings */}
+          <div className="flex items-center justify-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1">
+              <Button
+                variant={state.mode === "standard" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setMode("standard")}
+              >
+                <FaRegClock className="w-3 h-3 mr-1" />
+                {!isMobile && "Standard"}
+              </Button>
+              <Button
+                variant={state.mode === "pomodoro" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setMode("pomodoro")}
+              >
+                <GiTomato className="w-3 h-3 mr-1" />
+                {!isMobile && "Pomodoro"}
+              </Button>
+            </div>
 
-          <CardFooter className="flex items-center justify-center gap-2">
-            {/* Primary Play/Pause Button */}
+            {/* Settings Dialog */}
+            <Dialog open={showSettings} onOpenChange={setShowSettings}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <FaGear className="w-3 h-3" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Timer Settings</DialogTitle>
+                  <DialogDescription>
+                    Configure your timer mode and Pomodoro settings
+                  </DialogDescription>
+                </DialogHeader>
+                <PomodoroSettings />
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardTitle>
+
+        {state.mode === "pomodoro" && state.phase === "break" && <div className="absolute top-2 right-2 bg-secondary-foreground text-secondary p-1 rounded-full shadow-lg animate-pulse flex text-xs items-center gap-1">
+          <FaCoffee />
+          Break
+        </div>}
+        
+        <CardDescription className="text-center flex flex-col gap-6">
+          {/* Timer Display */}
+          <span className={cn(
+            isMobile ? "text-6xl font-black" : "text-8xl font-semibold",
+            state.mode === "pomodoro"
+          )}>
+            {formatTime(minutes, seconds)}
+          </span>
+
+          {/* Pomodoro Info Display */}
+          {state.mode === "pomodoro" && (
+            <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <GiTomato className="w-3 h-3" />
+                <span>{state.pomodoroSettings.focusDuration}m focus</span>
+              </div>
+              <div className="w-px h-4 bg-border" />
+              <div className="flex items-center gap-1">
+                <FaCoffee className="w-3 h-3" />
+                <span>{state.pomodoroSettings.breakDuration}m break</span>
+              </div>
+            </div>
+          )}
+
+          <TagSelector />
+        </CardDescription>
+
+        <CardFooter className="flex items-center justify-center gap-2">
+          {/* Primary Play/Pause Button */}
+          <Button
+            size={"lg"}
+            className="w-2/3 py-6"
+            variant={"default"}
+            onClick={state.isRunning ? pause : start}
+          >
+            {state.isRunning ? <FaPause /> : <FaPlay />}
+            {state.isRunning ? <span>Pause</span> : <span>Start</span>}
+          </Button>
+          
+          {/* Reset Button - Only shown when timer has elapsed time */}
+          {(state.startTime !== null || state.elapsedSeconds > 0) && (
             <Button
-              size={"lg"}
-              className="w-2/3 py-6"
-              variant={"default"}
-              onClick={state.isRunning ? pause : start}
+              size={"icon"}
+              className="py-6 w-1/6"
+              variant={"destructive"}
+              onClick={reset}
             >
-              {state.isRunning ? <FaPause /> : <FaPlay />}
-              {state.isRunning ? <span>Pause</span> : <span>Start</span>}
+              <FaForwardFast />
             </Button>
-            
-            {/* Reset Button - Only shown when timer has elapsed time */}
-            {state.elapsedSeconds > 0 && (
-              <Button
-                size={"icon"}
-                className="py-6 w-1/6"
-                variant={"destructive"}
-                onClick={reset}
-              >
-                <FaForwardFast />
-              </Button>
-            )}
-            
-            {/* Picture-in-Picture Button */}
-            {!isMobile && 
-              <Button
-                onClick={show}
-                size={"icon"}
-                className="py-6 w-1/6"
-                variant={"secondary"}
-              >
-                <FaExternalLinkAlt />
-              </Button>
-            }
-          </CardFooter>
-        </Card>
+          )}
+
+          {/* Picture-in-Picture Button */}
+          {!isMobile && (
+            <Button
+              onClick={show}
+              size={"icon"}
+              className="py-6 w-1/6"
+              variant={"secondary"}
+            >
+              <FaExternalLinkAlt />
+            </Button>
+          )}
+        </CardFooter>
+
+        {/* Progress Bar for Pomodoro Mode */}
+        {state.mode === "pomodoro" && (
+          <div className="px-6 pb-4">
+            <div className="w-full bg-muted rounded-full h-2">
+              <div 
+                className={cn(
+                  "h-2 rounded-full transition-all duration-300",
+                  "bg-accent-foreground"
+                )}
+                style={{
+                  width: `${
+                    state.phase === "focus"
+                      ? (state.elapsedSeconds / (state.pomodoroSettings.focusDuration * 60)) * 100
+                      : (state.elapsedSeconds / (state.pomodoroSettings.breakDuration * 60)) * 100
+                  }%`
+                }}
+              />
+            </div>
+          </div>
+        )}
+      </Card>
 
       {/* Focus Sessions List Card */}
-      {/* <div className=""> */}
-        <Card className={cn(isMobile ? "w-full max-w-96" : "min-w-96")}>
-          <CardTitle className="px-6 flex items-center justify-between">
-            <div className="flex gap-1 text-sm items-center opacity-70">
-              <FaTableList />
-              {!isMobile && <span>Focus Report</span>}
-            </div>
-            <div className="flex gap-1">
-              <GraphDialog />
-            </div>
-          </CardTitle>
-          <CardDescription className="max-h-64 overflow-y-auto flex flex-col gap-2 py-2 px-12">
-            {focusSessions.map((session) => (
-              <FocusOption key={session.id} item={session} />
-            ))}
-          </CardDescription>
-        </Card>
-      {/* </div> */}
+      <Card className={cn(isMobile ? "w-full max-w-96" : "min-w-96")}>
+        <CardTitle className="px-6 flex items-center justify-between">
+          <div className="flex gap-1 text-sm items-center opacity-70">
+            <FaTableList />
+            {!isMobile && <span>Focus Report</span>}
+          </div>
+          <div className="flex gap-1">
+            <GraphDialog />
+          </div>
+        </CardTitle>
+        <CardDescription className="max-h-64 overflow-y-auto flex flex-col gap-2 py-2 px-12">
+          {focusSessions.map((session) => (
+            <FocusOption key={session.id} item={session} />
+          ))}
+        </CardDescription>
+      </Card>
 
       {/* Theme-aware Toast Notifications */}
       <Toaster theme={(theme ?? "system") as "system" | "light" | "dark"} />

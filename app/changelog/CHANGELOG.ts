@@ -1,6 +1,19 @@
-export const VERSION = "v0.11.4-beta";
+export const VERSION = "v0.12.2 (LTS)";
 
 const CHANGELOG = `
+## \`v0.12.0-beta\` (2025-09-12)
+- New "Pomodoro Mode".
+### \`v0.12.1-beta\` (2025-09-12)
+- Improvements to new Pomodoro mode.
+- Improved Pomodoro design to be consistent with website.
+### \`v0.12.2 (LTS)\` (2025-09-12)
+- Fixed: Pomodoro time not being counted.
+- Fixed: Pomodoro implementation causing persistent issues.
+- Fixed: Focus Reports are not being loaded properly.
+- Fixed: Break-mode design.
+- Fixed: Changing Pomodoro mode broke timer.
+***
+
 ## \`v0.11.0-beta\` (2025-08-11)
 - New "Rewards" System.
 - Each focus minute gives you 1 reward point, shown in TopBar.
@@ -42,7 +55,8 @@ Note: This feature is not practical, it's just meant to game-ify your daily todo
 - Fixed: Transparent Toaster issues.
 - New: Quick Links feature in Projects page.
 - New: \`getIconFromLink()\` function.
-
+### \`v0.10.3-beta\` (2025-08-15)
+- Fixed: "Confirm Purchase" popup not showing icon.
 ***
 ## \`v0.9.0-alpha\` (2025-07-15)
 ### Added
