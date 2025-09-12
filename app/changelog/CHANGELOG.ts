@@ -33,6 +33,10 @@ Note: This feature is not practical, it's just meant to game-ify your daily todo
 ### \`v0.11.2 (LTS)\` (2025-08-12)
 - Fixed: Improved navigation speed on \`projects/page.tsx\` and \`projects/[id]/page.tsx\`.
 - Fixed: Fixed missing Quick Links-related errors, adding support for older \`.bitf.json\` files (pre-\`v0.10.0-beta\`).
+### \`v0.11.3-beta\` (2025-08-15)
+- Fixed: Icon not showing at "Confirm Purchase" Popup.
+### \`v0.11.4-beta\` (2025-09-05)
+- Added: Notion icon support in Quick Links.
 ***
 ## \`v0.10.0-beta\` (2025-07-28)
 ### Added
