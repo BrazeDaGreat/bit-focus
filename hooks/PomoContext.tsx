@@ -356,6 +356,7 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
   const { tag } = useTag();
   const { name, webhook } = useConfig();
   const { addPoints } = useRewards();
+  const originalTitleRef = useRef<string | null>(null);
   
   // Initialize state with localStorage restoration
   const [state, dispatch] = useReducer(pomoReducer, {
@@ -528,6 +529,30 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
         }
         
         dispatch({ type: "UPDATE", payload: { elapsedSeconds: newElapsedSeconds } });
+        // Update document title with current timer value
+        if (typeof document !== "undefined") {
+          // Store original title on first update
+          if (originalTitleRef.current === null) {
+            originalTitleRef.current = document.title;
+          }
+          
+          // Format time for display in title
+          let displayTime: string;
+          if (state.mode === "pomodoro") {
+            const targetDuration = state.phase === "focus" 
+              ? state.pomodoroSettings.focusDuration * 60
+              : state.pomodoroSettings.breakDuration * 60;
+            const remainingSeconds = Math.max(0, targetDuration - newElapsedSeconds);
+            const timeObj = durationFromSeconds(remainingSeconds);
+            displayTime = formatTimeNew(timeObj, "M:S", "digital");
+            const phasePhrase = state.phase === "focus" ? "Focus" : "Break";
+            document.title = `${displayTime} | ${phasePhrase} - BIT Focus`;
+          } else {
+            const timeObj = durationFromSeconds(newElapsedSeconds);
+            displayTime = formatTimeNew(timeObj, "M:S", "digital");
+            document.title = `${displayTime} - BIT Focus`;
+          }
+        }
       }, 1000);
     }
 
@@ -538,6 +563,24 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
       }
     };
   }, [state.isRunning, state.startTime, state.mode, state.phase, state.pomodoroSettings, state.data, state.addFocusSession, state.addPoints]);
+
+  /**
+   * Restore document title when timer stops or component unmounts
+   */
+  useEffect(() => {
+    // Restore original title when timer stops
+    if (!state.isRunning && originalTitleRef.current && typeof document !== "undefined") {
+      document.title = originalTitleRef.current;
+      originalTitleRef.current = null;
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      if (originalTitleRef.current && typeof document !== "undefined") {
+        document.title = originalTitleRef.current;
+      }
+    };
+  }, [state.isRunning]);
 
   // Context value with all timer controls
   const contextValue = {
