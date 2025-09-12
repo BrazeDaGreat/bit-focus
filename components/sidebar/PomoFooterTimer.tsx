@@ -9,7 +9,6 @@ import { useState } from "react";
 import TagSelector from "../TagSelector";
 import { RiFocus2Line } from "react-icons/ri";
 import { GiTomato } from "react-icons/gi";
-import { Badge } from "../ui/badge";
 
 /**
  * Focus Mode Overlay Props Interface
@@ -154,15 +153,8 @@ export default function PomoFooterTimer() {
   
   // Determine styling based on mode and phase
   const isBreak = state.mode === "pomodoro" && state.phase === "break";
-  const cardClassName = cn(
-    "min-w-60 transition-colors",
-    isBreak && "border-amber-200 dark:border-amber-800"
-  );
-  
-  const timerClassName = cn(
-    "text-3xl text-center transition-colors",
-    isBreak && "text-amber-600"
-  );
+  const cardClassName = cn("min-w-60 transition-colors relative");
+  const timerClassName = cn("text-3xl text-center transition-colors");
 
   return (
     <>
@@ -183,38 +175,10 @@ export default function PomoFooterTimer() {
 
       {/* Compact Sidebar Timer */}
       <Card className={cardClassName}>
-        {/* Timer Mode and Phase Indicator */}
-        <div className="px-4 pt-3 pb-1">
-          <div className="flex items-center justify-between">
-            <Badge variant="outline" className="text-xs">
-              {state.mode === "pomodoro" ? (
-                <div className="flex items-center gap-1">
-                  {isBreak ? (
-                    <>
-                      <FaCoffee className="w-3 h-3" />
-                      Break
-                    </>
-                  ) : (
-                    <>
-                      <GiTomato className="w-3 h-3" />
-                      Focus
-                    </>
-                  )}
-                </div>
-              ) : (
-                "Standard"
-              )}
-            </Badge>
-            
-            {/* Pomodoro Settings Display */}
-            {state.mode === "pomodoro" && (
-              <div className="text-xs text-muted-foreground">
-                {state.pomodoroSettings.focusDuration}/{state.pomodoroSettings.breakDuration}min
-              </div>
-            )}
-          </div>
-        </div>
-
+        {isBreak && <div className="absolute top-2 right-2 bg-secondary-foreground text-secondary p-1 rounded-full shadow-lg animate-pulse flex text-xs items-center gap-1">
+          <FaCoffee />
+          Break
+        </div>}
         {/* Main Timer Display */}
         <CardTitle className={timerClassName}>
           {formatTime(minutes, seconds)}
@@ -254,14 +218,14 @@ export default function PomoFooterTimer() {
             <div className="w-full bg-muted rounded-full h-1.5">
               <div 
                 className={cn(
-                  "h-1.5 rounded-full transition-all duration-300",
-                  isBreak ? "bg-amber-500" : "bg-red-500"
+                  "h-2 rounded-full transition-all duration-300",
+                  "bg-accent-foreground"
                 )}
                 style={{
                   width: `${
                     state.phase === "focus"
-                      ? ((state.pomodoroSettings.focusDuration * 60 - state.elapsedSeconds) / (state.pomodoroSettings.focusDuration * 60)) * 100
-                      : ((state.pomodoroSettings.breakDuration * 60 - state.elapsedSeconds) / (state.pomodoroSettings.breakDuration * 60)) * 100
+                      ? (state.elapsedSeconds / (state.pomodoroSettings.focusDuration * 60)) * 100
+                      : (state.elapsedSeconds / (state.pomodoroSettings.breakDuration * 60)) * 100
                   }%`
                 }}
               />

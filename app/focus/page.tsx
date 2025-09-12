@@ -127,6 +127,7 @@ export default function Focus(): JSX.Element {
   const isMobile = useIsMobile();
   const [showSettings, setShowSettings] = useState(false);
 
+
   // Calculate current timer display values
   const minutes = state.mode === "pomodoro" && state.phase === "focus"
     ? Math.floor(Math.max(0, (state.pomodoroSettings.focusDuration * 60) - state.elapsedSeconds) / 60)
@@ -139,7 +140,15 @@ export default function Focus(): JSX.Element {
     : state.mode === "pomodoro" && state.phase === "break"
       ? Math.max(0, (state.pomodoroSettings.breakDuration * 60) - state.elapsedSeconds) % 60
       : state.elapsedSeconds % 60;
-  const { focusSessions } = useFocus();
+
+  
+  const { focusSessions, loadFocusSessions } = useFocus();
+  /**
+   * Loading the Focus Reports
+   */
+  useEffect(() => {
+    loadFocusSessions()
+  }, [loadFocusSessions])
 
   // Picture-in-Picture integration with custom styling
   const { show } = usePip(PipTimer, {
@@ -235,7 +244,7 @@ export default function Focus(): JSX.Element {
       {/* Main Timer Card */}
       <Card className={cn(
         isMobile ? "w-full max-w-96" : "min-w-96",
-        state.mode === "pomodoro" && state.phase === "break" && "border-amber-200 dark:border-amber-800"
+        "relative"
       )}>
         <CardTitle className={cn(
           "text-md flex items-center justify-center gap-2 opacity-60"
@@ -280,12 +289,17 @@ export default function Focus(): JSX.Element {
             </Dialog>
           </div>
         </CardTitle>
+
+        {state.mode === "pomodoro" && state.phase === "break" && <div className="absolute top-2 right-2 bg-secondary-foreground text-secondary p-1 rounded-full shadow-lg animate-pulse flex text-xs items-center gap-1">
+          <FaCoffee />
+          Break
+        </div>}
         
         <CardDescription className="text-center flex flex-col gap-6">
           {/* Timer Display */}
           <span className={cn(
             isMobile ? "text-6xl font-black" : "text-8xl font-semibold",
-            state.mode === "pomodoro" && state.phase === "break" && "text-amber-600"
+            state.mode === "pomodoro"
           )}>
             {formatTime(minutes, seconds)}
           </span>
@@ -352,7 +366,7 @@ export default function Focus(): JSX.Element {
               <div 
                 className={cn(
                   "h-2 rounded-full transition-all duration-300",
-                  state.phase === "break" ? "bg-amber-500" : "bg-accent-foreground"
+                  "bg-accent-foreground"
                 )}
                 style={{
                   width: `${

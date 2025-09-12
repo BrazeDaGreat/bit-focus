@@ -1,4 +1,4 @@
-export const VERSION = "v0.12.2-rc1";
+export const VERSION = "v0.12.2 (LTS)";
 
 const CHANGELOG = `
 ## \`v0.12.0-beta\` (2025-09-12)
@@ -9,6 +9,9 @@ const CHANGELOG = `
 ### \`v0.12.2 (LTS)\` (2025-09-12)
 - Fixed: Pomodoro time not being counted.
 - Fixed: Pomodoro implementation causing persistent issues.
+- Fixed: Focus Reports are not being loaded properly.
+- Fixed: Break-mode design.
+- Fixed: Changing Pomodoro mode broke timer.
 ***
 
 ## \`v0.11.0-beta\` (2025-08-11)

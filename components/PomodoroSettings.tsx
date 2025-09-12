@@ -27,13 +27,13 @@
 "use client";
 import { useState, type JSX } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { usePomo, type TimerMode, type PomodoroSettings } from "@/hooks/PomoContext";
-import { FaClock, FaCoffee } from "react-icons/fa";
+import { FaCoffee } from "react-icons/fa";
 import { GiTomato } from "react-icons/gi";
 import { cn } from "@/lib/utils";
 
@@ -194,16 +194,6 @@ export default function PomodoroSettings({ className, compact = false }: Pomodor
 
   return (
     <Card className={cn("w-full max-w-2xl", className)}>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FaClock className="w-5 h-5" />
-          Timer Settings
-        </CardTitle>
-        <CardDescription>
-          Choose your preferred timer mode and configure Pomodoro settings
-        </CardDescription>
-      </CardHeader>
-      
       <CardContent className="space-y-6">
         {/* Timer Mode Selection */}
         <div className="space-y-3">

@@ -276,7 +276,7 @@ function pomoReducer(state: PomoState, action: Action): PomoState {
 
     case "SET_POMODORO_SETTINGS":
       // Update settings and adjust current timer if in focus phase
-      const shouldUpdateTimer = state.mode === "pomodoro" && state.phase === "focus" && !state.isRunning;
+      const shouldUpdateTimer = false;
       
       return {
         ...state,
