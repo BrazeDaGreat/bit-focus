@@ -1,6 +1,11 @@
 export const VERSION = "v0.11.3-beta";
 
 const CHANGELOG = `
+## \`v0.12.0-beta\` (2025-09-12)
+- New "Pomodoro Mode".
+
+***
+
 ## \`v0.11.0-beta\` (2025-08-11)
 - New "Rewards" System.
 - Each focus minute gives you 1 reward point, shown in TopBar.
