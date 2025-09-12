@@ -1,4 +1,4 @@
-export const VERSION = "v0.12.1-beta";
+export const VERSION = "v0.12.2-rc1";
 
 const CHANGELOG = `
 ## \`v0.12.0-beta\` (2025-09-12)
@@ -6,6 +6,9 @@ const CHANGELOG = `
 ### \`v0.12.1-beta\` (2025-09-12)
 - Improvements to new Pomodoro mode.
 - Improved Pomodoro design to be consistent with website.
+### \`v0.12.2 (LTS)\` (2025-09-12)
+- Fixed: Pomodoro time not being counted.
+- Fixed: Pomodoro implementation causing persistent issues.
 ***
 
 ## \`v0.11.0-beta\` (2025-08-11)

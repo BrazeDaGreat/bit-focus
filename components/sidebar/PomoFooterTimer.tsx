@@ -140,8 +140,17 @@ export default function PomoFooterTimer() {
   const [focusMode, setFocusMode] = useState<boolean>(false);
   
   // Calculate display values
-  const minutes = Math.floor(state.elapsedSeconds / 60);
-  const seconds = state.elapsedSeconds % 60;
+  const minutes = state.mode === "pomodoro" && state.phase === "focus"
+    ? Math.floor(Math.max(0, (state.pomodoroSettings.focusDuration * 60) - state.elapsedSeconds) / 60)
+    : state.mode === "pomodoro" && state.phase === "break"
+      ? Math.floor(Math.max(0, (state.pomodoroSettings.breakDuration * 60) - state.elapsedSeconds) / 60)
+      : Math.floor(state.elapsedSeconds / 60);
+
+  const seconds = state.mode === "pomodoro" && state.phase === "focus"
+    ? Math.max(0, (state.pomodoroSettings.focusDuration * 60) - state.elapsedSeconds) % 60
+    : state.mode === "pomodoro" && state.phase === "break"
+      ? Math.max(0, (state.pomodoroSettings.breakDuration * 60) - state.elapsedSeconds) % 60
+      : state.elapsedSeconds % 60;
   
   // Determine styling based on mode and phase
   const isBreak = state.mode === "pomodoro" && state.phase === "break";

@@ -106,7 +106,18 @@ export default function PipTimer(props: PipFunctionProps) {
         fontFamily: "JetBrains Mono, monospace"
       }}>
         {formatTimeNew(
-          { minutes: Math.floor(data.time / 60), seconds: data.time % 60 },
+          { 
+            minutes: data.mode === "pomodoro" && data.phase === "focus"
+              ? Math.floor(Math.max(0, (data.pomodoroSettings.focusDuration * 60) - data.time) / 60)
+              : data.mode === "pomodoro" && data.phase === "break"
+                ? Math.floor(Math.max(0, (data.pomodoroSettings.breakDuration * 60) - data.time) / 60)
+                : Math.floor(data.time / 60),
+            seconds: data.mode === "pomodoro" && data.phase === "focus"
+              ? Math.max(0, (data.pomodoroSettings.focusDuration * 60) - data.time) % 60
+              : data.mode === "pomodoro" && data.phase === "break"
+                ? Math.max(0, (data.pomodoroSettings.breakDuration * 60) - data.time) % 60
+                : data.time % 60
+          },
           "M:S",
           "digital"
         )}

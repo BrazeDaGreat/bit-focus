@@ -128,8 +128,17 @@ export default function Focus(): JSX.Element {
   const [showSettings, setShowSettings] = useState(false);
 
   // Calculate current timer display values
-  const minutes = Math.floor(state.elapsedSeconds / 60);
-  const seconds = state.elapsedSeconds % 60;
+  const minutes = state.mode === "pomodoro" && state.phase === "focus"
+    ? Math.floor(Math.max(0, (state.pomodoroSettings.focusDuration * 60) - state.elapsedSeconds) / 60)
+    : state.mode === "pomodoro" && state.phase === "break"
+      ? Math.floor(Math.max(0, (state.pomodoroSettings.breakDuration * 60) - state.elapsedSeconds) / 60)
+      : Math.floor(state.elapsedSeconds / 60);
+
+  const seconds = state.mode === "pomodoro" && state.phase === "focus"
+    ? Math.max(0, (state.pomodoroSettings.focusDuration * 60) - state.elapsedSeconds) % 60
+    : state.mode === "pomodoro" && state.phase === "break"
+      ? Math.max(0, (state.pomodoroSettings.breakDuration * 60) - state.elapsedSeconds) % 60
+      : state.elapsedSeconds % 60;
   const { focusSessions } = useFocus();
 
   // Picture-in-Picture integration with custom styling
@@ -312,7 +321,7 @@ export default function Focus(): JSX.Element {
           </Button>
           
           {/* Reset Button - Only shown when timer has elapsed time */}
-          {state.elapsedSeconds > 0 && (
+          {(state.startTime !== null || state.elapsedSeconds > 0) && (
             <Button
               size={"icon"}
               className="py-6 w-1/6"
@@ -348,8 +357,8 @@ export default function Focus(): JSX.Element {
                 style={{
                   width: `${
                     state.phase === "focus"
-                      ? ((state.pomodoroSettings.focusDuration * 60 - state.elapsedSeconds) / (state.pomodoroSettings.focusDuration * 60)) * 100
-                      : ((state.pomodoroSettings.breakDuration * 60 - state.elapsedSeconds) / (state.pomodoroSettings.breakDuration * 60)) * 100
+                      ? (state.elapsedSeconds / (state.pomodoroSettings.focusDuration * 60)) * 100
+                      : (state.elapsedSeconds / (state.pomodoroSettings.breakDuration * 60)) * 100
                   }%`
                 }}
               />
