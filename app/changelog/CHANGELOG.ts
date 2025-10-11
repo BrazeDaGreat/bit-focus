@@ -1,6 +1,17 @@
-export const VERSION = "v0.12.3 (LTS)";
+export const VERSION = "v0.13.2 (LTS)";
 
 const CHANGELOG = `
+## \`v0.13.0-beta\` (2025-10-11)
+- Remove: Sidebar Notepad
+- Add: Floating Notepad, accessible from the new Notepad button in Top Bar.
+### \`v0.13.1-beta\` (2025-10-11)
+- Add: Quick Message button in Top Bar, to quickly send a Discord webhook message.
+- Add: \`lib/quickMessages.ts\` that contains predefined messages.
+- Improve: Projects page now shows Quick Links instead of Progress.
+### \`v0.13.2 (LTS)\` (2025-10-11)
+- Add: Yearly view in Focus Graph.
+***
+
 ## \`v0.12.0-beta\` (2025-09-12)
 - New "Pomodoro Mode".
 ### \`v0.12.1-beta\` (2025-09-12)

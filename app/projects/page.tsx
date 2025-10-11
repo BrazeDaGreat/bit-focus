@@ -70,6 +70,7 @@ import StatusBadge from "./StatusBadge";
 import { cn, formatNumber, getCurrencySymbol, setClipboard } from "@/lib/utils";
 import { FaClipboard } from "react-icons/fa6";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import getIconFromLink from "@/lib/getIconFromLink";
 
 /**
  * Project Card Component with Optimized Navigation
@@ -85,11 +86,7 @@ function ProjectCard({ project }: { project: any }): JSX.Element {
   const { currency } = useConfig();
 
   return (
-    <Link 
-      href={`/projects/${project.id}`}
-      prefetch={true}
-      className="block"
-    >
+    <Link href={`/projects/${project.id}`} prefetch={true} className="block">
       <Card className="cursor-pointer hover:shadow-md transition-shadow h-full">
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -99,20 +96,6 @@ function ProjectCard({ project }: { project: any }): JSX.Element {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {/* Progress Bar */}
-            <div>
-              <div className="flex justify-between text-sm mb-1">
-                <span>Progress</span>
-                <span>{project.progress}%</span>
-              </div>
-              <div className="w-full bg-accent rounded-full h-2">
-                <div
-                  className="bg-accent-foreground h-2 rounded-full transition-all"
-                  style={{ width: `${project.progress}%` }}
-                />
-              </div>
-            </div>
-
             {/* Statistics */}
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div className="flex items-center gap-2">
@@ -123,6 +106,41 @@ function ProjectCard({ project }: { project: any }): JSX.Element {
                 {getCurrencySymbol(currency)}
                 <span>{formatNumber(project.totalBudget)}</span>
               </div>
+            </div>
+
+            {/* Quick Links */}
+            <div className="py-2">
+              {project.quickLinks?.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {project.quickLinks.slice(0, 4).map((link: any) => (
+                    <Button
+                      key={link.id}
+                      variant="secondary"
+                      size="icon"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        window.open(link.url, "_blank");
+                      }}
+                      title={link.title}
+                    >
+                      { getIconFromLink(link.url) }
+                    </Button>
+                  ))}
+                </div>
+              ) : (
+                // Dummy, same size as buttons for layout consistency
+                <div className="flex flex-wrap gap-2 opacity-0">
+                  <Button
+                      variant="secondary"
+                      size="icon"
+                      onClick={(e) => {
+                        e.preventDefault();
+                      }}
+                    >
+                      -
+                    </Button>
+                </div>
+              )}
             </div>
 
             {/* Creation Date */}
@@ -157,7 +175,7 @@ function CreateProjectDialog(): JSX.Element {
 
   /**
    * Handles form submission for creating a new project
-   * 
+   *
    * @async
    * @returns {Promise<void>}
    */
@@ -262,9 +280,9 @@ function CreateProjectDialog(): JSX.Element {
 
 /**
  * Copy Projects to Text Component
- * 
+ *
  * Generates and copies a formatted text summary of project earnings
- * 
+ *
  * @returns {JSX.Element} Copy button component
  */
 function CopyProjectToText(): JSX.Element {
@@ -273,11 +291,13 @@ function CopyProjectToText(): JSX.Element {
 
   /**
    * Gets emoji indicator based on milestone status
-   * 
+   *
    * @param {string} text - Status text
    * @returns {string} Emoji indicator
    */
-  function getEmojiByStatus(text: "Scheduled" | "Active" | "Closed" | "Paid"): string {
+  function getEmojiByStatus(
+    text: "Scheduled" | "Active" | "Closed" | "Paid"
+  ): string {
     if (text === "Scheduled") return "";
     if (text === "Active") return "‼️";
     if (text === "Closed") return "❓";
@@ -287,7 +307,7 @@ function CopyProjectToText(): JSX.Element {
 
   /**
    * Handles copying project earnings summary to clipboard
-   * 
+   *
    * @async
    * @returns {Promise<void>}
    */
@@ -295,18 +315,20 @@ function CopyProjectToText(): JSX.Element {
     const text: string[] = [];
     let pending: number = 0;
 
-    projects.forEach(project => {
-      text.push(`\n*${project.title}*`)
-      project.milestones.forEach(milestone => {
+    projects.forEach((project) => {
+      text.push(`\n*${project.title}*`);
+      project.milestones.forEach((milestone) => {
         if (milestone.budget === 0) return;
         if (milestone.status === "Scheduled") return;
         const emoji = getEmojiByStatus(milestone.status);
-        text.push(`- ${milestone.title} - Rs ${formatNumber(milestone.budget)} ${emoji}`);
-        if (milestone.status === "Closed") pending += milestone.budget
-      })
-    })
+        text.push(
+          `- ${milestone.title} - Rs ${formatNumber(milestone.budget)} ${emoji}`
+        );
+        if (milestone.status === "Closed") pending += milestone.budget;
+      });
+    });
 
-    text.push(`\n\n*Pending: Rs ${formatNumber(pending)}*`)
+    text.push(`\n\n*Pending: Rs ${formatNumber(pending)}*`);
 
     const isCopied = await setClipboard(text.join("\n"));
     if (isCopied) toast.success("Copied to clipboard");
@@ -333,7 +355,7 @@ export default function ProjectsPage(): JSX.Element {
   const { theme } = useTheme();
   const { getAllProjectsWithStats, loadProjects } = useProjects();
   const isMobile = useIsMobile();
-  
+
   useEffect(() => {
     loadProjects();
   }, [loadProjects]);
@@ -342,7 +364,7 @@ export default function ProjectsPage(): JSX.Element {
 
   /**
    * Renders project category title
-   * 
+   *
    * @param {Object} props - Component props
    * @param {string} props.text - Category title text
    * @returns {JSX.Element} Category title element
@@ -354,7 +376,12 @@ export default function ProjectsPage(): JSX.Element {
   return (
     <div className="flex-1 p-8 space-y-8 container mx-auto">
       {/* Header */}
-      <div className={cn("flex items-center justify-between", isMobile ? "flex-col gap-2" : "")}>
+      <div
+        className={cn(
+          "flex items-center justify-between",
+          isMobile ? "flex-col gap-2" : ""
+        )}
+      >
         <div>
           <h1 className="text-3xl font-bold">Projects</h1>
           <p className="text-muted-foreground">
