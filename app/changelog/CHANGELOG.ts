@@ -1,6 +1,12 @@
 export const VERSION = "v0.12.3 (LTS)";
 
 const CHANGELOG = `
+## \`v0.13.0-beta\` (2025-10-11)
+- Remove: Sidebar Notepad
+- Add: Floating Notepad, accessible from the new Notepad button in Top Bar.
+
+***
+
 ## \`v0.12.0-beta\` (2025-09-12)
 - New "Pomodoro Mode".
 ### \`v0.12.1-beta\` (2025-09-12)
