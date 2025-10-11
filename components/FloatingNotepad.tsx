@@ -29,7 +29,6 @@
  *
  * @fileoverview Floating notepad with drag and mathematical computation
  * @author BIT Focus Development Team
- * @since v0.10.2-alpha
  */
 
 "use client";

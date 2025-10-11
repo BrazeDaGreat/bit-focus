@@ -63,6 +63,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import BITFdata from "./BITFdata";
 import FloatingNotepad from "./FloatingNotepad";
+import QuickMessageDialog from "./QuickMessageDialog";
 
 /**
  * TopBar Button Props Interface
@@ -185,6 +186,9 @@ export default function TopBar(): JSX.Element {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Quick Message Dialog */}
+          <QuickMessageDialog />
+          
           {/* Floating Notepad */}
           <FloatingNotepad />
           {/* BITF Data Export */}
