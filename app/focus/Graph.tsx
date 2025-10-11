@@ -250,8 +250,7 @@ const Graph: React.FC = (): JSX.Element => {
     view === "yearly"
       ? generateYearlyMonths(offset)
       : generateLastNUnits(unitToShow, unitForGenerate, offset);
-  // Pass `view` as a fourth argument so processData can handle date formatting for "yearly" view
-  const processedData = processData(focusSessions, dateRange, unitForGenerate, view);
+  const processedData = processData(focusSessions, dateRange, unitForGenerate);
 
   // Extract and sort tags by total focus time
   const rawTags = Array.from(
