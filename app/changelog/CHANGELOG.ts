@@ -1,4 +1,4 @@
-export const VERSION = "v0.13.1-beta";
+export const VERSION = "v0.13.2 (LTS)";
 
 const CHANGELOG = `
 ## \`v0.13.0-beta\` (2025-10-11)
@@ -8,6 +8,8 @@ const CHANGELOG = `
 - Add: Quick Message button in Top Bar, to quickly send a Discord webhook message.
 - Add: \`lib/quickMessages.ts\` that contains predefined messages.
 - Improve: Projects page now shows Quick Links instead of Progress.
+### \`v0.13.2 (LTS)\` (2025-10-11)
+- Add: Yearly view in Focus Graph.
 ***
 
 ## \`v0.12.0-beta\` (2025-09-12)
