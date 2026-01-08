@@ -1,4 +1,4 @@
-export const VERSION = "v0.13.5-beta";
+export const VERSION = "v0.13.6-beta";
 
 const CHANGELOG = `
 ## \`v0.13.0-beta\` (2025-10-11)
@@ -25,6 +25,8 @@ const CHANGELOG = `
 - Add: "Productive Days Only" option for accurate daily average calculation.
 - Fixed: Inflated average calculations in aggregated views (Months/Years).
 - Fixed: "focusSessions is not defined" error in Graph popup.
+### \`v0.13.6-beta\` (2026-01-08)
+- Security: Updated Next.js to v15.2.8.
 ***
 
 ## \`v0.12.0-beta\` (2025-09-12)
