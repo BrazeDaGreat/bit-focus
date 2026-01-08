@@ -193,7 +193,10 @@ export const usePip = <P extends object>(
 
   // Function to open the PiP window
   const show = useCallback(
-    async (componentProps?: Omit<P, keyof PipFunctionProps>) => {
+    async (
+      componentProps?: Omit<P, keyof PipFunctionProps>,
+      optionsOverride?: Partial<UsePipOptions>
+    ) => {
       // Check for Document Picture-in-Picture API support
       if (!("documentPictureInPicture" in window)) {
         alert(
@@ -208,11 +211,14 @@ export const usePip = <P extends object>(
         hide();
       }
 
+      const effectiveWidth = optionsOverride?.width ?? width;
+      const effectiveHeight = optionsOverride?.height ?? height;
+
       try {
         // Request a new PiP window
         const pipWindow = await (window as any).documentPictureInPicture.requestWindow({
-          width,
-          height,
+          width: effectiveWidth,
+          height: effectiveHeight,
         });
 
         pipWindowRef.current = pipWindow;

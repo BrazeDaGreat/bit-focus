@@ -78,18 +78,19 @@ export default function PipTimer(props: PipFunctionProps) {
       alignItems: "center", 
       justifyContent: "center",
       height: "100vh",
-      gap: "1rem",
-      padding: "1rem"
+      gap: "0.25rem",
+      padding: "0.5rem"
     }}>
       {/* Mode and Phase Indicator */}
       {isPomodoro && (
         <div style={{
           display: "flex",
           alignItems: "center",
-          gap: "0.5rem",
-          fontSize: "0.875rem",
+          gap: "0.35rem",
+          fontSize: "0.75rem",
           color: phaseColor,
-          fontWeight: "600"
+          fontWeight: "600",
+          marginBottom: "0.1rem"
         }}>
           {phaseIcon}
           <span>{phaseText}</span>
@@ -98,12 +99,13 @@ export default function PipTimer(props: PipFunctionProps) {
 
       {/* Main Timer Display */}
       <h1 style={{
-        fontSize: "2.25rem",
+        fontSize: "2rem",
         fontWeight: "800",
         color: isBreak ? "#f59e0b" : "#ffffff",
         margin: 0,
         textAlign: "center",
-        fontFamily: "JetBrains Mono, monospace"
+        fontFamily: "JetBrains Mono, monospace",
+        lineHeight: "1"
       }}>
         {formatTimeNew(
           { 
@@ -123,32 +125,11 @@ export default function PipTimer(props: PipFunctionProps) {
         )}
       </h1>
 
-      {/* Pomodoro Settings Display */}
-      {isPomodoro && (
-        <div style={{
-          display: "flex",
-          gap: "1rem",
-          fontSize: "0.75rem",
-          color: "#9ca3af",
-          alignItems: "center"
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-            <GiTomato style={{ width: "0.75rem", height: "0.75rem", color: "#ef4444" }} />
-            <span>{data.pomodoroSettings.focusDuration}m</span>
-          </div>
-          <div style={{ width: "1px", height: "1rem", backgroundColor: "#4b5563" }}></div>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-            <FaCoffee style={{ width: "0.75rem", height: "0.75rem", color: "#f59e0b" }} />
-            <span>{data.pomodoroSettings.breakDuration}m</span>
-          </div>
-        </div>
-      )}
-
       {/* Control Buttons */}
       <div style={{ 
         display: "flex", 
         gap: "0.5rem",
-        marginTop: "1rem"
+        marginTop: "0.5rem"
       }}>
         {data.running ? (
           <button 
@@ -158,13 +139,13 @@ export default function PipTimer(props: PipFunctionProps) {
               backgroundColor: isBreak ? "#f59e0b" : "#ef4444",
               color: "white",
               border: "none",
-              borderRadius: "0.5rem",
-              padding: "0.75rem",
+              borderRadius: "0.375rem",
+              padding: "0.5rem 1rem",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: "1rem",
+              fontSize: "0.875rem",
               transition: "all 0.2s ease"
             }}
           >
@@ -178,13 +159,13 @@ export default function PipTimer(props: PipFunctionProps) {
               backgroundColor: isBreak ? "#f59e0b" : "#ef4444",
               color: "white",
               border: "none",
-              borderRadius: "0.5rem",
-              padding: "0.75rem",
+              borderRadius: "0.375rem",
+              padding: "0.5rem 1rem",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: "1rem",
+              fontSize: "0.875rem",
               transition: "all 0.2s ease"
             }}
           >
@@ -192,32 +173,6 @@ export default function PipTimer(props: PipFunctionProps) {
           </button>
         )}
       </div>
-
-      {/* Progress Bar for Pomodoro Mode */}
-      {isPomodoro && (
-        <div style={{
-          width: "200px",
-          height: "4px",
-          backgroundColor: "#374151",
-          borderRadius: "2px",
-          overflow: "hidden",
-          marginTop: "0.5rem"
-        }}>
-          <div 
-            style={{
-              height: "100%",
-              backgroundColor: phaseColor,
-              borderRadius: "2px",
-              transition: "width 0.3s ease",
-              width: `${
-                data.phase === "focus"
-                  ? ((data.pomodoroSettings.focusDuration * 60 - data.time) / (data.pomodoroSettings.focusDuration * 60)) * 100
-                  : ((data.pomodoroSettings.breakDuration * 60 - data.time) / (data.pomodoroSettings.breakDuration * 60)) * 100
-              }%`
-            }}
-          />
-        </div>
-      )}
     </div>
   );
 }

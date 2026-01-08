@@ -1,4 +1,4 @@
-export const VERSION = "v0.13.2 (LTS)";
+export const VERSION = "v0.13.5-beta";
 
 const CHANGELOG = `
 ## \`v0.13.0-beta\` (2025-10-11)
@@ -10,6 +10,21 @@ const CHANGELOG = `
 - Improve: Projects page now shows Quick Links instead of Progress.
 ### \`v0.13.2 (LTS)\` (2025-10-11)
 - Add: Yearly view in Focus Graph.
+### \`v0.13.3-beta\` (2026-01-08)
+- Fixed: Buggy PIP window style in Pomodoro mode.
+- Fixed: Cleaned up PIP UI (removed progress bar and settings in Pomo mode).
+- Fixed: Added dynamic window sizing for PIP (Standard: 220x130, Pomodoro: 280x170).
+- Fixed: Dashboard focus cards not loading data on initial visit.
+### \`v0.13.4-beta\` (2026-01-08)
+- Improve: Focus Graph and its popup now fully follow the system theme.
+- Fixed: Hardcoded light theme colors in Graph tooltips.
+- Add: Rolling "12 Months" and "3 Years" views in Focus Graph.
+- Improve: Reorganized and standardized Graph view selection buttons.
+### \`v0.13.5-beta\` (2026-01-08)
+- Add: Daily Average calculation in Focus Graph data table.
+- Add: "Productive Days Only" option for accurate daily average calculation.
+- Fixed: Inflated average calculations in aggregated views (Months/Years).
+- Fixed: "focusSessions is not defined" error in Graph popup.
 ***
 
 ## \`v0.12.0-beta\` (2025-09-12)

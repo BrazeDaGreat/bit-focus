@@ -1,6 +1,6 @@
 {
   "name": "bit-focus",
-  "version": "0.13.2",
+  "version": "0.13.5-beta",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
