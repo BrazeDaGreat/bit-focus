@@ -76,7 +76,7 @@ import {
 import { useForm } from "react-hook-form";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { type JSX, useState } from "react";
+import { type JSX, useState, useEffect } from "react";
 import { FaProjectDiagram } from "react-icons/fa";
 import { Badge } from "@/components/ui/badge";
 import { GoDotFill } from "react-icons/go";
@@ -114,6 +114,15 @@ dayjs.extend(isSameOrAfter);
  */
 export default function Home(): JSX.Element {
   const { theme } = useTheme();
+  const { loadFocusSessions } = useFocus();
+
+  /**
+   * Load focus sessions on component mount
+   * Ensures dashboard analytics have data to display
+   */
+  useEffect(() => {
+    loadFocusSessions();
+  }, [loadFocusSessions]);
 
   return (
     <div className={cn("flex-1 container mx-auto")}>

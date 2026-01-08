@@ -152,6 +152,8 @@ export default function Focus(): JSX.Element {
 
   // Picture-in-Picture integration with custom styling
   const { show } = usePip(PipTimer, {
+    width: 300,
+    height: 200,
     injectStyles: `
     * {
       padding: 0;
@@ -349,7 +351,13 @@ export default function Focus(): JSX.Element {
           {/* Picture-in-Picture Button */}
           {!isMobile && (
             <Button
-              onClick={show}
+              onClick={() => {
+                if (state.mode === "pomodoro") {
+                  show({}, { width: 280, height: 170 });
+                } else {
+                  show({}, { width: 220, height: 130 });
+                }
+              }}
               size={"icon"}
               className="py-6 w-1/6"
               variant={"secondary"}

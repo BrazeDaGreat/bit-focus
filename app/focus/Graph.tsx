@@ -49,6 +49,9 @@ import {
 } from "@/components/ui/dialog";
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa";
 import { useTag } from "@/hooks/useTag";
+import { useTheme } from "next-themes";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 // Extend dayjs with ISO week plugin for week-based calculations
 dayjs.extend(isoWeek);
@@ -91,7 +94,7 @@ interface ProcessedData {
  */
 const generateLastNUnits = (
   n: number,
-  unit: "day" | "week" | "month",
+  unit: "day" | "week" | "month" | "year",
   offset: number
 ): string[] => {
   return Array.from({ length: n }, (_, i) =>
@@ -102,6 +105,8 @@ const generateLastNUnits = (
           ? "YYYY-[W]WW"
           : unit === "month"
           ? "YYYY-MM"
+          : unit === "year"
+          ? "YYYY"
           : "YYYY-MM-DD"
       )
   ).reverse();
@@ -117,7 +122,7 @@ const generateLastNUnits = (
  *
  * @param {FocusSession[]} data - Array of focus sessions to process
  * @param {string[]} dateRange - Array of date strings defining the chart range
- * @param {"day" | "week" | "month"} unit - Time unit for date grouping
+ * @param {"day" | "week" | "month" | "year"} unit - Time unit for date grouping
  * @returns {ProcessedData[]} Array of processed data objects for chart rendering
  *
  * @example
@@ -137,7 +142,7 @@ const generateLastNUnits = (
 const processData = (
   data: FocusSession[],
   dateRange: string[],
-  unit: "day" | "week" | "month"
+  unit: "day" | "week" | "month" | "year"
 ): ProcessedData[] => {
   const groupedData: { [date: string]: ProcessedData } = {};
 
@@ -151,7 +156,11 @@ const processData = (
     const date =
       unit === "week"
         ? dayjs(startTime).format("YYYY-[W]WW")
-        : dayjs(startTime).format(unit === "month" ? "YYYY-MM" : "YYYY-MM-DD");
+        : unit === "month"
+        ? dayjs(startTime).format("YYYY-MM")
+        : unit === "year"
+        ? dayjs(startTime).format("YYYY")
+        : dayjs(startTime).format("YYYY-MM-DD");
 
     if (!groupedData[date]) return;
 
@@ -224,9 +233,11 @@ const generateYearlyMonths = (offset: number): string[] => {
 const Graph: React.FC = (): JSX.Element => {
   const { focusSessions } = useFocus();
   const { savedTags } = useTag();
+  const { resolvedTheme } = useTheme();
   const [offset, setOffset] = useState(0);
+  const [productiveDaysOnly, setProductiveDaysOnly] = useState(false);
   const [view, setView] = useState<
-    "day" | "week" | "month" | "30days" | "yearly"
+    "day" | "week" | "month" | "30days" | "yearly" | "12months" | "3years"
   >("day");
 
   // Determine number of units to show and unit type for generateLastNUnits
@@ -239,11 +250,23 @@ const Graph: React.FC = (): JSX.Element => {
       ? 4
       : view === "yearly"
       ? 12
+      : view === "12months"
+      ? 12
+      : view === "3years"
+      ? 3
       : 6;
 
   // For 30days view, unit is 'day'; otherwise use the view directly
   const unitForGenerate =
-    view === "30days" ? "day" : view === "yearly" ? "month" : view;
+    view === "30days"
+      ? "day"
+      : view === "yearly"
+      ? "month"
+      : view === "12months"
+      ? "month"
+      : view === "3years"
+      ? "year"
+      : view;
 
   // Generate date range and process data
   const dateRange =
@@ -275,6 +298,46 @@ const Graph: React.FC = (): JSX.Element => {
   }
   const tags = rawTags.sort((a, b) => tagTotals[b] - tagTotals[a]);
 
+  // Calculate divisor for average
+  const totalTime = processedData.reduce((acc, entry) => acc + entry.total, 0);
+  
+  // Calculate accurate productive days count by checking actual days in the range
+  const productiveDaysSet = new Set<string>();
+  focusSessions.forEach(({ startTime }) => {
+    const sessionDate = dayjs(startTime);
+    const key =
+      unitForGenerate === "week"
+        ? sessionDate.format("YYYY-[W]WW")
+        : unitForGenerate === "month"
+        ? sessionDate.format("YYYY-MM")
+        : unitForGenerate === "year"
+        ? sessionDate.format("YYYY")
+        : sessionDate.format("YYYY-MM-DD");
+
+    if (dateRange.includes(key)) {
+      productiveDaysSet.add(sessionDate.format("YYYY-MM-DD"));
+    }
+  });
+  const productiveDaysCount = productiveDaysSet.size;
+  
+  const totalDays = view === "day"
+    ? 7
+    : view === "30days"
+    ? 30
+    : view === "week"
+    ? 28
+    : view === "month"
+    ? 180
+    : view === "yearly" || view === "12months"
+    ? 365
+    : view === "3years"
+    ? 1095
+    : 1;
+
+  const averageDivisor = productiveDaysOnly 
+    ? (productiveDaysCount || 1) // Prevent division by zero
+    : totalDays;
+
   return (
     <div>
       {/* Navigation Controls */}
@@ -302,15 +365,20 @@ const Graph: React.FC = (): JSX.Element => {
       {/* Interactive Bar Chart */}
       <ResponsiveContainer width="100%" height={400}>
         <BarChart data={processedData} stackOffset="sign">
-          <CartesianGrid strokeDasharray="5" stroke="#bbb" x={48} />
+          <CartesianGrid 
+            strokeDasharray="5" 
+            stroke={resolvedTheme === "dark" ? "#374151" : "#e5e7eb"} 
+            x={48} 
+          />
           <XAxis
             dataKey="date"
-            stroke="#8884d8"
+            stroke={resolvedTheme === "dark" ? "#9ca3af" : "#8884d8"}
             tickFormatter={(date) => {
               // Format X axis ticks differently based on view
               if (view === "week") return dayjs(date).format("[W]WW, YYYY");
-              if (view === "month") return dayjs(date).format("MMM YYYY");
+              if (view === "month" || view === "12months") return dayjs(date).format("MMM YYYY");
               if (view === "yearly") return dayjs(date).format("MMM");
+              if (view === "3years") return date;
               return dayjs(date).format("DD MMM");
             }}
           />
@@ -333,12 +401,12 @@ const Graph: React.FC = (): JSX.Element => {
               if (!payload || payload.length === 0) return null;
               const total = payload[0].payload.total; // Get total focus time for the day/week/month
               return (
-                <div className="bg-white p-2 shadow rounded">
+                <div className="bg-popover text-popover-foreground border border-border p-2 shadow rounded">
                   <p className="font-bold">{label}</p>
-                  <p className="text-gray-700">
+                  <p className="text-muted-foreground">
                     Total: {formatTime(total, 0, 1)}
                   </p>
-                  <hr />
+                  <hr className="border-border my-1" />
                   {payload.map((entry, index) => (
                     <p key={index} style={{ color: entry.color }}>
                       {entry.name}: {formatTime(entry.value as number, 0, 1)}
@@ -362,43 +430,71 @@ const Graph: React.FC = (): JSX.Element => {
       </ResponsiveContainer>
 
       {/* View Period Selection Buttons */}
-      <div className="flex justify-center mt-4 space-x-4">
-        <Button
-          variant={view === "day" ? "secondary" : "ghost"}
-          onClick={() => {
-            setView("day");
-            setOffset(0);
-          }}
-        >
-          7 Days
-        </Button>
-        <Button
-          variant={view === "30days" ? "secondary" : "ghost"}
-          onClick={() => {
-            setView("30days");
-            setOffset(0);
-          }}
-        >
-          30 Days
-        </Button>
-        <Button
-          variant={view === "month" ? "secondary" : "ghost"}
-          onClick={() => {
-            setView("month");
-            setOffset(0);
-          }}
-        >
-          6 Months
-        </Button>
-        <Button
-          variant={view === "yearly" ? "secondary" : "ghost"}
-          onClick={() => {
-            setView("yearly");
-            setOffset(0);
-          }}
-        >
-          Yearly
-        </Button>
+      <div className="flex flex-col gap-2 mt-4 items-center">
+        <div className="flex gap-2">
+          <Button
+            variant={view === "day" ? "secondary" : "ghost"}
+            className="w-28 justify-center"
+            onClick={() => {
+              setView("day");
+              setOffset(0);
+            }}
+          >
+            7 Days
+          </Button>
+          <Button
+            variant={view === "30days" ? "secondary" : "ghost"}
+            className="w-28 justify-center"
+            onClick={() => {
+              setView("30days");
+              setOffset(0);
+            }}
+          >
+            30 Days
+          </Button>
+          <Button
+            variant={view === "month" ? "secondary" : "ghost"}
+            className="w-28 justify-center"
+            onClick={() => {
+              setView("month");
+              setOffset(0);
+            }}
+          >
+            6 Months
+          </Button>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant={view === "12months" ? "secondary" : "ghost"}
+            className="w-28 justify-center"
+            onClick={() => {
+              setView("12months");
+              setOffset(0);
+            }}
+          >
+            12 Months
+          </Button>
+          <Button
+            variant={view === "yearly" ? "secondary" : "ghost"}
+            className="w-28 justify-center"
+            onClick={() => {
+              setView("yearly");
+              setOffset(0);
+            }}
+          >
+            Yearly
+          </Button>
+          <Button
+            variant={view === "3years" ? "secondary" : "ghost"}
+            className="w-28 justify-center"
+            onClick={() => {
+              setView("3years");
+              setOffset(0);
+            }}
+          >
+            3 Years
+          </Button>
+        </div>
       </div>
 
       {/* Focus Time Data Table */}
@@ -458,8 +554,33 @@ const Graph: React.FC = (): JSX.Element => {
                 )}
               </td>
             </tr>
+            {/* Average Row */}
+            <tr className="flex justify-between w-full px-2 text-sm text-muted-foreground">
+              <td className="py-2 w-1/2 text-left">
+                Daily Average
+                {productiveDaysOnly && " (Productive)"}
+              </td>
+              <td className="py-2 w-1/2 text-right">
+                {formatTime(
+                  totalTime / averageDivisor,
+                  0,
+                  1
+                )}
+              </td>
+            </tr>
           </tbody>
         </table>
+        
+        <div className="flex items-center space-x-2 mt-4 px-2">
+          <Checkbox 
+            id="productive-days" 
+            checked={productiveDaysOnly}
+            onCheckedChange={(checked) => setProductiveDaysOnly(checked as boolean)}
+          />
+          <Label htmlFor="productive-days" className="text-xs text-muted-foreground">
+            Calculate average only for productive days (days with {">"} 0m focus)
+          </Label>
+        </div>
       </div>
     </div>
   );
@@ -494,7 +615,7 @@ export default function GraphDialog(): JSX.Element {
           <FaChartBar /> Details
         </Button>
       </DialogTrigger>
-      <DialogContent className="bg-gray-200 text-gray-800 max-h-[calc(85vh)] overflow-auto no-scroll-wheel">
+      <DialogContent className="max-h-[calc(85vh)] overflow-auto no-scroll-wheel">
         <DialogTitle>Focus History</DialogTitle>
         <DialogDescription>
           See a summary of your focus time, broken down by days, weeks, and
