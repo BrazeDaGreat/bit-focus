@@ -1,6 +1,11 @@
-export const VERSION = "v0.13.6-beta";
+export const VERSION = "v0.14.0-beta";
 
 const CHANGELOG = `
+## \`v0.14.0-beta\` (2026-01-09)
+- Add: Focus Activity Heatmap on Home page with GitHub-style year view, navigation, dynamic intensity, and streak tracking.
+- Improve: Tag selector now supports pressing Enter to save tag (no need to click Save button).
+***
+
 ## \`v0.13.0-beta\` (2025-10-11)
 - Remove: Sidebar Notepad
 - Add: Floating Notepad, accessible from the new Notepad button in Top Bar.

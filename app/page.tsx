@@ -83,6 +83,7 @@ import { GoDotFill } from "react-icons/go";
 import { Issue, Milestone, Project, useProjects } from "@/hooks/useProjects";
 import { useRouter } from "next/navigation";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import FocusHeatmap from "@/components/FocusHeatmap";
 
 // Extend dayjs with required plugins for date range calculations
 dayjs.extend(isBetween);
@@ -133,10 +134,18 @@ export default function Home(): JSX.Element {
           <span>Your minimalist productivity workspace.</span>
         </div>
 
+
         <div className={cn("flex gap-4", "flex-col lg:flex-row")}>
-          <UpcomingIssuesCard />
+          <div className={cn("flex-1 flex flex-col gap-4")}>
+            {/* Focus Activity Heatmap */}
+            <FocusHeatmap />
+            {/* Upcoming Issues */}
+            <UpcomingIssuesCard />
+          </div>
           <div className={cn("flex flex-col gap-4")}>
+            {/* Saved Tags */}
             <SavedTags />
+            {/* Card Time Focused */}
             <CardTimeFocused />
           </div>
         </div>
