@@ -129,6 +129,9 @@ export default function BITFdata(): JSX.Element {
     }
 
     try {
+
+      toast.info("Uploading BITF data to Discord...");
+
       // Get the exported data as JSON
       const data = await SaveManager.exportJSON();
 
@@ -136,7 +139,7 @@ export default function BITFdata(): JSX.Element {
       const jsonString = JSON.stringify(data, null, 2);
       const blob = new Blob([jsonString], { type: "application/json" });
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-      const filename = `bitfocus-backup-${timestamp}.bitf.json`;
+      const filename = `bitfocus-${timestamp}.bitf.json`;
 
       // Create FormData for file upload
       const formData = new FormData();
@@ -155,7 +158,7 @@ export default function BITFdata(): JSX.Element {
         },
       });
 
-      toast.success("Backup uploaded to Discord successfully!");
+      toast.success("BITF data uploaded to Discord successfully!");
     } catch (err) {
       console.error(err);
       toast.error("Upload failed. Check your webhook URL.");
