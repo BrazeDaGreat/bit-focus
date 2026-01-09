@@ -1,9 +1,12 @@
-export const VERSION = "v0.14.0-beta";
+export const VERSION = "v0.14.1-beta";
 
 const CHANGELOG = `
 ## \`v0.14.0-beta\` (2026-01-09)
 - Add: Focus Activity Heatmap on Home page with GitHub-style year view, navigation, dynamic intensity, and streak tracking.
 - Improve: Tag selector now supports pressing Enter to save tag (no need to click Save button).
+## \`v0.14.1-beta\` (2026-01-09)
+- Add: Amethyst Overloaded Theme.
+- Add: "Upload" button in BITF Data popup, which uploads directly to Discord Webhook.
 ***
 
 ## \`v0.13.0-beta\` (2025-10-11)

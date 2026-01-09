@@ -297,6 +297,9 @@ const ThemeSelector = (): JSX.Element => {
         <SelectItem value="amethyst">
           <FaGem className="text-purple-400" /> Amethyst
         </SelectItem>
+        <SelectItem value="amethystoverloaded">
+          <FaGem className="text-purple-800" /> Amethyst Overloaded
+        </SelectItem>
         <SelectItem value="bluenight">
           <FaWater className="text-cyan-400" /> Blue Night
         </SelectItem>

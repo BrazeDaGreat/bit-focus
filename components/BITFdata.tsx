@@ -10,24 +10,28 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { Button } from "./ui/button";
-import { FaFileCsv, FaFileExport, FaFileImport } from "react-icons/fa6";
+import { FaFileCsv, FaFileExport, FaFileImport, FaUpload, FaTriangleExclamation } from "react-icons/fa6";
+import { useConfig } from "@/hooks/useConfig";
+import { VERSION } from "@/app/changelog/CHANGELOG";
+import axios from "axios";
 
 /**
  * BITF Data Management Component
  *
- * Provides import and export functionality for BIT Focus data in .bitf.json format.
+ * Provides import, export, and upload functionality for BIT Focus data in .bitf.json format.
  * Includes keyboard shortcuts for quick access and handles file operations with
  * proper error handling and user feedback through toast notifications.
  *
  * Features:
  * - Export all application data to .bitf.json file
  * - Import data from .bitf.json files with validation
- * - Keyboard shortcuts (W for export, Q for import)
+ * - Upload backup to Discord via webhook
+ * - Keyboard shortcuts (W for export, Q for import, E for upload)
  * - Error handling with user-friendly messages
  * - Automatic page reload after successful import
  *
  * @component
- * @returns {JSX.Element} Dropdown menu with import/export options
+ * @returns {JSX.Element} Dropdown menu with import/export/upload options
  *
  * @example
  * ```tsx
@@ -41,6 +45,8 @@ export default function BITFdata(): JSX.Element {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const isMobile = useIsMobile();
+  const { webhook } = useConfig();
+  const hasWebhook = webhook && webhook.trim().length > 0;
 
   /**
    * Handles data export operation
@@ -107,6 +113,56 @@ export default function BITFdata(): JSX.Element {
   };
 
   /**
+   * Handles upload to Discord webhook
+   *
+   * Exports the current data and uploads it as a file attachment to the
+   * configured Discord webhook. Provides user feedback and handles errors
+   * during the upload process.
+   *
+   * @async
+   * @returns {Promise<void>}
+   */
+  const handleUpload = async (): Promise<void> => {
+    if (!hasWebhook) {
+      toast.error("No webhook configured. Please set a webhook in settings.");
+      return;
+    }
+
+    try {
+      // Get the exported data as JSON
+      const data = await SaveManager.exportJSON();
+
+      // Create a blob and file from the JSON data
+      const jsonString = JSON.stringify(data, null, 2);
+      const blob = new Blob([jsonString], { type: "application/json" });
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const filename = `bitfocus-backup-${timestamp}.bitf.json`;
+
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append("file", blob, filename);
+
+      // Add message content
+      const avatarUrl = "https://bitfocus.vercel.app/bit_focus.png";
+      formData.append("username", "BIT Focus");
+      formData.append("avatar_url", avatarUrl);
+      formData.append("content", `📦 Backup uploaded from BIT Focus ${VERSION}`);
+
+      // Send to webhook
+      await axios.post(webhook, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      toast.success("Backup uploaded to Discord successfully!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Upload failed. Check your webhook URL.");
+    }
+  };
+
+  /**
    * Set up keyboard shortcuts when dropdown is open
    *
    * Listens for keyboard events and triggers appropriate actions
@@ -132,12 +188,17 @@ export default function BITFdata(): JSX.Element {
       } else if (e.key.toLowerCase() === "q") {
         e.preventDefault();
         handleImportClick();
+      } else if (e.key.toLowerCase() === "a") {
+        e.preventDefault();
+        if (hasWebhook) {
+          handleUpload();
+        }
       }
     };
 
     window.addEventListener("keydown", listener);
     return () => window.removeEventListener("keydown", listener);
-  }, [isOpen]);
+  }, [isOpen, hasWebhook]);
 
   return (
     <>
@@ -168,6 +229,18 @@ export default function BITFdata(): JSX.Element {
             <FaFileImport className="mr-2" />
             <span>Import</span>
             <DropdownMenuShortcut>Q</DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={handleUpload}
+            disabled={!hasWebhook}
+          >
+            {hasWebhook ? (
+              <FaUpload className="mr-2" />
+            ) : (
+              <FaTriangleExclamation className="mr-2 text-yellow-500" />
+            )}
+            <span>Upload</span>
+            <DropdownMenuShortcut>A</DropdownMenuShortcut>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
