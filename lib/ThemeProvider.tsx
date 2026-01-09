@@ -60,6 +60,7 @@ import { ThemeProvider as NextThemesProvider } from "next-themes";
  *     light: "light",
  *     dark: "dark",
  *     amethyst: "amethyst",
+ *     amethystoverloaded: "amethystoverloaded",
  *     bluenight: "bluenight",
  *     amoled: "amoled",
  *   }}

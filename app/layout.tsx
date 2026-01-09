@@ -173,6 +173,7 @@ export default function RootLayout({
                 light: "light",
                 dark: "dark",
                 amethyst: "amethyst",
+                amethystoverloaded: "amethystoverloaded",
                 bluenight: "bluenight",
                 amoled: "amoled",
                 "pastel-blue": "pastel-blue",
