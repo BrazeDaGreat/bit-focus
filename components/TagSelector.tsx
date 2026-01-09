@@ -14,17 +14,31 @@ interface TagSelectorProps {
 export default function TagSelector({ noHover }: TagSelectorProps) {
     const { tag, setTag, removeTag } = useTag();
     const [tempTag, setTempTag] = useState("");
-  
+    const [open, setOpen] = useState(false);
+
+    const handleSave = () => {
+      setTag(tempTag);
+      setOpen(false);
+      setTempTag("");
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+
     if (tag)
       return (
         <div className="">
           <TagBadge tag={tag} deletable removeTag={removeTag} noHover={noHover ?? false} />
         </div>
       );
-  
+
     return (
       <div>
-        <Popover>
+        <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <Button
               variant={"outline"}
@@ -48,8 +62,9 @@ export default function TagSelector({ noHover }: TagSelectorProps) {
               id="tag"
               value={tempTag}
               onChange={(e) => setTempTag(e.target.value)}
+              onKeyDown={handleKeyDown}
             />
-            <Button onClick={() => setTag(tempTag)}>Save</Button>
+            <Button onClick={handleSave}>Save</Button>
           </PopoverContent>
         </Popover>
       </div>
