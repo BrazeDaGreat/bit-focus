@@ -36,6 +36,7 @@ import { useTag } from "@/hooks/useTag";
 import { sendMessage } from "@/lib/webhook";
 import { useConfig } from "./useConfig";
 import { useRewards } from "@/hooks/useRewards";
+import { playNotificationSound } from "@/lib/sound";
 
 /**
  * Timer Mode Enumeration
@@ -510,18 +511,20 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
                   targetDuration
                 );
               }
-              
+
+              playNotificationSound();
               toast("Focus session complete! Time for a break.", {
                 icon: <IoIosTimer />,
               });
-              
+
               dispatch({ type: "NEXT_PHASE" });
             } else {
               // Break completed - back to focus
+              playNotificationSound();
               toast("Break time over! Ready to focus again?", {
                 icon: <IoIosTimer />,
               });
-              
+
               dispatch({ type: "NEXT_PHASE" });
             }
             return; // Exit early to prevent state update after phase change
