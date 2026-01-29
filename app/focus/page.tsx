@@ -87,6 +87,7 @@ import { usePip, usePipSpace } from "@/hooks/usePip";
 import PipTimer from "@/components/PipTimer";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { GiTomato } from "react-icons/gi";
+import YouTubePlayer from "@/components/YouTubePlayer";
 
 /**
  * Main Focus Page Component
@@ -388,6 +389,9 @@ export default function Focus(): JSX.Element {
           </div>
         )}
       </Card>
+
+      {/* YouTube Background Music Player */}
+      <YouTubePlayer />
 
       {/* Focus Sessions List Card */}
       <Card className={cn(isMobile ? "w-full max-w-96" : "min-w-96")}>
