@@ -19,8 +19,8 @@ function getAudioContext(): AudioContext {
 }
 
 /**
- * Plays a pleasant notification chime sound.
- * Uses a two-tone pattern similar to common timer notifications.
+ * Plays a prominent Pomodoro-style notification sound.
+ * Uses a repeating bell chime pattern that's hard to miss.
  */
 export function playNotificationSound(): void {
   if (typeof window === "undefined") return;
@@ -34,30 +34,59 @@ export function playNotificationSound(): void {
       ctx.resume();
     }
 
-    // Play a pleasant two-tone chime
-    const frequencies = [523.25, 659.25, 783.99]; // C5, E5, G5 (C major chord)
+    // Bell-like frequencies for a classic timer sound
+    const bellFrequencies = [880, 1108.73, 1318.51]; // A5, C#6, E6 (A major, higher pitch for attention)
+    const repetitions = 6; // Play the chime 10 times
+    const gapBetweenChimes = 0.5; // Gap between each chime repetition
 
-    frequencies.forEach((freq, index) => {
-      const oscillator = ctx.createOscillator();
-      const gainNode = ctx.createGain();
+    for (let rep = 0; rep < repetitions; rep++) {
+      const repOffset = rep * gapBetweenChimes;
 
-      oscillator.connect(gainNode);
-      gainNode.connect(ctx.destination);
+      bellFrequencies.forEach((freq, index) => {
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
 
-      oscillator.type = "sine";
-      oscillator.frequency.setValueAtTime(freq, now);
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx.destination);
 
-      // Stagger the notes slightly for an arpeggio effect
-      const startTime = now + index * 0.1;
-      const duration = 0.3;
+        // Triangle wave for a warmer, bell-like tone
+        oscillator.type = "triangle";
+        oscillator.frequency.setValueAtTime(freq, now);
 
-      gainNode.gain.setValueAtTime(0, startTime);
-      gainNode.gain.linearRampToValueAtTime(0.3, startTime + 0.02);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+        // Stagger the notes for an arpeggio effect
+        const startTime = now + repOffset + index * 0.12;
+        const duration = 0.5;
 
-      oscillator.start(startTime);
-      oscillator.stop(startTime + duration);
-    });
+        // Higher gain for better audibility
+        gainNode.gain.setValueAtTime(0, startTime);
+        gainNode.gain.linearRampToValueAtTime(0.5, startTime + 0.01);
+        gainNode.gain.setValueAtTime(0.5, startTime + 0.05);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+
+        oscillator.start(startTime);
+        oscillator.stop(startTime + duration);
+      });
+
+      // Add a low undertone for richness on each repetition
+      const bassOscillator = ctx.createOscillator();
+      const bassGain = ctx.createGain();
+
+      bassOscillator.connect(bassGain);
+      bassGain.connect(ctx.destination);
+
+      bassOscillator.type = "sine";
+      bassOscillator.frequency.setValueAtTime(220, now); // A3 bass note
+
+      const bassStart = now + repOffset;
+      const bassDuration = 0.4;
+
+      bassGain.gain.setValueAtTime(0, bassStart);
+      bassGain.gain.linearRampToValueAtTime(0.3, bassStart + 0.02);
+      bassGain.gain.exponentialRampToValueAtTime(0.01, bassStart + bassDuration);
+
+      bassOscillator.start(bassStart);
+      bassOscillator.stop(bassStart + bassDuration);
+    }
   } catch (error) {
     console.warn("Failed to play notification sound:", error);
   }
