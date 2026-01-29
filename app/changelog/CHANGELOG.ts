@@ -1,4 +1,4 @@
-export const VERSION = "v0.14.2 (LTS)";
+export const VERSION = "v0.14.3 (LTS)";
 
 const CHANGELOG = `
 ## \`v0.14.0-beta\` (2026-01-09)
@@ -7,8 +7,10 @@ const CHANGELOG = `
 ### \`v0.14.1-beta\` (2026-01-09)
 - Add: Amethyst Overloaded Theme.
 - Add: "Upload" button in BITF Data popup, which uploads directly to Discord Webhook.
-### \`v0.14.2 (LTS)\` (2026-01-09)
+### \`v0.14.2\` (2026-01-09)
 - Add: Better handling for BITF Data upload.
+### \`v0.14.3 (LTS)\` (2026-01-29)
+- Add: Sound when Pomodoro/break ends.
 ***
 
 ## \`v0.13.0-beta\` (2025-10-11)
