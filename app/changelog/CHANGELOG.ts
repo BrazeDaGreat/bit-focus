@@ -1,4 +1,4 @@
-export const VERSION = "v0.14.4 (LTS)";
+export const VERSION = "v0.14.5 (LTS)";
 
 const CHANGELOG = `
 ## \`v0.14.0-beta\` (2026-01-09)
@@ -11,9 +11,13 @@ const CHANGELOG = `
 - Add: Better handling for BITF Data upload.
 ### \`v0.14.3\` (2026-01-29)
 - Add: Sound when Pomodoro/break ends.
-### \`v0.14.4 (LTS)\` (2026-01-30)
+### \`v0.14.4\` (2026-01-30)
 - Improve: Notification sound is now louder, longer, and uses a repeating bell chime pattern for better audibility.
 - Fix: Floating Notepad is now responsive for Mobile, now takes up the entire screen (suitable for smalelr screens).
+### \`v0.14.5 (LTS)\` (2026-01-30)
+- Add: YouTube Player in Focus page.
+- This youtube player automatically stops when the sound is to be played, and resumes afterwards.
+- It also stores the YouTube video ID in localStorage.
 ***
 
 ## \`v0.13.0-beta\` (2025-10-11)
