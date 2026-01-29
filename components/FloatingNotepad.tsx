@@ -222,22 +222,33 @@ export default function FloatingNotepad(): JSX.Element {
       {isOpen && (
         <div
           className={cn(
-            "fixed z-40 flex flex-col rounded-lg shadow-2xl",
+            "fixed z-40 flex flex-col shadow-2xl",
             "backdrop-blur-md border border-border",
             "overflow-hidden",
+            // Mobile: full-screen, no rounded corners
+            isMobile && "inset-0 rounded-none",
+            // Desktop: floating window with rounded corners
+            !isMobile && "rounded-lg",
             isDraggingWindow && "cursor-grabbing"
           )}
-          style={{
-            left: `${windowPosition.x}px`,
-            top: `${windowPosition.y}px`,
-            width: `${DEFAULT_WIDTH}px`,
-            height: `${DEFAULT_HEIGHT}px`,
-          }}
+          style={
+            isMobile
+              ? undefined // Mobile uses CSS classes for full-screen
+              : {
+                  left: `${windowPosition.x}px`,
+                  top: `${windowPosition.y}px`,
+                  width: `${DEFAULT_WIDTH}px`,
+                  height: `${DEFAULT_HEIGHT}px`,
+                }
+          }
         >
           {/* Window Header */}
           <div
-            className="flex items-center justify-between p-3 border-b border-border bg-secondary/20 backdrop-blur-md cursor-move select-none"
-            onMouseDown={handleWindowMouseDown}
+            className={cn(
+              "flex items-center justify-between p-3 border-b border-border bg-secondary/20 backdrop-blur-md select-none",
+              !isMobile && "cursor-move"
+            )}
+            onMouseDown={isMobile ? undefined : handleWindowMouseDown}
           >
             <div className="flex items-center gap-2">
               <FaStickyNote className="w-4 h-4" />
