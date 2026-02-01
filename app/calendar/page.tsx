@@ -6,7 +6,7 @@ import { format, parse, startOfWeek, getDay } from "date-fns";
 import { enUS } from "date-fns/locale/en-US";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import { useFocus, FocusSession } from "@/hooks/useFocus";
-import { useTag, SavedTag } from "@/hooks/useTag";
+import { useTag } from "@/hooks/useTag";
 import { getTagColor } from "@/lib/utils";
 import {
   Card,
