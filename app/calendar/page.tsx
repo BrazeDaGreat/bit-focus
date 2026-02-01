@@ -230,6 +230,7 @@ export default function CalendarPage(): JSX.Element {
                 onNavigate={handleNavigate}
                 onSelectEvent={handleSelectEvent}
                 eventPropGetter={eventStyleGetter}
+                dayLayoutAlgorithm="no-overlap"
                 step={30}
                 timeslots={4}
                 min={new Date(1970, 1, 1, 0, 0, 0)} // Start at 5 AM
@@ -340,8 +341,8 @@ export default function CalendarPage(): JSX.Element {
         }
 
         /* Make vertical day separators more subtle */
-        .calendar-container .rbc-day-slot {
-          border-left: 1px solid oklch(from var(--border) l c h / 0.3);
+        .calendar-container .rbc-events-container {
+          border-left: 1px solid oklch(from var(--border) l c h / 1);
         }
 
         .calendar-container .rbc-time-view {

@@ -1,17 +1,20 @@
-export const VERSION = "v0.15.3-beta";
+export const VERSION = "v0.15.4 (LTS)";
 
 const CHANGELOG = `
 ## \`v0.15.0-beta\` (2026-02-01)
 - Fix: "Edit Focus Session" now respects start time.
 - Add: Calendar Page, this showcases a rough estimate of where you spent your time, in a calendar view.
-## \`v0.15.1-beta\` (2026-02-01)
+### \`v0.15.1-beta\` (2026-02-01)
 - Fix: Calendar Page UI and styling.
 - Improve: Calendar steps are now 30 minutes.
-## \`v0.15.2 (LTS)\` (2026-02-01)
+### \`v0.15.2 (LTS)\` (2026-02-01)
 - Fix: Deployment Issues
-## \`v0.15.3-beta\` (2026-02-01)
+### \`v0.15.3-beta\` (2026-02-01)
 - Add: Clicking on Focus Item from Calendar opens it's Edit Modal.
 - Add: Separate EditFocusSessionDialog component.
+### \`v0.15.4 (LTS)\` (2026-02-01)
+- Fix: Calendar Overlapping items
+- Fix: Vertical Lines too bright on Calendar's dark mode
 ***
 
 ## \`v0.14.0-beta\` (2026-01-09)
