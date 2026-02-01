@@ -54,6 +54,9 @@ import { z } from "zod";
 const formSchema = z.object({
   tag: z.string().min(1, "Tag is required"),
   startDate: z.string().min(1, "Start date is required"),
+  startHour: z.coerce.number().min(1).max(12),
+  startMinute: z.coerce.number().min(0).max(59),
+  startPeriod: z.enum(["AM", "PM"]),
   minutes: z.coerce.number().min(0, "Minutes must be a positive number"),
   seconds: z.coerce.number().min(0, "Seconds must be a positive number"),
 });
@@ -114,6 +117,12 @@ export function EditFocusSession({
   const defaultMinutes = 'minutes' in time ? time.minutes : 0;
   const defaultSeconds = time.seconds;
 
+  // Extract time components from existing start time for 12-hour format
+  const existingHours = item.startTime.getHours();
+  const defaultHour = existingHours === 0 ? 12 : existingHours > 12 ? existingHours - 12 : existingHours;
+  const defaultMinute = item.startTime.getMinutes();
+  const defaultPeriod: "AM" | "PM" = existingHours >= 12 ? "PM" : "AM";
+
   // Initialize form with React Hook Form and Zod validation
   const {
     control,
@@ -124,6 +133,9 @@ export function EditFocusSession({
     defaultValues: {
       tag: item.tag,
       startDate: item.startTime.toISOString().split("T")[0],
+      startHour: defaultHour,
+      startMinute: defaultMinute,
+      startPeriod: defaultPeriod,
       minutes: defaultMinutes,
       seconds: defaultSeconds,
     },
@@ -151,7 +163,18 @@ export function EditFocusSession({
    * ```
    */
   const onSubmit = (data: FormData): void => {
+    // Convert 12-hour format to 24-hour format
+    let hour24 = data.startHour;
+    if (data.startPeriod === "AM") {
+      hour24 = data.startHour === 12 ? 0 : data.startHour;
+    } else {
+      hour24 = data.startHour === 12 ? 12 : data.startHour + 12;
+    }
+
+    // Create new start time with both date and time
     const newStartTime = new Date(data.startDate);
+    newStartTime.setHours(hour24, data.startMinute, 0, 0);
+
     const newEndTime = new Date(
       newStartTime.getTime() + data.minutes * 60000 + data.seconds * 1000
     );
@@ -234,6 +257,81 @@ export function EditFocusSession({
                   {errors.startDate.message}
                 </p>
               )}
+            </div>
+
+            {/* Start Time Fields (12-hour format) */}
+            <div className="space-y-2">
+              <Label>Start Time</Label>
+              <div className="flex items-center gap-2">
+                {/* Hour Field */}
+                <Controller
+                  name="startHour"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      id="startHour"
+                      type="number"
+                      min={1}
+                      max={12}
+                      placeholder="HH"
+                      {...field}
+                      className={`w-16 text-center ${errors.startHour ? "border-red-500" : ""}`}
+                    />
+                  )}
+                />
+                <span className="text-muted-foreground">:</span>
+                {/* Minute Field */}
+                <Controller
+                  name="startMinute"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      id="startMinute"
+                      type="number"
+                      min={0}
+                      max={59}
+                      placeholder="MM"
+                      {...field}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        field.onChange(isNaN(val) ? 0 : Math.min(59, Math.max(0, val)));
+                      }}
+                      className={`w-16 text-center ${errors.startMinute ? "border-red-500" : ""}`}
+                    />
+                  )}
+                />
+                {/* AM/PM Toggle */}
+                <Controller
+                  name="startPeriod"
+                  control={control}
+                  render={({ field }) => (
+                    <div className="flex border rounded-md overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => field.onChange("AM")}
+                        className={`px-3 py-2 text-sm transition-colors ${
+                          field.value === "AM"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted hover:bg-muted/80"
+                        }`}
+                      >
+                        AM
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => field.onChange("PM")}
+                        className={`px-3 py-2 text-sm transition-colors ${
+                          field.value === "PM"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted hover:bg-muted/80"
+                        }`}
+                      >
+                        PM
+                      </button>
+                    </div>
+                  )}
+                />
+              </div>
             </div>
 
             {/* Duration Fields Container */}
