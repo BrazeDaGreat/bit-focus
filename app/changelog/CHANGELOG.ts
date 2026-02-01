@@ -1,4 +1,4 @@
-export const VERSION = "v0.15.2 (LTS)";
+export const VERSION = "v0.15.3-beta";
 
 const CHANGELOG = `
 ## \`v0.15.0-beta\` (2026-02-01)
@@ -9,6 +9,9 @@ const CHANGELOG = `
 - Improve: Calendar steps are now 30 minutes.
 ## \`v0.15.2 (LTS)\` (2026-02-01)
 - Fix: Deployment Issues
+## \`v0.15.3-beta\` (2026-02-01)
+- Add: Clicking on Focus Item from Calendar opens it's Edit Modal.
+- Add: Separate EditFocusSessionDialog component.
 ***
 
 ## \`v0.14.0-beta\` (2026-01-09)

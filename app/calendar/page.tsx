@@ -17,6 +17,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
+import { EditFocusSessionDialog } from "@/components/EditFocusSessionDialog";
 
 // Configure date-fns localizer for react-big-calendar
 const locales = {
@@ -53,6 +54,10 @@ export default function CalendarPage(): JSX.Element {
   const { focusSessions, loadFocusSessions, loadingFocusSessions } = useFocus();
   const { savedTags } = useTag();
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedSession, setSelectedSession] = useState<FocusSession | null>(
+    null,
+  );
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   // Load focus sessions on mount
   useEffect(() => {
@@ -154,6 +159,19 @@ export default function CalendarPage(): JSX.Element {
     setCurrentDate(date);
   }, []);
 
+  // Handle event click - open edit dialog
+  const handleSelectEvent = useCallback(
+    (event: CalendarEvent) => {
+      // Find the original focus session by ID
+      const session = focusSessions.find((s) => s.id === event.id);
+      if (session) {
+        setSelectedSession(session);
+        setIsEditDialogOpen(true);
+      }
+    },
+    [focusSessions],
+  );
+
   // Get unique tags that are visible in the current calendar view
   const visibleTags = useMemo(() => {
     // Create a map to store unique tags with their colors
@@ -210,6 +228,7 @@ export default function CalendarPage(): JSX.Element {
                 views={[Views.WEEK, Views.DAY, Views.MONTH]}
                 date={currentDate}
                 onNavigate={handleNavigate}
+                onSelectEvent={handleSelectEvent}
                 eventPropGetter={eventStyleGetter}
                 step={30}
                 timeslots={4}
@@ -243,6 +262,13 @@ export default function CalendarPage(): JSX.Element {
           </CardContent>
         </Card>
       )}
+
+      {/* Edit Focus Session Dialog */}
+      <EditFocusSessionDialog
+        session={selectedSession}
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+      />
 
       <Toaster theme={(theme ?? "system") as "system" | "light" | "dark"} />
 

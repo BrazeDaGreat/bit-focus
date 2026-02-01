@@ -1,70 +1,20 @@
 /**
- * Edit Focus Session Component - Modal Form for Modifying Focus Session Data
+ * Edit Focus Session Component - Dropdown Menu Item Wrapper
  *
- * This component provides a dialog-based interface for editing existing focus sessions.
- * It allows users to modify session tags, start dates, and duration (minutes/seconds).
- * The component integrates with React Hook Form for form management and Zod for
- * validation, ensuring data integrity and user-friendly error handling.
+ * This component wraps the EditFocusSessionDialog to work as a dropdown menu item.
+ * It provides the trigger (dropdown menu item) and manages the dialog open state.
  *
- * Features:
- * - Modal dialog interface with form validation
- * - Real-time form validation with error messages
- * - Integration with focus sessions database
- * - Automatic calculation of end time based on duration
- * - Responsive form layout with proper accessibility
- *
- * Dependencies:
- * - React Hook Form for form state management
- * - Zod for schema validation
- * - Radix UI components for dialog and form elements
- *
- * @fileoverview Edit focus session modal dialog component
+ * @fileoverview Edit focus session dropdown menu item component
  * @author BIT Focus Development Team
  * @since v0.2.0-alpha
  */
 
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { FocusSession, useFocus } from "@/hooks/useFocus";
-import { calculateTime } from "@/lib/utils";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { FocusSession } from "@/hooks/useFocus";
 import { useState } from "react";
 import type { JSX } from "react";
-import { Controller, useForm } from "react-hook-form";
 import { FaPencil } from "react-icons/fa6";
-import { z } from "zod";
-
-/**
- * Zod schema for form validation
- * Defines validation rules for all form fields including required fields
- * and minimum value constraints for numeric inputs
- */
-const formSchema = z.object({
-  tag: z.string().min(1, "Tag is required"),
-  startDate: z.string().min(1, "Start date is required"),
-  startHour: z.coerce.number().min(1).max(12),
-  startMinute: z.coerce.number().min(0).max(59),
-  startPeriod: z.enum(["AM", "PM"]),
-  minutes: z.coerce.number().min(0, "Minutes must be a positive number"),
-  seconds: z.coerce.number().min(0, "Seconds must be a positive number"),
-});
-
-/**
- * Type definition for form data based on the Zod schema
- */
-type FormData = z.infer<typeof formSchema>;
+import { EditFocusSessionDialog } from "@/components/EditFocusSessionDialog";
 
 /**
  * Props interface for the EditFocusSession component
@@ -79,20 +29,14 @@ interface EditFocusSessionProps {
 /**
  * Edit Focus Session Component
  *
- * Renders a modal dialog form that allows users to edit existing focus sessions.
- * The component calculates the current session duration and pre-fills the form
- * with existing values. On submission, it updates the session in the database
- * with the new values and closes both the dialog and parent dropdown.
- *
- * The form includes validation for all fields and provides real-time feedback
- * for validation errors. The start date and duration are used to calculate
- * the new end time for the session.
+ * Renders a dropdown menu item that, when clicked, opens the edit dialog.
+ * Uses the shared EditFocusSessionDialog component for the actual editing form.
  *
  * @component
  * @param {EditFocusSessionProps} props - Component props
  * @param {FocusSession} props.item - The focus session to edit
  * @param {function} props.setIsDropdownOpen - Function to control dropdown state
- * @returns {JSX.Element} The edit focus session dialog component
+ * @returns {JSX.Element} The edit focus session dropdown menu item
  *
  * @example
  * ```tsx
@@ -101,296 +45,37 @@ interface EditFocusSessionProps {
  *   setIsDropdownOpen={setDropdownOpen}
  * />
  * ```
- *
- * @see {@link FocusSession} for the session data structure
- * @see {@link useFocus} for focus session management hooks
  */
 export function EditFocusSession({
   item,
   setIsDropdownOpen,
 }: EditFocusSessionProps): JSX.Element {
-  const { editFocusSession } = useFocus();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  // Calculate current session duration for form defaults
-  const time = calculateTime(item.startTime, item.endTime, "M:S");
-  const defaultMinutes = 'minutes' in time ? time.minutes : 0;
-  const defaultSeconds = time.seconds;
-
-  // Extract time components from existing start time for 12-hour format
-  const existingHours = item.startTime.getHours();
-  const defaultHour = existingHours === 0 ? 12 : existingHours > 12 ? existingHours - 12 : existingHours;
-  const defaultMinute = item.startTime.getMinutes();
-  const defaultPeriod: "AM" | "PM" = existingHours >= 12 ? "PM" : "AM";
-
-  // Initialize form with React Hook Form and Zod validation
-  const {
-    control,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<FormData>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      tag: item.tag,
-      startDate: item.startTime.toISOString().split("T")[0],
-      startHour: defaultHour,
-      startMinute: defaultMinute,
-      startPeriod: defaultPeriod,
-      minutes: defaultMinutes,
-      seconds: defaultSeconds,
-    },
-  });
-
-  /**
-   * Form submission handler
-   *
-   * Processes the form data and updates the focus session in the database.
-   * Calculates the new end time based on the start date and duration,
-   * then calls the edit function and closes all dialogs.
-   *
-   * @param {FormData} data - The validated form data
-   * @returns {void}
-   *
-   * @example
-   * ```tsx
-   * // Called automatically when form is submitted
-   * onSubmit({
-   *   tag: "Work",
-   *   startDate: "2024-01-15",
-   *   minutes: 45,
-   *   seconds: 30
-   * });
-   * ```
-   */
-  const onSubmit = (data: FormData): void => {
-    // Convert 12-hour format to 24-hour format
-    let hour24 = data.startHour;
-    if (data.startPeriod === "AM") {
-      hour24 = data.startHour === 12 ? 0 : data.startHour;
-    } else {
-      hour24 = data.startHour === 12 ? 12 : data.startHour + 12;
+  const handleOpenChange = (open: boolean) => {
+    setIsDialogOpen(open);
+    if (!open) {
+      setIsDropdownOpen(false);
     }
-
-    // Create new start time with both date and time
-    const newStartTime = new Date(data.startDate);
-    newStartTime.setHours(hour24, data.startMinute, 0, 0);
-
-    const newEndTime = new Date(
-      newStartTime.getTime() + data.minutes * 60000 + data.seconds * 1000
-    );
-
-    editFocusSession(item.id!, {
-      id: item.id,
-      tag: data.tag,
-      startTime: newStartTime,
-      endTime: newEndTime,
-    });
-
-    setIsDialogOpen(false);
-    setIsDropdownOpen(false);
   };
 
   return (
-    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-      {/* Dialog Trigger - Dropdown Menu Item */}
-      <DialogTrigger asChild>
-        <DropdownMenuItem
-          onSelect={(e) => {
-            e.preventDefault();
-            setIsDialogOpen(true);
-          }}
-        >
-          <FaPencil />
-          <span>Edit</span>
-        </DropdownMenuItem>
-      </DialogTrigger>
+    <>
+      <DropdownMenuItem
+        onSelect={(e) => {
+          e.preventDefault();
+          setIsDialogOpen(true);
+        }}
+      >
+        <FaPencil />
+        <span>Edit</span>
+      </DropdownMenuItem>
 
-      {/* Dialog Content */}
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Edit Focus Session</DialogTitle>
-          <DialogDescription>
-            Modify your focus session details below.
-          </DialogDescription>
-        </DialogHeader>
-
-        {/* Edit Form */}
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <div className="space-y-4 py-2 pb-4">
-            {/* Tag Field */}
-            <div className="space-y-2">
-              <Label htmlFor="tag">Tag</Label>
-              <Controller
-                name="tag"
-                control={control}
-                render={({ field }) => (
-                  <Input
-                    id="tag"
-                    placeholder="Enter tag"
-                    {...field}
-                    className={errors.tag ? "border-red-500" : ""}
-                  />
-                )}
-              />
-              {errors.tag && (
-                <p className="text-sm text-red-500">{errors.tag.message}</p>
-              )}
-            </div>
-
-            {/* Start Date Field */}
-            <div className="space-y-2">
-              <Label htmlFor="startDate">Start Date</Label>
-              <Controller
-                name="startDate"
-                control={control}
-                render={({ field }) => (
-                  <Input
-                    id="startDate"
-                    type="date"
-                    {...field}
-                    className={errors.startDate ? "border-red-500" : ""}
-                  />
-                )}
-              />
-              {errors.startDate && (
-                <p className="text-sm text-red-500">
-                  {errors.startDate.message}
-                </p>
-              )}
-            </div>
-
-            {/* Start Time Fields (12-hour format) */}
-            <div className="space-y-2">
-              <Label>Start Time</Label>
-              <div className="flex items-center gap-2">
-                {/* Hour Field */}
-                <Controller
-                  name="startHour"
-                  control={control}
-                  render={({ field }) => (
-                    <Input
-                      id="startHour"
-                      type="number"
-                      min={1}
-                      max={12}
-                      placeholder="HH"
-                      {...field}
-                      className={`w-16 text-center ${errors.startHour ? "border-red-500" : ""}`}
-                    />
-                  )}
-                />
-                <span className="text-muted-foreground">:</span>
-                {/* Minute Field */}
-                <Controller
-                  name="startMinute"
-                  control={control}
-                  render={({ field }) => (
-                    <Input
-                      id="startMinute"
-                      type="number"
-                      min={0}
-                      max={59}
-                      placeholder="MM"
-                      {...field}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value, 10);
-                        field.onChange(isNaN(val) ? 0 : Math.min(59, Math.max(0, val)));
-                      }}
-                      className={`w-16 text-center ${errors.startMinute ? "border-red-500" : ""}`}
-                    />
-                  )}
-                />
-                {/* AM/PM Toggle */}
-                <Controller
-                  name="startPeriod"
-                  control={control}
-                  render={({ field }) => (
-                    <div className="flex border rounded-md overflow-hidden">
-                      <button
-                        type="button"
-                        onClick={() => field.onChange("AM")}
-                        className={`px-3 py-2 text-sm transition-colors ${
-                          field.value === "AM"
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-muted hover:bg-muted/80"
-                        }`}
-                      >
-                        AM
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => field.onChange("PM")}
-                        className={`px-3 py-2 text-sm transition-colors ${
-                          field.value === "PM"
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-muted hover:bg-muted/80"
-                        }`}
-                      >
-                        PM
-                      </button>
-                    </div>
-                  )}
-                />
-              </div>
-            </div>
-
-            {/* Duration Fields Container */}
-            <div className="flex items-center gap-4">
-              {/* Minutes Field */}
-              <div className="space-y-2 flex-1">
-                <Label htmlFor="minutes">Minutes</Label>
-                <Controller
-                  name="minutes"
-                  control={control}
-                  render={({ field }) => (
-                    <Input
-                      id="minutes"
-                      type="number"
-                      {...field}
-                      className={errors.minutes ? "border-red-500" : ""}
-                    />
-                  )}
-                />
-                {errors.minutes && (
-                  <p className="text-sm text-red-500">
-                    {errors.minutes.message}
-                  </p>
-                )}
-              </div>
-
-              {/* Seconds Field */}
-              <div className="space-y-2 flex-1">
-                <Label htmlFor="seconds">Seconds</Label>
-                <Controller
-                  name="seconds"
-                  control={control}
-                  render={({ field }) => (
-                    <Input
-                      id="seconds"
-                      type="number"
-                      {...field}
-                      className={errors.seconds ? "border-red-500" : ""}
-                    />
-                  )}
-                />
-                {errors.seconds && (
-                  <p className="text-sm text-red-500">
-                    {errors.seconds.message}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Dialog Footer with Action Buttons */}
-          <DialogFooter>
-            <Button type="submit">Save Changes</Button>
-            <DialogClose asChild onClick={() => setIsDropdownOpen(false)}>
-              <Button variant="outline">Cancel</Button>
-            </DialogClose>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      <EditFocusSessionDialog
+        session={item}
+        open={isDialogOpen}
+        onOpenChange={handleOpenChange}
+      />
+    </>
   );
 }
