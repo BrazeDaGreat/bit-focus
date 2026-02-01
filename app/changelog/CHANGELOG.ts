@@ -1,6 +1,11 @@
-export const VERSION = "v0.14.5 (LTS)";
+export const VERSION = "v0.15.0-beta";
 
 const CHANGELOG = `
+## \`v0.15.0-beta\` (2026-02-01)
+- Fix: "Edit Focus Session" now respects start time.
+- Add: Calendar Page, this showcases a rough estimate of where you spent your time, in a calendar view.
+***
+
 ## \`v0.14.0-beta\` (2026-01-09)
 - Add: Focus Activity Heatmap on Home page with GitHub-style year view, navigation, dynamic intensity, and streak tracking.
 - Improve: Tag selector now supports pressing Enter to save tag (no need to click Save button).
