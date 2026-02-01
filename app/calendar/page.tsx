@@ -211,9 +211,9 @@ export default function CalendarPage(): JSX.Element {
                 date={currentDate}
                 onNavigate={handleNavigate}
                 eventPropGetter={eventStyleGetter}
-                step={15}
+                step={30}
                 timeslots={4}
-                min={new Date(1970, 1, 1, 5, 0, 0)} // Start at 5 AM
+                min={new Date(1970, 1, 1, 0, 0, 0)} // Start at 5 AM
                 max={new Date(1970, 1, 1, 23, 59, 59)} // End at midnight
                 tooltipAccessor={(event) =>
                   `${event.tag}\n${format(event.start, "h:mm a")} - ${format(event.end, "h:mm a")}`
@@ -261,79 +261,93 @@ export default function CalendarPage(): JSX.Element {
         .calendar-container .rbc-toolbar button {
           padding: 0.5rem 1rem;
           border-radius: 0.375rem;
-          border: 1px solid hsl(var(--border));
-          background: hsl(var(--background));
-          color: hsl(var(--foreground));
+          border: 1px solid var(--border);
+          background: var(--muted);
+          color: var(--foreground);
           cursor: pointer;
           transition: all 0.2s;
+          font-weight: 500;
         }
 
         .calendar-container .rbc-toolbar button:hover {
-          background: hsl(var(--muted));
+          background: var(--accent);
+          border-color: var(--accent);
+          transform: translateY(-1px);
+          box-shadow: 0 2px 4px oklch(0 0 0 / 0.1);
         }
 
         .calendar-container .rbc-toolbar button.rbc-active {
-          background: hsl(var(--primary));
-          color: hsl(var(--primary-foreground));
-          border-color: hsl(var(--primary));
+          background: var(--primary);
+          color: var(--primary-foreground);
+          border-color: var(--primary);
+          font-weight: 600;
         }
 
         .calendar-container .rbc-header {
-          padding: 0.75rem 0.5rem;
+          padding: 0.3rem 0.2rem;
           font-weight: 600;
-          border-bottom: 1px solid hsl(var(--border));
+          border-bottom: 1px solid var(--border);
         }
 
         .calendar-container .rbc-time-header-content {
-          border-left: 1px solid hsl(var(--border));
+          border-left: 1px solid oklch(from var(--border) l c h / 0.3);
         }
 
         .calendar-container .rbc-time-content {
-          border-top: 1px solid hsl(var(--border));
+          border-top: 1px solid var(--border);
         }
 
+        /* Hourly divisions - make these more prominent */
         .calendar-container .rbc-timeslot-group {
-          border-bottom: 1px solid hsl(var(--border) / 0.5);
+          border-bottom: 1px solid oklch(from var(--border) l c h / 0.6);
+          min-height: 60px;
         }
 
+        /* Individual time slots within each hour - subtle lines */
         .calendar-container .rbc-time-slot {
-          border-top: 1px solid hsl(var(--border) / 0.3);
+          border-top: 1px solid oklch(from var(--border) l c h / 0.15);
         }
 
+        /* Override for day slots to ensure visibility */
         .calendar-container .rbc-day-slot .rbc-time-slot {
-          border-top: 1px solid hsl(var(--border) / 0.2);
+          border-top: 1px solid oklch(from var(--border) l c h / 0.15);
+        }
+
+        /* Make vertical day separators more subtle */
+        .calendar-container .rbc-day-slot {
+          border-left: 1px solid oklch(from var(--border) l c h / 0.3);
         }
 
         .calendar-container .rbc-time-view {
-          border: 1px solid hsl(var(--border));
+          border: 1px solid var(--border);
           border-radius: 0.5rem;
           overflow: hidden;
         }
 
         .calendar-container .rbc-month-view {
-          border: 1px solid hsl(var(--border));
+          border: 1px solid var(--border);
           border-radius: 0.5rem;
           overflow: hidden;
         }
 
         .calendar-container .rbc-month-row {
-          border-bottom: 1px solid hsl(var(--border));
+          border-bottom: 1px solid var(--border);
         }
 
         .calendar-container .rbc-day-bg {
-          border-left: 1px solid hsl(var(--border));
+          border-left: 1px solid oklch(from var(--border) l c h / 0.3);
         }
 
         .calendar-container .rbc-off-range-bg {
-          background: hsl(var(--muted) / 0.3);
+          background: oklch(from var(--muted) l c h / 0.3);
         }
 
         .calendar-container .rbc-today {
-          background: hsl(var(--primary) / 0.1);
+          background: oklch(from var(--primary) l c h / 0.1);
         }
 
         .calendar-container .rbc-current-time-indicator {
-          background-color: hsl(var(--destructive));
+          background-color: var(--destructive);
           height: 2px;
         }
 
@@ -348,7 +362,7 @@ export default function CalendarPage(): JSX.Element {
 
         .calendar-container .rbc-time-gutter {
           font-size: 0.75rem;
-          color: hsl(var(--muted-foreground));
+          color: var(--muted-foreground);
         }
 
         .calendar-container .rbc-label {
@@ -357,20 +371,20 @@ export default function CalendarPage(): JSX.Element {
 
         /* Dark theme adjustments */
         .calendar-dark .rbc-toolbar button {
-          background: hsl(var(--card));
+          background: var(--card);
         }
 
         .calendar-dark .rbc-time-view,
         .calendar-dark .rbc-month-view {
-          background: hsl(var(--card));
+          background: var(--card);
         }
 
         .calendar-dark .rbc-header {
-          background: hsl(var(--muted) / 0.3);
+          background: oklch(from var(--muted) l c h / 0.3);
         }
 
         .calendar-dark .rbc-time-gutter {
-          background: hsl(var(--card));
+          background: var(--card);
         }
 
         .calendar-dark .rbc-day-slot .rbc-events-container {

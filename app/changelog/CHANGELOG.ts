@@ -1,9 +1,12 @@
-export const VERSION = "v0.15.0-beta";
+export const VERSION = "v0.15.1 (LTS)";
 
 const CHANGELOG = `
 ## \`v0.15.0-beta\` (2026-02-01)
 - Fix: "Edit Focus Session" now respects start time.
 - Add: Calendar Page, this showcases a rough estimate of where you spent your time, in a calendar view.
+## \`v0.15.1 (LTS)\` (2026-02-01)
+- Fix: Calendar Page UI and styling.
+- Improve: Calendar steps are now 30 minutes.
 ***
 
 ## \`v0.14.0-beta\` (2026-01-09)
