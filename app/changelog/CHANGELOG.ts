@@ -1,4 +1,4 @@
-export const VERSION = "v0.15.4 (LTS)";
+export const VERSION = "v0.15.5";
 
 const CHANGELOG = `
 ## \`v0.15.0-beta\` (2026-02-01)
@@ -15,6 +15,8 @@ const CHANGELOG = `
 ### \`v0.15.4 (LTS)\` (2026-02-01)
 - Fix: Calendar Overlapping items
 - Fix: Vertical Lines too bright on Calendar's dark mode
+### \`v0.15.5\` (2026-02-04)
+- Fix: Calendar shows focus sessions in "All Day" mode if they span more than 1 day (ie 11 PM - 3 AM next day) when grouped together.
 ***
 
 ## \`v0.14.0-beta\` (2026-01-09)
