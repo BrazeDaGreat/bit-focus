@@ -136,7 +136,42 @@ export default function CalendarPage(): JSX.Element {
       });
     }
 
-    return mergedEvents;
+    // Split events that cross day boundaries so react-big-calendar
+    // renders them inline in the time grid instead of the all-day section
+    const splitEvents: CalendarEvent[] = [];
+    for (const event of mergedEvents) {
+      if (event.start.toDateString() === event.end.toDateString()) {
+        splitEvents.push(event);
+        continue;
+      }
+
+      let segmentStart = new Date(event.start);
+
+      while (segmentStart.toDateString() !== event.end.toDateString()) {
+        const dayEnd = new Date(segmentStart);
+        dayEnd.setHours(23, 59, 59, 999);
+
+        splitEvents.push({
+          ...event,
+          start: new Date(segmentStart),
+          end: dayEnd,
+        });
+
+        // Move to start of next day
+        segmentStart = new Date(segmentStart);
+        segmentStart.setDate(segmentStart.getDate() + 1);
+        segmentStart.setHours(0, 0, 0, 0);
+      }
+
+      // Final segment on the last day
+      splitEvents.push({
+        ...event,
+        start: segmentStart,
+        end: new Date(event.end),
+      });
+    }
+
+    return splitEvents;
   }, [focusSessions, savedTags]);
 
   // Custom event styling based on tag color
