@@ -18,6 +18,72 @@ export const EditConfigSkeleton = () => {
   </div>
 }
 
+/**
+ * Just the form fields — can be embedded in any container (popover, dialog, etc.)
+ */
+export function EditConfigForm({ onSave }: { onSave?: () => void }) {
+  const { name, dob, setConfig, webhook, currency } = useConfig();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm({
+    defaultValues: {
+      name: name === "NULL" ? "" : name,
+      day: dob ? new Date(dob).getDate() : "",
+      month: dob ? new Date(dob).getMonth() + 1 : "",
+      webhook: webhook ?? "",
+      year: dob ? new Date(dob).getFullYear() : "",
+      currency: currency ?? "USD",
+    },
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const onSubmit = (data: any) => {
+    const { name, day, month, year, webhook, currency } = data;
+    const dateOfBirth = new Date(year, month - 1, day);
+    toast("Config updated successfully.", { icon: <FaPencil /> });
+    setConfig(name, dateOfBirth, webhook, currency);
+    onSave?.();
+  };
+
+  return (
+    <div className="grid gap-4 p-4">
+      <div className="space-y-1">
+        <h4 className="font-medium leading-none text-sm">Edit Details</h4>
+      </div>
+      <form className="flex flex-col gap-2" onSubmit={handleSubmit(onSubmit)}>
+        <Label className="text-xs opacity-90" htmlFor="cfg-name">Name</Label>
+        <Input id="cfg-name" {...register("name", { required: "Name is required" })} />
+        {errors.name && <span className="text-red-500 text-xs">{errors.name.message}</span>}
+
+        <Label className="text-xs opacity-90" htmlFor="cfg-dob">Date of Birth</Label>
+        <div className="flex gap-2">
+          <Input type="number" placeholder="DD" {...register("day", { required: "Day is required", valueAsNumber: true, min: { value: 1, message: "Invalid day" }, max: { value: 31, message: "Invalid day" } })} />
+          <Input type="number" placeholder="MM" {...register("month", { required: "Month is required", valueAsNumber: true, min: { value: 1, message: "Invalid month" }, max: { value: 12, message: "Invalid month" } })} />
+          <Input type="number" placeholder="YYYY" {...register("year", { required: "Year is required", valueAsNumber: true, min: { value: 1900, message: "Invalid year" }, max: { value: new Date().getFullYear(), message: "Invalid year" } })} />
+        </div>
+        {errors.day && <span className="text-red-500 text-xs">{errors.day.message}</span>}
+        {errors.month && <span className="text-red-500 text-xs">{errors.month.message}</span>}
+        {errors.year && <span className="text-red-500 text-xs">{errors.year.message}</span>}
+
+        <Label className="text-xs opacity-90" htmlFor="cfg-webhook">Webhook URL</Label>
+        <Input id="cfg-webhook" {...register("webhook", { validate: (value: string) => { if (value && !/^https?:\/\/.+\..+/.test(value)) return "Invalid webhook URL"; return true; } })} />
+        {errors.webhook && <span className="text-red-500 text-xs">{errors.webhook.message}</span>}
+
+        <Label className="text-xs opacity-90" htmlFor="cfg-currency">Preferred Currency</Label>
+        <select id="cfg-currency" {...register("currency")} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50">
+          <option value="USD">USD ($)</option>
+          <option value="AED">AED (د.إ)</option>
+          <option value="PKR">PKR (₨)</option>
+        </select>
+
+        <Button type="submit" variant="outline" className="mt-2">Save</Button>
+      </form>
+    </div>
+  );
+}
+
 const EditConfig = () => {
   const { name, dob, setConfig, webhook, currency } = useConfig();
   const isMobile = useIsMobile();
@@ -39,7 +105,7 @@ const EditConfig = () => {
   const calculateAge = () => {
     const today = dayjs();
     const birthDate = dayjs(dob);
-  
+
     const years = today.diff(birthDate, 'year');
     const months = today.diff(birthDate.add(years, 'year'), 'month');
     const days = today.diff(birthDate.add(years, 'year').add(months, 'month'), 'day');

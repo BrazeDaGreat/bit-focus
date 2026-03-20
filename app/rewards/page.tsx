@@ -1,38 +1,6 @@
-/**
- * Rewards Shop Page - Gamified Reward System Interface
- *
- * This page provides a comprehensive interface for the rewards system where users
- * can spend their earned reward points on custom items. It includes a shop interface,
- * item management, special discounts, and a points overview. The component serves
- * as a gamification layer to motivate users during focus sessions.
- *
- * Features:
- * - Custom reward items creation and management
- * - Special discount system with percentage-based reductions
- * - Visual shop interface with emoji support
- * - Real-time points balance tracking
- * - Purchase confirmation dialogs
- * - Responsive grid layout for items
- * - Category-based organization
- * - Edit and delete functionality for items
- * - Active discount applier with visual price updates
- *
- * @fileoverview Main rewards shop page with gamified item management
- * @author BIT Focus Development Team
- * @since v0.11.0-beta
- */
-
 "use client";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -43,6 +11,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -52,7 +27,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useRewards } from "@/hooks/useRewards";
 import { cn } from "@/lib/utils";
@@ -65,109 +39,24 @@ import {
   FaTags,
   FaPercent,
   FaCartShopping,
-  FaCheck,
   FaHourglassEnd,
   FaGamepad,
 } from "react-icons/fa6";
-import { FaTimes, FaCoffee } from "react-icons/fa";
 import { toast } from "sonner";
-import type { RewardItem, SpecialDiscount } from "@/lib/db";
+import type { RewardItem } from "@/lib/db";
 import { IoFastFood, IoFootball } from "react-icons/io5";
 import { IoIosPhonePortrait } from "react-icons/io";
 
-/**
- * Common emoji options for reward items
- */
 const EMOJI_OPTIONS = [
   <FaHourglassEnd key={1} />,
   <FaGamepad key={2} />,
   <IoFastFood key={3} />,
   <IoIosPhonePortrait key={4} />,
-  <IoFootball key={5} />
+  <IoFootball key={5} />,
 ];
 
-/**
- * Default categories for organizing rewards
- */
-const DEFAULT_CATEGORIES = [
-  "Breaks",
-  "Gaming",
-  "Treats",
-  "Others"
-];
+const DEFAULT_CATEGORIES = ["Breaks", "Gaming", "Treats", "Others"];
 
-/**
- * Active Discounts Display Component
- *
- * Shows currently active discounts as a banner at the top of the page
- * with the ability to toggle them on/off quickly
- *
- * @component
- * @param {Object} props - Component props
- * @param {SpecialDiscount[]} props.discounts - Array of all discounts
- * @param {Function} props.onToggle - Callback to toggle discount state
- * @param {number} props.totalDiscount - Total discount percentage
- * @returns {JSX.Element | null} Discount banner or null if no discounts
- */
-function ActiveDiscountsBar({
-  discounts,
-  onToggle,
-}: {
-  discounts: SpecialDiscount[];
-  onToggle: (id: number) => void;
-}): JSX.Element | null {
-
-  if (discounts.length === 0) return null;
-
-  return (
-    <Card className="border-primary/20 bg-primary/5">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 opacity-60">
-            <FaTags className="text-primary" />
-            <CardTitle>Discounts</CardTitle>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="flex flex-wrap gap-2">
-          {discounts.map((discount) => (
-            <div
-              key={discount.id}
-              className={cn(
-                "flex items-center gap-2 px-3 py-1.5 rounded-md shadow-sm border transition-all cursor-pointer select-none",
-                discount.active
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-background border-border hover:border-primary/50"
-              )}
-              onClick={() => discount.id && onToggle(discount.id)}
-            >
-              <div className="flex items-center gap-1.5">
-                {discount.active ? (
-                  <FaCheck className="size-3" />
-                ) : (
-                  <FaTimes className="size-3 opacity-50" />
-                )}
-                <span className="font-medium">{discount.percentage}%</span>
-                <span className="text-sm">{discount.title}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-/**
- * Rewards Page Component
- *
- * Main component that renders the complete rewards shop interface including
- * points display, item grid, discount management, and creation dialogs.
- *
- * @component
- * @returns {JSX.Element} Complete rewards page interface
- */
 export default function RewardsPage(): JSX.Element {
   const {
     rewardPoints,
@@ -183,47 +72,44 @@ export default function RewardsPage(): JSX.Element {
     toggleDiscount,
     deleteDiscount,
     getTotalDiscount,
+    addPoints,
+    takeLoan,
   } = useRewards();
 
-  // Dialog states
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [discountDialogOpen, setDiscountDialogOpen] = useState(false);
+  const [discountsSheetOpen, setDiscountsSheetOpen] = useState(false);
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false);
+  const [addPointsDialogOpen, setAddPointsDialogOpen] = useState(false);
+  const [activeCategory, setActiveCategory] = useState("All");
 
-  // Form states
   const [newItem, setNewItem] = useState({
     title: "",
     description: "",
     cost: "",
     category: DEFAULT_CATEGORIES[0],
-    emoji: `${0}`,
+    emoji: "0",
   });
-
   const [editingItem, setEditingItem] = useState<RewardItem | null>(null);
   const [purchasingItem, setPurchasingItem] = useState<RewardItem | null>(null);
   const [newDiscount, setNewDiscount] = useState({ title: "", percentage: "" });
+  const [addPointsAmount, setAddPointsAmount] = useState("");
+  const [addPointsMode, setAddPointsMode] = useState<"add" | "loan">("add");
 
-  // Load rewards data on mount
   useEffect(() => {
     loadRewards();
   }, [loadRewards]);
 
-  /**
-   * Handle creating a new reward item
-   */
   const handleCreateItem = async () => {
     if (!newItem.title || !newItem.cost) {
       toast.error("Please fill in all required fields");
       return;
     }
-
     const cost = parseInt(newItem.cost);
     if (isNaN(cost) || cost <= 0) {
       toast.error("Please enter a valid cost");
       return;
     }
-
     await addRewardItem(
       newItem.title,
       newItem.description || undefined,
@@ -231,107 +117,150 @@ export default function RewardsPage(): JSX.Element {
       newItem.category || undefined,
       newItem.emoji || undefined
     );
-
     setCreateDialogOpen(false);
-    setNewItem({
-      title: "",
-      description: "",
-      cost: "",
-      category: DEFAULT_CATEGORIES[0],
-      emoji: `0`,
-    });
+    setNewItem({ title: "", description: "", cost: "", category: DEFAULT_CATEGORIES[0], emoji: "0" });
   };
 
-  /**
-   * Handle updating an existing reward item
-   */
   const handleUpdateItem = async () => {
     if (!editingItem || !editingItem.id) return;
-
     await updateRewardItem(editingItem.id, editingItem);
     setEditDialogOpen(false);
     setEditingItem(null);
   };
 
-  /**
-   * Handle purchasing a reward item
-   */
   const handlePurchase = () => {
     if (!purchasingItem) return;
-
     const discount = getTotalDiscount();
     const finalCost = Math.floor(purchasingItem.cost * (1 - discount / 100));
-
     if (rewardPoints < finalCost && rewardPoints >= 0) {
-      toast.error(
-        "Not enough reward points! You need " +
-          (finalCost - rewardPoints) +
-          " more RP."
-      );
+      toast.error(`Not enough points! You need ${finalCost - rewardPoints} more.`);
       setPurchaseDialogOpen(false);
       return;
     }
-
     purchaseItem(purchasingItem);
     setPurchaseDialogOpen(false);
     setPurchasingItem(null);
   };
 
-  /**
-   * Handle creating a new discount
-   */
   const handleCreateDiscount = async () => {
     if (!newDiscount.title || !newDiscount.percentage) {
       toast.error("Please fill in all fields");
       return;
     }
-
     const percentage = parseInt(newDiscount.percentage);
     if (isNaN(percentage) || percentage <= 0 || percentage > 100) {
       toast.error("Please enter a valid percentage (1-100)");
       return;
     }
-
     await addDiscount(newDiscount.title, percentage);
-    setDiscountDialogOpen(false);
     setNewDiscount({ title: "", percentage: "" });
   };
 
-  /**
-   * Quick toggle for discount
-   */
-  const handleQuickToggleDiscount = (id: number) => {
-    toggleDiscount(id);
+  const handleAddPoints = () => {
+    const amount = parseInt(addPointsAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+    if (addPointsMode === "add") {
+      addPoints(amount);
+    } else {
+      takeLoan(amount);
+    }
+    setAddPointsDialogOpen(false);
+    setAddPointsAmount("");
   };
 
-  // Group items by category
-  const itemsByCategory = rewardItems.reduce((acc, item) => {
-    const category = item.category || "Other";
-    if (!acc[category]) acc[category] = [];
-    acc[category].push(item);
-    return acc;
-  }, {} as Record<string, RewardItem[]>);
-
   const totalDiscount = getTotalDiscount();
+  const activeDiscounts = discounts.filter((d) => d.active);
+  const filteredItems =
+    activeCategory === "All"
+      ? rewardItems
+      : rewardItems.filter((item) => item.category === activeCategory);
+
+  const finalCostFor = (cost: number) =>
+    Math.floor(cost * (1 - totalDiscount / 100));
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Rewards Shop</h1>
-          <p className="text-muted-foreground">
-            Spend your reward points on custom rewards
-          </p>
+    <div className="max-w-screen-xl mx-auto px-6 py-8">
+      {/* Balance Header */}
+      <div className="pb-8 border-b mb-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">
+              Your Balance
+            </p>
+            <p
+              className={cn(
+                "text-5xl font-mono font-semibold tracking-tight",
+                rewardPoints < 0 && "text-destructive"
+              )}
+            >
+              ⬡ {rewardPoints.toFixed(0)}
+              <span className="text-2xl text-muted-foreground ml-2 font-normal">
+                pts
+              </span>
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 mt-1 shrink-0"
+            onClick={() => setAddPointsDialogOpen(true)}
+          >
+            <FaPlus className="size-3" />
+            Add Points
+          </Button>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex flex-wrap gap-2">
+        {activeDiscounts.length > 0 ? (
+          <button
+            onClick={() => setDiscountsSheetOpen(true)}
+            className="mt-4 w-full text-left bg-accent text-accent-foreground rounded-lg px-4 py-2.5 text-sm flex items-center gap-2.5 hover:bg-accent/80 transition-colors"
+          >
+            <FaTags className="size-3 shrink-0" />
+            <span className="font-medium">
+              {activeDiscounts.length === 1
+                ? `ACTIVE DISCOUNT: −${activeDiscounts[0].percentage}% ${activeDiscounts[0].title}`
+                : `${activeDiscounts.length} ACTIVE DISCOUNTS: ${activeDiscounts.map((d) => `−${d.percentage}%`).join(", ")}`}
+            </span>
+            <span className="ml-auto text-xs text-muted-foreground shrink-0">
+              Manage →
+            </span>
+          </button>
+        ) : (
+          <button
+            onClick={() => setDiscountsSheetOpen(true)}
+            className="mt-3 text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
+          >
+            <FaPercent className="size-2.5" />
+            Manage Discounts
+          </button>
+        )}
+      </div>
+
+      {/* Category Tabs + Add Item */}
+      <div className="flex items-center gap-2 py-3 border-b mb-6 flex-wrap">
+        {["All", ...DEFAULT_CATEGORIES].map((cat) => (
+          <button
+            key={cat}
+            onClick={() => setActiveCategory(cat)}
+            className={cn(
+              "px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
+              activeCategory === cat
+                ? "bg-primary text-primary-foreground"
+                : "border text-muted-foreground hover:text-foreground hover:border-foreground/40"
+            )}
+          >
+            {cat}
+          </button>
+        ))}
+        <div className="ml-auto">
           <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="gap-2">
-                <FaPlus />
-                Add Reward Item
+              <Button size="sm" className="gap-1.5">
+                <FaPlus className="size-3" />
+                Add Item
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
@@ -372,7 +301,7 @@ export default function RewardsPage(): JSX.Element {
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="cost" className="text-right">
-                    Cost (RP)*
+                    Cost (pts)*
                   </Label>
                   <Input
                     id="cost"
@@ -396,7 +325,7 @@ export default function RewardsPage(): JSX.Element {
                     onChange={(e) =>
                       setNewItem({ ...newItem, category: e.target.value })
                     }
-                    className="col-span-3 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+                    className="col-span-3 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:text-sm"
                   >
                     {DEFAULT_CATEGORIES.map((cat) => (
                       <option key={cat} value={cat}>
@@ -406,19 +335,22 @@ export default function RewardsPage(): JSX.Element {
                   </select>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label className="text-right">Emoji</Label>
+                  <Label className="text-right">Icon</Label>
                   <div className="col-span-3 flex flex-wrap gap-2">
                     {EMOJI_OPTIONS.map((emoji, i) => (
                       <button
-                        key={`${i}`}
+                        key={i}
                         type="button"
-                        onClick={() => setNewItem({ ...newItem, emoji: `${i}` })}
+                        onClick={() =>
+                          setNewItem({ ...newItem, emoji: `${i}` })
+                        }
                         className={cn(
-                          "text-2xl p-1 rounded hover:bg-accent", 
-                          newItem.emoji === `${i}` && "bg-accent"
+                          "text-2xl p-2 rounded-lg hover:bg-accent transition-colors",
+                          newItem.emoji === `${i}` &&
+                            "bg-accent ring-1 ring-primary"
                         )}
                       >
-                        {EMOJI_OPTIONS[i]}
+                        {emoji}
                       </button>
                     ))}
                   </div>
@@ -431,273 +363,133 @@ export default function RewardsPage(): JSX.Element {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-
-          <Dialog
-            open={discountDialogOpen}
-            onOpenChange={setDiscountDialogOpen}
-          >
-            <DialogTrigger asChild>
-              <Button variant="outline" className="gap-2">
-                <FaPercent />
-                Manage Discounts
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>Special Discounts</DialogTitle>
-                <DialogDescription>
-                  Add and manage special discounts for your rewards. Active
-                  discounts will be applied to all purchases.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                {/* Add Discount Form */}
-                <div className="grid gap-4 border-b pb-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="discount-title" className="text-right">
-                      Title
-                    </Label>
-                    <Input
-                      id="discount-title"
-                      value={newDiscount.title}
-                      onChange={(e) =>
-                        setNewDiscount({
-                          ...newDiscount,
-                          title: e.target.value,
-                        })
-                      }
-                      className="col-span-3"
-                      placeholder="e.g., Weekend Special"
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="discount-percentage" className="text-right">
-                      Discount %
-                    </Label>
-                    <Input
-                      id="discount-percentage"
-                      type="number"
-                      value={newDiscount.percentage}
-                      onChange={(e) =>
-                        setNewDiscount({
-                          ...newDiscount,
-                          percentage: e.target.value,
-                        })
-                      }
-                      className="col-span-3"
-                      placeholder="10"
-                      min="1"
-                      max="100"
-                    />
-                  </div>
-                  <div className="flex justify-end">
-                    <Button onClick={handleCreateDiscount} size="sm">
-                      Add Discount
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Existing Discounts */}
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium">Existing Discounts</h4>
-                  {discounts.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">
-                      No discounts created yet
-                    </p>
-                  ) : (
-                    discounts.map((discount) => (
-                      <div
-                        key={discount.id}
-                        className="flex items-center justify-between p-3 rounded-lg border"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Switch
-                            checked={discount.active}
-                            onCheckedChange={() =>
-                              discount.id && toggleDiscount(discount.id)
-                            }
-                          />
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">
-                                {discount.title}
-                              </span>
-                              <Badge
-                                variant={
-                                  discount.active ? "default" : "secondary"
-                                }
-                              >
-                                {discount.percentage}%
-                              </Badge>
-                            </div>
-                            <span className="text-xs text-muted-foreground">
-                              {discount.active ? "Active" : "Inactive"}
-                            </span>
-                          </div>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() =>
-                            discount.id && deleteDiscount(discount.id)
-                          }
-                        >
-                          <FaTrash className="size-3" />
-                        </Button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
         </div>
       </div>
 
-      {/* Active Discounts Bar */}
-      <ActiveDiscountsBar
-        discounts={discounts}
-        onToggle={handleQuickToggleDiscount}
-      />
-      {/* Rewards Grid */}
+      {/* Items Grid */}
       {loading ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">Loading rewards...</p>
-        </div>
-      ) : rewardItems.length === 0 ? (
-        <Card className="p-12">
-          <div className="text-center space-y-4">
-            <FaCartShopping className="size-12 mx-auto text-muted-foreground" />
-            <h3 className="text-lg font-semibold">No Rewards Yet</h3>
-            <p className="text-muted-foreground">
-              Start by adding your first reward item to the shop!
-            </p>
-          </div>
-        </Card>
-      ) : (
-        <div className="space-y-6">
-          {Object.entries(itemsByCategory).map(([category, items]) => (
-            <div key={category} className="space-y-3">
-              <h2 className="text-xl font-semibold">{category}</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {items.map((item) => {
-                  const finalCost = Math.floor(
-                    item.cost * (1 - totalDiscount / 100)
-                  );
-                  const isAffordable =
-                    rewardPoints >= finalCost || rewardPoints < 0;
-                  const hasDiscount = totalDiscount > 0;
-
-                  return (
-                    <Card
-                      key={item.id}
-                      className={cn(
-                        "relative transition-all hover:shadow-lg",
-                        !isAffordable && rewardPoints >= 0 && "opacity-60"
-                      )}
-                    >
-                      <CardHeader className="pb-3">
-                        <div className="flex justify-between items-start">
-                          <div className="flex items-start gap-2">
-                            {item.emoji && (
-                              <span className="text-2xl">
-                                {EMOJI_OPTIONS[parseInt(item.emoji)]}
-                              </span>
-                            )}
-                            <CardTitle className="text-base">
-                              {item.title}
-                            </CardTitle>
-                          </div>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="size-6"
-                              >
-                                <FaEllipsisVertical className="size-3" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  setEditingItem(item);
-                                  setEditDialogOpen(true);
-                                }}
-                              >
-                                <FaPencil className="size-3 mr-2" />
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  item.id && deleteRewardItem(item.id)
-                                }
-                              >
-                                <FaTrash className="size-3 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </CardHeader>
-
-                      {item.description && (
-                        <CardContent className="pt-0 pb-3">
-                          <CardDescription className="text-sm">
-                            {item.description}
-                          </CardDescription>
-                        </CardContent>
-                      )}
-
-                      <CardFooter className="pt-0">
-                        <div className="flex items-center justify-between w-full">
-                          <div className="flex flex-col gap-1">
-                            {hasDiscount ? (
-                              <>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm line-through text-muted-foreground">
-                                    {item.cost} RP
-                                  </span>
-                                  <Badge
-                                    variant="destructive"
-                                    className="text-xs"
-                                  >
-                                    -{totalDiscount}%
-                                  </Badge>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <FaCoffee className="size-3" />
-                                  <span className="font-bold text-primary">
-                                    {finalCost}
-                                  </span>
-                                </div>
-                              </>
-                            ) : (
-                              <div className="flex items-center gap-1">
-                                <FaCoffee className="size-3" />
-                                <span className="font-bold">{item.cost}</span>
-                              </div>
-                            )}
-                          </div>
-                          <Button
-                            size="sm"
-                            disabled={!isAffordable && rewardPoints >= 0}
-                            onClick={() => {
-                              setPurchasingItem(item);
-                              setPurchaseDialogOpen(true);
-                            }}
-                          >
-                            Buy
-                          </Button>
-                        </div>
-                      </CardFooter>
-                    </Card>
-                  );
-                })}
-              </div>
-            </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          {[...Array(4)].map((_, i) => (
+            <div
+              key={i}
+              className="border rounded-xl p-5 h-48 animate-pulse bg-muted/30"
+            />
           ))}
+        </div>
+      ) : filteredItems.length === 0 ? (
+        <div className="py-20 flex flex-col items-center gap-4 text-center">
+          <FaCartShopping className="size-10 opacity-20" />
+          <p className="text-sm text-muted-foreground">
+            {activeCategory === "All"
+              ? "No rewards yet. Add your first item to the shop."
+              : `No items in ${activeCategory}. Add one to get started.`}
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setCreateDialogOpen(true)}
+          >
+            <FaPlus className="size-3 mr-1.5" />
+            Add Item
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          {filteredItems.map((item) => {
+            const finalCost = finalCostFor(item.cost);
+            const isAffordable = rewardPoints >= finalCost || rewardPoints < 0;
+            const hasDiscount = totalDiscount > 0;
+
+            return (
+              <div
+                key={item.id}
+                className={cn(
+                  "group relative border rounded-xl p-5 flex flex-col hover:shadow-md transition-shadow",
+                  !isAffordable && rewardPoints >= 0 && "opacity-60"
+                )}
+              >
+                {/* Actions menu — visible on hover */}
+                <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="size-7">
+                        <FaEllipsisVertical className="size-3" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setEditingItem(item);
+                          setEditDialogOpen(true);
+                        }}
+                      >
+                        <FaPencil className="size-3 mr-2" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => item.id && deleteRewardItem(item.id)}
+                      >
+                        <FaTrash className="size-3 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                {/* Icon */}
+                {item.emoji !== undefined && (
+                  <span className="text-4xl mb-3 block">
+                    {EMOJI_OPTIONS[parseInt(item.emoji)]}
+                  </span>
+                )}
+
+                {/* Title */}
+                <p className="text-base font-semibold leading-snug pr-6">
+                  {item.title}
+                </p>
+
+                {/* Description */}
+                {item.description && (
+                  <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                    {item.description}
+                  </p>
+                )}
+
+                <div className="flex-grow" />
+
+                {/* Footer */}
+                <div className="flex items-center justify-between border-t mt-4 pt-4">
+                  <div className="flex flex-col gap-0.5">
+                    {hasDiscount ? (
+                      <>
+                        <span className="text-xs line-through text-muted-foreground font-mono">
+                          ⬡ {item.cost}
+                        </span>
+                        <span className="text-sm font-mono font-semibold text-primary">
+                          ⬡ {finalCost} pts
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-sm font-mono font-semibold">
+                        ⬡ {item.cost} pts
+                      </span>
+                    )}
+                  </div>
+                  <Button
+                    size="sm"
+                    disabled={!isAffordable && rewardPoints >= 0}
+                    onClick={() => {
+                      setPurchasingItem(item);
+                      setPurchaseDialogOpen(true);
+                    }}
+                  >
+                    Redeem
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -743,7 +535,7 @@ export default function RewardsPage(): JSX.Element {
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="edit-cost" className="text-right">
-                  Cost (RP)
+                  Cost (pts)
                 </Label>
                 <Input
                   id="edit-cost"
@@ -773,107 +565,262 @@ export default function RewardsPage(): JSX.Element {
       <Dialog open={purchaseDialogOpen} onOpenChange={setPurchaseDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirm Purchase</DialogTitle>
+            <DialogTitle>Confirm Redemption</DialogTitle>
             <DialogDescription>
-              Are you sure you want to purchase this reward?
+              Review the cost before redeeming this reward.
             </DialogDescription>
           </DialogHeader>
           {purchasingItem && (
             <div className="space-y-4">
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-2">
-                    {purchasingItem.emoji && (
-                      <span className="text-2xl">{EMOJI_OPTIONS[parseInt(purchasingItem.emoji)]}</span>
-                    )}
-                    <CardTitle className="text-base">
-                      {purchasingItem.title}
-                    </CardTitle>
-                  </div>
-                </CardHeader>
-                {purchasingItem.description && (
-                  <CardContent className="pt-0">
-                    <CardDescription>
-                      {purchasingItem.description}
-                    </CardDescription>
-                  </CardContent>
+              <div className="flex items-center gap-3 p-4 rounded-xl border">
+                {purchasingItem.emoji !== undefined && (
+                  <span className="text-3xl">
+                    {EMOJI_OPTIONS[parseInt(purchasingItem.emoji)]}
+                  </span>
                 )}
-              </Card>
+                <div>
+                  <p className="font-semibold">{purchasingItem.title}</p>
+                  {purchasingItem.description && (
+                    <p className="text-sm text-muted-foreground">
+                      {purchasingItem.description}
+                    </p>
+                  )}
+                </div>
+              </div>
 
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Original Cost:</span>
-                  <span>{purchasingItem.cost} RP</span>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Original cost</span>
+                  <span className="font-mono">⬡ {purchasingItem.cost}</span>
                 </div>
                 {totalDiscount > 0 && (
                   <>
-                    <div className="flex justify-between text-sm">
-                      <span>Active Discounts:</span>
-                      <span className="text-green-600">{totalDiscount}%</span>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        Active discount
+                      </span>
+                      <span className="text-primary font-mono">
+                        −{totalDiscount}%
+                      </span>
                     </div>
-                    <div className="flex justify-between text-sm text-green-600">
-                      <span>You Save:</span>
-                      <span>
-                        -
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">You save</span>
+                      <span className="text-primary font-mono">
+                        −⬡{" "}
                         {Math.floor(
                           (purchasingItem.cost * totalDiscount) / 100
-                        )}{" "}
-                        RP
+                        )}
                       </span>
                     </div>
                   </>
                 )}
                 <div className="flex justify-between font-semibold border-t pt-2">
-                  <span>Final Cost:</span>
-                  <span className="text-primary">
-                    {Math.floor(
-                      purchasingItem.cost * (1 - totalDiscount / 100)
-                    )}{" "}
-                    RP
+                  <span>Final cost</span>
+                  <span className="font-mono text-primary">
+                    ⬡ {finalCostFor(purchasingItem.cost)}
                   </span>
                 </div>
                 <div className="border-t pt-2 space-y-1">
-                  <div className="flex justify-between text-sm">
-                    <span>Your Balance:</span>
-                    <span className={cn(rewardPoints < 0 && "text-red-500")}>
-                      {rewardPoints.toFixed(0)} RP
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm font-medium">
-                    <span>After Purchase:</span>
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Your balance</span>
                     <span
                       className={cn(
-                        rewardPoints -
-                          Math.floor(
-                            purchasingItem.cost * (1 - totalDiscount / 100)
-                          ) <
-                          0 && "text-red-500"
+                        "font-mono",
+                        rewardPoints < 0 && "text-destructive"
                       )}
                     >
+                      ⬡ {rewardPoints.toFixed(0)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between font-medium">
+                    <span>After redemption</span>
+                    <span
+                      className={cn(
+                        "font-mono",
+                        rewardPoints - finalCostFor(purchasingItem.cost) < 0 &&
+                          "text-destructive"
+                      )}
+                    >
+                      ⬡{" "}
                       {(
-                        rewardPoints -
-                        Math.floor(
-                          purchasingItem.cost * (1 - totalDiscount / 100)
-                        )
-                      ).toFixed(0)}{" "}
-                      RP
+                        rewardPoints - finalCostFor(purchasingItem.cost)
+                      ).toFixed(0)}
                     </span>
                   </div>
                 </div>
               </div>
             </div>
           )}
-          <DialogFooter>
-            <Button
-              variant="outline"
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:items-center">
+            <button
               onClick={() => setPurchaseDialogOpen(false)}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               Cancel
-            </Button>
-            <Button onClick={handlePurchase}>Confirm Purchase</Button>
+            </button>
+            <Button onClick={handlePurchase}>Confirm Redemption</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Add Points Dialog */}
+      <Dialog open={addPointsDialogOpen} onOpenChange={setAddPointsDialogOpen}>
+        <DialogContent className="sm:max-w-[360px]">
+          <DialogHeader>
+            <DialogTitle>Add Points</DialogTitle>
+            <DialogDescription>
+              Add points to your balance or take a loan.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex rounded-lg border overflow-hidden">
+              <button
+                onClick={() => setAddPointsMode("add")}
+                className={cn(
+                  "flex-1 px-4 py-2 text-sm font-medium transition-colors",
+                  addPointsMode === "add"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Add Points
+              </button>
+              <button
+                onClick={() => setAddPointsMode("loan")}
+                className={cn(
+                  "flex-1 px-4 py-2 text-sm font-medium transition-colors",
+                  addPointsMode === "loan"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Take Loan
+              </button>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="points-amount">Amount</Label>
+              <Input
+                id="points-amount"
+                type="number"
+                value={addPointsAmount}
+                onChange={(e) => setAddPointsAmount(e.target.value)}
+                placeholder="100"
+                min="1"
+              />
+              {addPointsMode === "loan" && (
+                <p className="text-xs text-muted-foreground">
+                  A loan adds points now that you&apos;ll earn back through
+                  focus sessions.
+                </p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleAddPoints}>
+              {addPointsMode === "add" ? "Add Points" : "Take Loan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Discounts Sheet */}
+      <Sheet open={discountsSheetOpen} onOpenChange={setDiscountsSheetOpen}>
+        <SheetContent className="w-96">
+          <SheetHeader>
+            <SheetTitle>Discounts</SheetTitle>
+            <SheetDescription>
+              Active discounts are applied to all purchases.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-6 space-y-6">
+            {/* Add Discount Form */}
+            <div className="space-y-3 pb-6 border-b">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                New Discount
+              </p>
+              <div className="space-y-2">
+                <Input
+                  value={newDiscount.title}
+                  onChange={(e) =>
+                    setNewDiscount({ ...newDiscount, title: e.target.value })
+                  }
+                  placeholder="Discount name"
+                />
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    value={newDiscount.percentage}
+                    onChange={(e) =>
+                      setNewDiscount({
+                        ...newDiscount,
+                        percentage: e.target.value,
+                      })
+                    }
+                    placeholder="% off"
+                    min="1"
+                    max="100"
+                    className="w-24"
+                  />
+                  <Button onClick={handleCreateDiscount} className="flex-1">
+                    Add
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Existing Discounts */}
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
+                Existing
+              </p>
+              {discounts.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-6 text-center">
+                  No discounts yet.
+                </p>
+              ) : (
+                discounts.map((discount) => (
+                  <div
+                    key={discount.id}
+                    className="flex items-center justify-between py-2.5 border-b last:border-0"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Switch
+                        checked={discount.active}
+                        onCheckedChange={() =>
+                          discount.id && toggleDiscount(discount.id)
+                        }
+                      />
+                      <div>
+                        <p className="text-sm font-medium">{discount.title}</p>
+                        <p
+                          className={cn(
+                            "text-xs font-mono",
+                            discount.active
+                              ? "text-primary"
+                              : "text-muted-foreground"
+                          )}
+                        >
+                          −{discount.percentage}%
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 text-muted-foreground hover:text-destructive"
+                      onClick={() =>
+                        discount.id && deleteDiscount(discount.id)
+                      }
+                    >
+                      <FaTrash className="size-3" />
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

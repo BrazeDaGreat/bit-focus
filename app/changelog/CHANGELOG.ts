@@ -1,6 +1,15 @@
-export const VERSION = "v0.15.5";
+export const VERSION = "v0.16.0-unstable";
 
 const CHANGELOG = `
+## \`v0.16.0-unstable\` (2026-03-20)
+- Refactor: New App Sidebar design.
+- Refactor: New Top Bar design.
+- Refactor: New Home Page design.
+- Refactor: New Focus Page design.
+- Refactor: New Rewards Page design
+
+***
+
 ## \`v0.15.0-beta\` (2026-02-01)
 - Fix: "Edit Focus Session" now respects start time.
 - Add: Calendar Page, this showcases a rough estimate of where you spent your time, in a calendar view.

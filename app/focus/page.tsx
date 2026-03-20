@@ -1,73 +1,13 @@
-/**
- * Focus Page Component - Main Timer Interface and Session Management
- * 
- * This is the primary focus tracking page that provides a comprehensive interface
- * for managing focus sessions. It includes a prominent timer display, tag selection,
- * session history, and data management capabilities. The component integrates with
- * Picture-in-Picture mode for distraction-free timing and provides import/export
- * functionality for data portability.
- * 
- * Features:
- * - Large, prominent timer display with start/pause/reset controls
- * - Timer mode selection (Standard/Pomodoro) with configuration
- * - Pomodoro countdown timer with focus and break phases
- * - Tag selection and management for categorizing focus sessions
- * - Real-time session list with edit and delete capabilities
- * - Picture-in-Picture mode for minimized timer view
- * - Data import/export functionality with .bitf.json format
- * - Keyboard shortcuts for quick actions
- * - Toast notifications for user feedback
- * - Theme-aware UI components
- * 
- * Dependencies:
- * - Pomodoro timer context for timer state management
- * - Focus sessions database integration
- * - Tag management system
- * - Picture-in-Picture API integration
- * - File system operations for data management
- * 
- * @fileoverview Main focus tracking page with timer and session management
- * @author BIT Focus Development Team
- * @since v0.1.0-alpha
- */
-
 "use client";
+
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardDescription,
-  CardFooter,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
-// import { Badge } from "@/components/ui/badge";
-import { usePomo } from "@/hooks/PomoContext";
-import { FocusSession, useFocus } from "@/hooks/useFocus";
-import { calculateTime, cn, formatTime, formatTimeNew } from "@/lib/utils";
-import { useTheme } from "next-themes";
-import {
-  FaCalendar,
-  FaCoffee,
-  FaExternalLinkAlt,
-  FaPause,
-  FaPlay,
-  FaTrash,
-} from "react-icons/fa";
-import {
-  FaForwardFast,
-  FaRegClock,
-  FaTableList,
-  FaGear,
-} from "react-icons/fa6";
-import { RiExpandUpDownLine } from "react-icons/ri";
-import { Toaster } from "@/components/ui/sonner";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -76,160 +16,111 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
+import { usePomo } from "@/hooks/PomoContext";
+import { FocusSession, useFocus } from "@/hooks/useFocus";
+import { useTag } from "@/hooks/useTag";
+import {
+  calculateTime,
+  cn,
+  durationFromSeconds,
+  formatTime,
+  formatTimeNew,
+} from "@/lib/utils";
+import { useTheme } from "next-themes";
+import { FaPause, FaPlay, FaTrash, FaYoutube } from "react-icons/fa";
+import {
+  FaChevronDown,
+  FaEllipsis,
+  FaForwardFast,
+  FaGear,
+} from "react-icons/fa6";
+import { IoIosTimer } from "react-icons/io";
+import { GiTomato } from "react-icons/gi";
+import { TbPictureInPicture } from "react-icons/tb";
+import { Toaster } from "@/components/ui/sonner";
 import TagBadge from "@/components/TagBadge";
-import { type JSX, useEffect, useState } from "react";
 import { EditFocusSession } from "./EditFocusSection";
-import TagSelector from "@/components/TagSelector";
 import GraphDialog from "./Graph";
 import PomodoroSettings from "@/components/PomodoroSettings";
 import { usePip, usePipSpace } from "@/hooks/usePip";
 import PipTimer from "@/components/PipTimer";
-import { useIsMobile } from "@/hooks/useIsMobile";
-import { GiTomato } from "react-icons/gi";
 import YouTubePlayer from "@/components/YouTubePlayer";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import { type JSX, useEffect, useState, useMemo } from "react";
+import dayjs from "dayjs";
 
-/**
- * Main Focus Page Component
- * 
- * Renders the complete focus tracking interface including timer controls,
- * tag selection, session management, and data operations. The component
- * manages the integration between various focus-related features and
- * provides a cohesive user experience for productivity tracking.
- * 
- * The component uses multiple hooks for state management:
- * - usePomo for timer functionality
- * - useFocus for session data management
- * - usePip for Picture-in-Picture integration
- * - useTheme for theme-aware notifications
- * 
- * @component
- * @returns {JSX.Element} The complete focus page interface
- * 
- * @example
- * ```tsx
- * // Automatically rendered when navigating to /focus
- * <Focus />
- * ```
- * 
- * @see {@link usePomo} for timer state management
- * @see {@link useFocus} for session database operations
- * @see {@link usePip} for Picture-in-Picture functionality
- */
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+function calcDisplayTime(state: ReturnType<typeof usePomo>["state"]) {
+  const { mode, phase, elapsedSeconds, pomodoroSettings } = state;
+  const raw =
+    mode === "pomodoro" && phase === "focus"
+      ? Math.max(0, pomodoroSettings.focusDuration * 60 - elapsedSeconds)
+      : mode === "pomodoro" && phase === "break"
+      ? Math.max(0, pomodoroSettings.breakDuration * 60 - elapsedSeconds)
+      : elapsedSeconds;
+  return { minutes: Math.floor(raw / 60), seconds: raw % 60 };
+}
+
+function calcProgress(state: ReturnType<typeof usePomo>["state"]): number {
+  const { mode, phase, elapsedSeconds, pomodoroSettings } = state;
+  if (mode !== "pomodoro") return 0;
+  const total =
+    phase === "focus"
+      ? pomodoroSettings.focusDuration * 60
+      : pomodoroSettings.breakDuration * 60;
+  return Math.min(100, (elapsedSeconds / total) * 100);
+}
+
+// ── Focus Page ─────────────────────────────────────────────────────────────────
+
 export default function Focus(): JSX.Element {
   const { theme } = useTheme();
-  const { 
-    state, 
-    start, 
-    pause, 
-    reset, 
-    setMode,
-  } = usePomo();
-  const isMobile = useIsMobile();
-  const [showSettings, setShowSettings] = useState(false);
-
-
-  // Calculate current timer display values
-  const minutes = state.mode === "pomodoro" && state.phase === "focus"
-    ? Math.floor(Math.max(0, (state.pomodoroSettings.focusDuration * 60) - state.elapsedSeconds) / 60)
-    : state.mode === "pomodoro" && state.phase === "break"
-      ? Math.floor(Math.max(0, (state.pomodoroSettings.breakDuration * 60) - state.elapsedSeconds) / 60)
-      : Math.floor(state.elapsedSeconds / 60);
-
-  const seconds = state.mode === "pomodoro" && state.phase === "focus"
-    ? Math.max(0, (state.pomodoroSettings.focusDuration * 60) - state.elapsedSeconds) % 60
-    : state.mode === "pomodoro" && state.phase === "break"
-      ? Math.max(0, (state.pomodoroSettings.breakDuration * 60) - state.elapsedSeconds) % 60
-      : state.elapsedSeconds % 60;
-
-  
+  const { state, start, pause, reset, setMode } = usePomo();
   const { focusSessions, loadFocusSessions } = useFocus();
-  /**
-   * Loading the Focus Reports
-   */
-  useEffect(() => {
-    loadFocusSessions()
-  }, [loadFocusSessions])
+  const isMobile = useIsMobile();
 
-  // Picture-in-Picture integration with custom styling
+  const [showSettings, setShowSettings] = useState(false);
+  const [showYouTube, setShowYouTube] = useState(false);
+
+  useEffect(() => {
+    loadFocusSessions();
+  }, [loadFocusSessions]);
+
+  // PiP setup
   const { show } = usePip(PipTimer, {
     width: 300,
     height: 200,
     injectStyles: `
-    * {
-      padding: 0;
-      margin: 0;
-      box-sizing: border-box;
-      font-family: JetBrains Mono, monospace;
-    }
-    div {
-      width: 100vw;
-      height: 100vh;
-      background-color: ${state.mode === "pomodoro" && state.phase === "break" ? "#0f172a" : "black"};
-      color: oklch(87% 0 0);
-
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-    h1 {
-      font-size: 2.25rem;
-      font-weight: 800;
-    }
-    .phase-indicator {
-      font-size: 0.875rem;
-      opacity: 0.7;
-      margin-bottom: 0.5rem;
-    }
-
-    .button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0.5rem;
-      border-radius: 0.5rem;
-      font-size: 1rem;
-      line-height: 1;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      border: none;
-    }
+    * { padding:0; margin:0; box-sizing:border-box; font-family: JetBrains Mono, monospace; }
+    div { width:100vw; height:100vh; background-color:${state.mode==="pomodoro"&&state.phase==="break"?"#0f172a":"black"}; color:oklch(87% 0 0); display:flex; align-items:center; justify-content:center; flex-direction:column; gap:0.5rem; }
+    h1 { font-size:2.25rem; font-weight:800; }
+    .phase-indicator { font-size:0.875rem; opacity:0.7; margin-bottom:0.5rem; }
+    .button { display:inline-flex; align-items:center; justify-content:center; padding:0.5rem; border-radius:0.5rem; font-size:1rem; line-height:1; cursor:pointer; transition:all 0.2s ease; border:none; }
     `,
   });
 
-  // Shared state management for PiP communication
   const { data, update } = usePipSpace("piptimer", {
     time: state.elapsedSeconds,
     running: state.isRunning,
     mode: state.mode,
     phase: state.phase,
     pomodoroSettings: state.pomodoroSettings,
-    inc: {
-      pause: 0,
-      resume: 0,
-    },
+    inc: { pause: 0, resume: 0 },
   });
 
-  /**
-   * Synchronize main timer state with Picture-in-Picture window
-   * Updates the shared state whenever the main timer changes
-   */
   useEffect(() => {
-    update({ 
-      time: state.elapsedSeconds, 
+    update({
+      time: state.elapsedSeconds,
       running: state.isRunning,
       mode: state.mode,
       phase: state.phase,
-      pomodoroSettings: state.pomodoroSettings
+      pomodoroSettings: state.pomodoroSettings,
     });
   }, [state, update]);
 
-  /**
-   * Handle Picture-in-Picture control commands
-   * Responds to pause/resume commands from the PiP window
-   */
   useEffect(() => {
     if (data.inc.pause === 1) {
       pause();
@@ -242,272 +133,480 @@ export default function Focus(): JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, update]);
 
+  const { minutes, seconds } = calcDisplayTime(state);
+  const progress = calcProgress(state);
+
+  const modeStrip =
+    state.mode === "standard"
+      ? "Standard Mode"
+      : `Pomodoro · ${state.phase === "focus" ? "Focus" : "Break"} Phase`;
+
   return (
-    <div className={cn("flex-1 p-8 gap-8 flex flex-col items-center justify-center")}>
-      {/* Main Timer Card */}
-      <Card className={cn(
-        isMobile ? "w-full max-w-96" : "min-w-96",
-        "relative"
-      )}>
-        <CardTitle className={cn(
-          "text-md flex items-center justify-center gap-2 opacity-60"
-        )}>
-          {/* Mode Selection and Settings */}
-          <div className="flex items-center justify-center gap-2 flex-wrap">
-            <div className="flex items-center gap-1">
-              <Button
-                variant={state.mode === "standard" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setMode("standard")}
-              >
-                <FaRegClock className="w-3 h-3 mr-1" />
-                {!isMobile && "Standard"}
-              </Button>
-              <Button
-                variant={state.mode === "pomodoro" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setMode("pomodoro")}
-              >
-                <GiTomato className="w-3 h-3 mr-1" />
-                {!isMobile && "Pomodoro"}
-              </Button>
-            </div>
+    <div className="flex-1 flex flex-col">
+      {/* ── Timer Stage ────────────────────────────────────────────────── */}
+      <div className="w-full bg-card border-b">
+        <div className="max-w-screen-xl mx-auto px-6 py-12 flex flex-col items-center relative">
+          {/* PiP button — top-right corner of stage */}
+          {!isMobile && (
+            <button
+              className="absolute top-4 right-6 size-9 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              onClick={() =>
+                show({}, {
+                  width: state.mode === "pomodoro" ? 280 : 220,
+                  height: state.mode === "pomodoro" ? 170 : 130,
+                })
+              }
+              title="Picture in Picture"
+            >
+              <TbPictureInPicture className="size-4" />
+            </button>
+          )}
 
-            {/* Settings Dialog */}
-            <Dialog open={showSettings} onOpenChange={setShowSettings}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <FaGear className="w-3 h-3" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Timer Settings</DialogTitle>
-                  <DialogDescription>
-                    Configure your timer mode and Pomodoro settings
-                  </DialogDescription>
-                </DialogHeader>
-                <PomodoroSettings />
-              </DialogContent>
-            </Dialog>
-          </div>
-        </CardTitle>
+          {/* Mode strip */}
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-6">
+            {modeStrip}
+          </p>
 
-        {state.mode === "pomodoro" && state.phase === "break" && <div className="absolute top-2 right-2 bg-secondary-foreground text-secondary p-1 rounded-full shadow-lg animate-pulse flex text-xs items-center gap-1">
-          <FaCoffee />
-          Break
-        </div>}
-        
-        <CardDescription className="text-center flex flex-col gap-6">
-          {/* Timer Display */}
-          <span className={cn(
-            isMobile ? "text-6xl font-black" : "text-8xl font-semibold",
-            state.mode === "pomodoro"
-          )}>
+          {/* Timer display */}
+          <span
+            className={cn(
+              "font-mono font-semibold tracking-tighter leading-none select-none",
+              isMobile ? "text-6xl" : "text-8xl"
+            )}
+          >
             {formatTime(minutes, seconds)}
           </span>
 
-          {/* Pomodoro Info Display */}
+          {/* Progress bar — Pomodoro only */}
           {state.mode === "pomodoro" && (
-            <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <GiTomato className="w-3 h-3" />
-                <span>{state.pomodoroSettings.focusDuration}m focus</span>
-              </div>
-              <div className="w-px h-4 bg-border" />
-              <div className="flex items-center gap-1">
-                <FaCoffee className="w-3 h-3" />
-                <span>{state.pomodoroSettings.breakDuration}m break</span>
-              </div>
-            </div>
-          )}
-
-          <TagSelector />
-        </CardDescription>
-
-        <CardFooter className="flex items-center justify-center gap-2">
-          {/* Primary Play/Pause Button */}
-          <Button
-            size={"lg"}
-            className="w-2/3 py-6"
-            variant={"default"}
-            onClick={state.isRunning ? pause : start}
-          >
-            {state.isRunning ? <FaPause /> : <FaPlay />}
-            {state.isRunning ? <span>Pause</span> : <span>Start</span>}
-          </Button>
-          
-          {/* Reset Button - Only shown when timer has elapsed time */}
-          {(state.startTime !== null || state.elapsedSeconds > 0) && (
-            <Button
-              size={"icon"}
-              className="py-6 w-1/6"
-              variant={"destructive"}
-              onClick={reset}
-            >
-              <FaForwardFast />
-            </Button>
-          )}
-
-          {/* Picture-in-Picture Button */}
-          {!isMobile && (
-            <Button
-              onClick={() => {
-                if (state.mode === "pomodoro") {
-                  show({}, { width: 280, height: 170 });
-                } else {
-                  show({}, { width: 220, height: 130 });
-                }
-              }}
-              size={"icon"}
-              className="py-6 w-1/6"
-              variant={"secondary"}
-            >
-              <FaExternalLinkAlt />
-            </Button>
-          )}
-        </CardFooter>
-
-        {/* Progress Bar for Pomodoro Mode */}
-        {state.mode === "pomodoro" && (
-          <div className="px-6 pb-4">
-            <div className="w-full bg-muted rounded-full h-2">
-              <div 
-                className={cn(
-                  "h-2 rounded-full transition-all duration-300",
-                  "bg-accent-foreground"
-                )}
-                style={{
-                  width: `${
-                    state.phase === "focus"
-                      ? (state.elapsedSeconds / (state.pomodoroSettings.focusDuration * 60)) * 100
-                      : (state.elapsedSeconds / (state.pomodoroSettings.breakDuration * 60)) * 100
-                  }%`
-                }}
+            <div className="w-full max-w-md mx-auto mt-6 h-1.5 bg-muted rounded-full overflow-hidden">
+              <div
+                className="h-full bg-primary rounded-full transition-all duration-1000"
+                style={{ width: `${progress}%` }}
               />
             </div>
-          </div>
-        )}
-      </Card>
+          )}
 
-      {/* YouTube Background Music Player */}
-      <YouTubePlayer />
+          {/* Control strip */}
+          <div className="flex items-center justify-center gap-3 mt-6 flex-wrap">
+            {/* Tag selector pill */}
+            <TagSelectorPill />
 
-      {/* Focus Sessions List Card */}
-      <Card className={cn(isMobile ? "w-full max-w-96" : "min-w-96")}>
-        <CardTitle className="px-6 flex items-center justify-between">
-          <div className="flex gap-1 text-sm items-center opacity-70">
-            <FaTableList />
-            {!isMobile && <span>Focus Report</span>}
-          </div>
-          <div className="flex gap-1">
-            <GraphDialog />
-          </div>
-        </CardTitle>
-        <CardDescription className="max-h-64 overflow-y-auto flex flex-col gap-2 py-2 px-12">
-          {focusSessions.map((session) => (
-            <FocusOption key={session.id} item={session} />
-          ))}
-        </CardDescription>
-      </Card>
+            {/* Start / Pause */}
+            <Button
+              size="default"
+              onClick={state.isRunning ? pause : start}
+              className="gap-2 px-6"
+            >
+              {state.isRunning ? (
+                <FaPause className="size-3.5" />
+              ) : (
+                <FaPlay className="size-3.5" />
+              )}
+              {state.isRunning ? "Pause" : "Start"}
+            </Button>
 
-      {/* Theme-aware Toast Notifications */}
+            {/* Reset — only when there's elapsed time */}
+            {(state.startTime !== null || state.elapsedSeconds > 0) && (
+              <Button
+                variant="outline"
+                size="default"
+                onClick={reset}
+                className={cn("gap-2", isMobile && "w-9 px-0")}
+                title="Reset"
+              >
+                <FaForwardFast className="size-3.5" />
+                {!isMobile && "Reset"}
+              </Button>
+            )}
+
+            {/* Pomodoro settings */}
+            {state.mode === "pomodoro" && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowSettings(true)}
+                title="Pomodoro settings"
+              >
+                <FaGear className="size-3.5" />
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Secondary Bar ─────────────────────────────────────────────── */}
+      <div className="border-b py-3 px-6 flex items-center justify-between gap-4 shrink-0">
+        {/* Left: YouTube toggle pill */}
+        <button
+          onClick={() => setShowYouTube((v) => !v)}
+          className={cn(
+            "flex items-center gap-2 text-sm px-3 py-1.5 rounded-full border transition-colors",
+            showYouTube
+              ? "bg-accent text-foreground border-border"
+              : "text-muted-foreground hover:text-foreground hover:bg-accent/50 border-transparent"
+          )}
+        >
+          <FaYoutube className="size-3.5 text-red-500" />
+          <span className="text-xs">Music</span>
+          <FaChevronDown
+            className={cn(
+              "size-2.5 transition-transform",
+              showYouTube && "rotate-180"
+            )}
+          />
+        </button>
+
+        {/* Right: Mode toggle pills */}
+        <div className="flex items-center gap-1 bg-muted rounded-full p-1">
+          <button
+            onClick={() => setMode("standard")}
+            className={cn(
+              "flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full transition-colors font-medium",
+              state.mode === "standard"
+                ? "bg-background shadow-sm text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <IoIosTimer className="size-3" />
+            Standard
+          </button>
+          <button
+            onClick={() => setMode("pomodoro")}
+            className={cn(
+              "flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full transition-colors font-medium",
+              state.mode === "pomodoro"
+                ? "bg-background shadow-sm text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <GiTomato className="size-3" />
+            Pomodoro
+          </button>
+        </div>
+      </div>
+
+      {/* ── YouTube Player (collapsible) ──────────────────────────────── */}
+      {showYouTube && (
+        <div className="border-b px-6 py-4 bg-card">
+          <YouTubePlayer />
+        </div>
+      )}
+
+      {/* ── Session Log ───────────────────────────────────────────────── */}
+      <div className="flex-1 max-w-screen-xl mx-auto w-full px-6 py-6">
+        <SessionLog sessions={focusSessions} />
+      </div>
+
+      {/* ── Pomodoro Settings Dialog ──────────────────────────────────── */}
+      <Dialog open={showSettings} onOpenChange={setShowSettings}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Pomodoro Settings</DialogTitle>
+            <DialogDescription>
+              Configure your Pomodoro timer durations and behavior.
+            </DialogDescription>
+          </DialogHeader>
+          <PomodoroSettings />
+        </DialogContent>
+      </Dialog>
+
       <Toaster theme={(theme ?? "system") as "system" | "light" | "dark"} />
     </div>
   );
 }
 
-/**
- * Props interface for the FocusOption component
- */
-interface FocusOptionProps {
-  /** The focus session item to display and manage */
-  item: FocusSession;
-}
+// ── Tag Selector Pill ─────────────────────────────────────────────────────────
 
-/**
- * Individual Focus Session Display Component
- * 
- * Renders a single focus session as an interactive card with session details,
- * tag display, and action menu. Provides options to edit or delete the session
- * through a dropdown menu interface.
- * 
- * Features:
- * - Session duration display with formatted time
- * - Tag badge with color coding
- * - Context menu with edit and delete options
- * - Date information in tooltip/menu
- * - Responsive button layout
- * 
- * @component
- * @param {FocusOptionProps} props - Component props
- * @param {FocusSession} props.item - The focus session to display
- * @returns {JSX.Element} Interactive session card with action menu
- * 
- * @example
- * ```tsx
- * {focusSessions.map((session) => (
- *   <FocusOption key={session.id} item={session} />
- * ))}
- * ```
- * 
- * @see {@link FocusSession} for session data structure
- * @see {@link EditFocusSession} for edit functionality
- */
-function FocusOption({ item }: FocusOptionProps): JSX.Element {
-  const { removeFocusSession } = useFocus();
-  const isMobile = useIsMobile();
+function TagSelectorPill(): JSX.Element {
+  const { tag, setTag, removeTag, savedTags } = useTag();
+  const [open, setOpen] = useState(false);
+  const [tempTag, setTempTag] = useState("");
 
-  // Calculate session duration and format date
-  const time = calculateTime(item.startTime, item.endTime);
-  const onDate = item.startTime.toLocaleDateString("en-GB");
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const tagColor = savedTags.find((t) => t.t === tag)?.c;
 
-  /**
-   * Handles dropdown open/close state changes
-   * 
-   * @param {boolean} open - New dropdown state
-   * @returns {void}
-   */
-  const handleOpenChange = (open: boolean): void => {
-    setIsDropdownOpen(open);
+  const handleSave = () => {
+    if (tempTag.trim()) {
+      setTag(tempTag.trim());
+    }
+    setOpen(false);
+    setTempTag("");
   };
 
   return (
-    <DropdownMenu open={isDropdownOpen} onOpenChange={handleOpenChange}>
-      <DropdownMenuTrigger asChild>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
         <Button
-          variant="secondary"
-          className={cn("w-full flex justify-between items-center", isMobile ? "flex-col items-center justify-center h-18" : "h-12")}
+          variant="outline"
+          size="default"
+          className="gap-2 rounded-full px-4"
+          style={
+            tag && tagColor
+              ? {
+                  borderColor: tagColor + "66",
+                  backgroundColor: tagColor + "15",
+                }
+              : undefined
+          }
         >
-          {/* Session Duration Display */}
-          <div className={cn("flex gap-2 items-center")}>
-            <FaRegClock />
-            <span className="font-semibold">
-              {formatTimeNew(time, "H:M:S", "text")}
-            </span>
-          </div>
-          
-          {/* Tag and Expand Icon */}
-          <div className={cn("flex gap-4 items-center")}>
-            <TagBadge tag={item.tag} />
-            {!isMobile && <RiExpandUpDownLine />}
-          </div>
+          {tag ? (
+            <>
+              <span
+                className="size-2 rounded-full shrink-0"
+                style={{
+                  backgroundColor: tagColor ?? "hsl(var(--muted-foreground))",
+                }}
+              />
+              <span className="text-sm max-w-24 truncate">{tag}</span>
+            </>
+          ) : (
+            <span className="text-sm text-muted-foreground">No tag</span>
+          )}
+          <FaChevronDown className="size-2.5 text-muted-foreground" />
         </Button>
-      </DropdownMenuTrigger>
-      
-      {/* Action Menu */}
-      <DropdownMenuContent>
-        <DropdownMenuLabel className="flex items-center gap-2">
-          <FaCalendar /> {onDate}
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <EditFocusSession item={item} setIsDropdownOpen={setIsDropdownOpen} />
-        <DropdownMenuItem onClick={() => removeFocusSession(item.id!)}>
-          <FaTrash />
-          <span>Delete</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-3">
+        <div className="flex flex-col gap-3">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+            Tag
+          </p>
+
+          {/* Saved tag chips */}
+          {savedTags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {savedTags.map((t) => (
+                <button
+                  key={t.t}
+                  onClick={() => {
+                    setTag(t.t);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "text-xs px-2.5 py-1 rounded-full font-medium transition-opacity hover:opacity-80",
+                    tag === t.t && "ring-2 ring-offset-1"
+                  )}
+                  style={{
+                    backgroundColor: t.c + "33",
+                    color: t.c,
+                    border: `1px solid ${t.c}55`,
+                  }}
+                >
+                  {t.t}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Custom tag input */}
+          <div className="flex gap-2">
+            <Input
+              value={tempTag}
+              onChange={(e) => setTempTag(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSave()}
+              placeholder="Custom tag…"
+              className="h-8 text-xs"
+            />
+            <Button size="sm" onClick={handleSave} className="shrink-0 h-8">
+              Set
+            </Button>
+          </div>
+
+          {tag && (
+            <button
+              onClick={() => {
+                removeTag();
+                setOpen(false);
+              }}
+              className="text-xs text-muted-foreground hover:text-foreground text-left transition-colors"
+            >
+              Clear tag
+            </button>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// ── Session Log ───────────────────────────────────────────────────────────────
+
+interface SessionGroup {
+  date: string;
+  label: string;
+  sessions: FocusSession[];
+  totalSeconds: number;
+}
+
+function SessionLog({ sessions }: { sessions: FocusSession[] }): JSX.Element {
+  const [visibleCount, setVisibleCount] = useState(20);
+
+  const groups = useMemo<SessionGroup[]>(() => {
+    const sorted = [...sessions].sort(
+      (a, b) =>
+        new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+    );
+
+    const map = new Map<string, SessionGroup>();
+    const today = dayjs().format("YYYY-MM-DD");
+    const yesterday = dayjs().subtract(1, "day").format("YYYY-MM-DD");
+
+    for (const s of sorted) {
+      const key = dayjs(s.startTime).format("YYYY-MM-DD");
+      if (!map.has(key)) {
+        const label =
+          key === today
+            ? "Today"
+            : key === yesterday
+            ? "Yesterday"
+            : dayjs(s.startTime).format("MMMM D, YYYY");
+        map.set(key, { date: key, label, sessions: [], totalSeconds: 0 });
+      }
+      const g = map.get(key)!;
+      g.sessions.push(s);
+      g.totalSeconds += Math.max(
+        0,
+        (new Date(s.endTime).getTime() - new Date(s.startTime).getTime()) /
+          1000
+      );
+    }
+
+    return Array.from(map.values());
+  }, [sessions]);
+
+  // Flatten all sessions to apply the visible cap
+  const allSessions = useMemo(
+    () => groups.flatMap((g) => g.sessions),
+    [groups]
+  );
+  const hasMore = allSessions.length > visibleCount;
+
+  // Rebuild groups respecting the visible cap
+  const visibleGroups = useMemo<SessionGroup[]>(() => {
+    let remaining = visibleCount;
+    const result: SessionGroup[] = [];
+    for (const g of groups) {
+      if (remaining <= 0) break;
+      const slice = g.sessions.slice(0, remaining);
+      remaining -= slice.length;
+      result.push({ ...g, sessions: slice });
+    }
+    return result;
+  }, [groups, visibleCount]);
+
+  return (
+    <div>
+      {/* Log header */}
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          Session Log
+        </p>
+        <GraphDialog />
+      </div>
+
+      {sessions.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-sm text-muted-foreground">
+            No sessions yet. Start the timer to begin tracking.
+          </p>
+        </div>
+      ) : (
+        <>
+          {visibleGroups.map((group) => (
+            <SessionDateGroup key={group.date} group={group} />
+          ))}
+
+          {hasMore && (
+            <button
+              onClick={() => setVisibleCount((n) => n + 20)}
+              className="mt-4 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Load more ({allSessions.length - visibleCount} remaining)
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function SessionDateGroup({ group }: { group: SessionGroup }): JSX.Element {
+  const totalFormatted = formatTimeNew(
+    durationFromSeconds(group.totalSeconds),
+    "H:M:S",
+    "text"
+  );
+
+  return (
+    <div className="mb-6">
+      {/* Group header */}
+      <div className="flex items-center justify-between py-2 border-b">
+        <span className="text-sm font-semibold">{group.label}</span>
+        <span className="text-xs text-muted-foreground font-mono">
+          {totalFormatted} total
+        </span>
+      </div>
+
+      {/* Session rows */}
+      {group.sessions.map((s) => (
+        <SessionRow key={s.id} session={s} />
+      ))}
+    </div>
+  );
+}
+
+function SessionRow({ session }: { session: FocusSession }): JSX.Element {
+  const { removeFocusSession } = useFocus();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  const duration = calculateTime(session.startTime, session.endTime);
+  const durationText = formatTimeNew(duration, "H:M:S", "text");
+  const startTimeStr = dayjs(session.startTime).format("HH:mm");
+
+  return (
+    <div className="grid grid-cols-[3rem_1fr_auto_auto] items-center gap-3 py-2 border-b border-dashed last:border-0 hover:bg-accent/40 transition-colors px-1 rounded-sm">
+      {/* Start time */}
+      <span className="text-xs text-muted-foreground font-mono tabular-nums">
+        {startTimeStr}
+      </span>
+
+      {/* Tag chip */}
+      <div className="min-w-0">
+        <TagBadge tag={session.tag} />
+      </div>
+
+      {/* Duration */}
+      <span className="text-sm font-mono font-medium tabular-nums shrink-0">
+        {durationText}
+      </span>
+
+      {/* Actions */}
+      <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
+        <DropdownMenuTrigger asChild>
+          <button
+            className="size-7 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            title="Actions"
+          >
+            <FaEllipsis className="size-3" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuLabel className="text-xs font-mono text-muted-foreground">
+            {dayjs(session.startTime).format("MMM D, YYYY")}
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <EditFocusSession
+            item={session}
+            setIsDropdownOpen={setDropdownOpen}
+          />
+          <DropdownMenuItem
+            onClick={() => removeFocusSession(session.id!)}
+            className="text-destructive focus:text-destructive gap-2"
+          >
+            <FaTrash className="size-3" />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }
