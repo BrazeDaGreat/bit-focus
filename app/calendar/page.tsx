@@ -7,7 +7,7 @@ import {
   useCallback,
   type JSX,
 } from "react";
-import { Calendar, dateFnsLocalizer, Views, View } from "react-big-calendar";
+import { Calendar, dateFnsLocalizer, View } from "react-big-calendar";
 import {
   format,
   parse,
@@ -241,7 +241,11 @@ export default function CalendarPage(): JSX.Element {
   const toggleTag = (tag: string) => {
     setHiddenTags((prev) => {
       const next = new Set(prev);
-      next.has(tag) ? next.delete(tag) : next.add(tag);
+      if (next.has(tag)) {
+        next.delete(tag);
+      } else {
+        next.add(tag);
+      }
       return next;
     });
   };
@@ -448,7 +452,8 @@ export default function CalendarPage(): JSX.Element {
       <Toaster theme={(theme ?? "system") as "system" | "light" | "dark"} />
 
       {/* ── Calendar CSS overrides ────────────────────────────────────── */}
-      <style jsx global>{`
+      <div className="hidden">
+        <style jsx global>{`
         .calendar-container .rbc-calendar {
           font-family: inherit;
           height: 100%;
@@ -574,6 +579,7 @@ export default function CalendarPage(): JSX.Element {
           margin-right: 0;
         }
       `}</style>
+      </div>
     </div>
   );
 }

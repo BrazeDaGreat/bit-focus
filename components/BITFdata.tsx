@@ -1,6 +1,6 @@
 import { useIsMobile } from "@/hooks/useIsMobile";
 import SaveManager from "@/lib/SaveManager";
-import { type JSX, useEffect, useRef, useState } from "react";
+import { type JSX, useEffect, useRef, useState, useCallback } from "react";
 import { toast } from "sonner";
 import {
   DropdownMenu,
@@ -122,7 +122,7 @@ export default function BITFdata(): JSX.Element {
    * @async
    * @returns {Promise<void>}
    */
-  const handleUpload = async (): Promise<void> => {
+  const handleUpload = useCallback(async (): Promise<void> => {
     if (!hasWebhook) {
       toast.error("No webhook configured. Please set a webhook in settings.");
       return;
@@ -163,7 +163,7 @@ export default function BITFdata(): JSX.Element {
       console.error(err);
       toast.error("Upload failed. Check your webhook URL.");
     }
-  };
+  }, [hasWebhook, webhook]);
 
   /**
    * Set up keyboard shortcuts when dropdown is open
@@ -201,7 +201,7 @@ export default function BITFdata(): JSX.Element {
 
     window.addEventListener("keydown", listener);
     return () => window.removeEventListener("keydown", listener);
-  }, [isOpen, hasWebhook]);
+  }, [isOpen, hasWebhook, handleUpload]);
 
   return (
     <>
