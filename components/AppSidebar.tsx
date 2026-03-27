@@ -24,6 +24,7 @@ import {
   FaProjectDiagram,
   FaCoffee,
   FaCalendarAlt,
+  FaPenNib,
 } from "react-icons/fa";
 import { IoIosTimer } from "react-icons/io";
 import {
@@ -54,6 +55,7 @@ const items = [
   { title: "Calendar", url: "/calendar", icon: <FaCalendarAlt /> },
   { title: "Projects", url: "/projects", icon: <FaProjectDiagram /> },
   { title: "Rewards", url: "/rewards", icon: <FaCoffee /> },
+  { title: "Excalidraw", url: "/excalidraw", icon: <FaPenNib /> },
   { title: "Changelog", url: "/changelog", icon: <FaReadme /> },
 ];
 

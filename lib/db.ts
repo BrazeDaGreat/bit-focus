@@ -79,6 +79,20 @@ export interface SpecialDiscount {
 }
 
 /**
+ * Excalidraw Scene Data Interface
+ *
+ * Defines the structure of saved Excalidraw drawings
+ */
+export interface ExcalidrawScene {
+  id?: number | string;
+  title: string;
+  sceneData: unknown; // Excalidraw scene data structure
+  thumbnail?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
  * BIT Focus Database Class with Project Management and Quick Links
  *
  * Extends Dexie to provide a type-safe database interface for the BIT Focus
@@ -182,6 +196,11 @@ class BitFocusDB extends Dexie {
    * Special Discounts Table
    */
   discounts: Dexie.Table<SpecialDiscount, number>;
+
+  /**
+   * Excalidraw Scenes Table
+   */
+  excalidraw: Dexie.Table<ExcalidrawScene, string | number>;
 
   constructor() {
     super("BitFocusDB");
@@ -302,6 +321,29 @@ class BitFocusDB extends Dexie {
       discounts: "++id, title, percentage, active, createdAt, updatedAt",
     });
 
+    // Database version 7 schema definition (add excalidraw scenes)
+    this.version(7).stores({
+      configuration: "name",
+      focus: "++id, tag, startTime, endTime",
+      tasks: "++id, task, duedate, tags, priority, completed",
+      notes: "++id, title, type, parentId, createdAt, updatedAt",
+      projects: "++id, title, status, createdAt, updatedAt",
+      milestones:
+        "++id, projectId, title, status, deadline, createdAt, updatedAt",
+      issues:
+        "++id, milestoneId, title, label, dueDate, status, createdAt, updatedAt",
+      rewards: "++id, title, cost, category, createdAt, updatedAt",
+      discounts: "++id, title, percentage, active, createdAt, updatedAt",
+      excalidraw: "++id, title, createdAt, updatedAt",
+    });
+
+    // Database version 8 schema definition (flexible excalidraw IDs)
+    // We can't change primary key of 'excalidraw', so we create 'excalidraw_v2'
+    this.version(8).stores({
+      excalidraw: null, // Delete old table
+      excalidraw_v2: "id, title, createdAt, updatedAt",
+    });
+
     // Table reference assignment
     this.configuration = this.table("configuration");
     this.focus = this.table("focus");
@@ -311,6 +353,7 @@ class BitFocusDB extends Dexie {
     this.issues = this.table("issues");
     this.rewards = this.table("rewards");
     this.discounts = this.table("discounts");
+    this.excalidraw = this.table("excalidraw_v2");
   }
 }
 

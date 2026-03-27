@@ -185,6 +185,7 @@ function StatsRow(): JSX.Element {
 
 function FocusTrendChart(): JSX.Element {
   const { focusSessions, loadingFocusSessions } = useFocus();
+  const { theme } = useTheme();
 
   const data = useMemo(() => {
     return Array.from({ length: 30 }, (_, i) => {
@@ -200,6 +201,13 @@ function FocusTrendChart(): JSX.Element {
     });
   }, [focusSessions]);
 
+  // Theme-aware colors for chart elements
+  const chartColors = {
+    tickFill: "var(--muted-foreground)",
+    axisStroke: "var(--border)",
+    barFill: "var(--chart-1)",
+  };
+
   if (loadingFocusSessions) {
     return <Skeleton className="h-[120px] w-full" />;
   }
@@ -210,29 +218,30 @@ function FocusTrendChart(): JSX.Element {
         <BarChart data={data} margin={{ top: 0, right: 0, left: -28, bottom: 0 }}>
           <XAxis
             dataKey="date"
-            tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+            tick={{ fontSize: 10, fill: chartColors.tickFill }}
             tickLine={false}
-            axisLine={false}
+            axisLine={{ stroke: chartColors.axisStroke }}
             interval={6}
           />
           <YAxis
-            tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+            tick={{ fontSize: 10, fill: chartColors.tickFill }}
             tickLine={false}
-            axisLine={false}
+            axisLine={{ stroke: chartColors.axisStroke }}
           />
           <Tooltip
             contentStyle={{
               fontSize: 12,
-              backgroundColor: "hsl(var(--card))",
-              border: "1px solid hsl(var(--border))",
+              backgroundColor: "var(--card)",
+              border: "1px solid var(--border)",
               borderRadius: 6,
+              color: "var(--foreground)",
             }}
-            labelStyle={{ color: "hsl(var(--muted-foreground))" }}
+            labelStyle={{ color: "var(--muted-foreground)" }}
             formatter={(v: number) => [`${v}h`, "Focus"]}
           />
           <Bar
             dataKey="hours"
-            fill="hsl(var(--primary))"
+            fill={chartColors.barFill}
             radius={[2, 2, 0, 0]}
             maxBarSize={12}
           />

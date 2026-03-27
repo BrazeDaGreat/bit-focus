@@ -1,4 +1,4 @@
-export const VERSION = "v0.16.0-unstable";
+export const VERSION = "v0.16.0-unstable.1";
 
 const CHANGELOG = `
 ## \`v0.16.0-unstable\` (2026-03-20)
@@ -7,6 +7,12 @@ const CHANGELOG = `
 - Refactor: New Home Page design.
 - Refactor: New Focus Page design.
 - Refactor: New Rewards Page design
+
+### \`v0.16.0-unstable.1\` (2026-03-27)
+- Add: Excalidraw Tab.
+- Fix: Focus Trend chart on home page now uses theme-aware colors (\`var(--chart-1)\`) instead of hardcoded black.
+- Fix: Focus Trend chart tooltip now has proper background and text colors for all themes.
+- Fix: Excalidraw save/load issues.
 
 ***
 
