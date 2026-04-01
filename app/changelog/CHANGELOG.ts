@@ -1,19 +1,21 @@
-export const VERSION = "v0.16.0-unstable.1";
+export const VERSION = "v0.16.0 (LTS)";
 
 const CHANGELOG = `
-## \`v0.16.0-unstable\` (2026-03-20)
-- Refactor: New App Sidebar design.
-- Refactor: New Top Bar design.
-- Refactor: New Home Page design.
-- Refactor: New Focus Page design.
-- Refactor: New Rewards Page design
-
-### \`v0.16.0-unstable.1\` (2026-03-27)
-- Add: Excalidraw Tab.
-- Fix: Focus Trend chart on home page now uses theme-aware colors (\`var(--chart-1)\`) instead of hardcoded black.
-- Fix: Focus Trend chart tooltip now has proper background and text colors for all themes.
-- Fix: Excalidraw save/load issues.
-
+## \`v0.16.0 (LTS)\` (2026-04-01) — Excalidraw & UI Redesign
+- Added a new Excalidraw tab.
+- Added Excalidraw data in SaveManager.
+- Added Saved Drawings section in Excalidraw tab, with the ability to save/load drawings.
+- Redesigned App Sidebar.
+- Redesigned Top Bar.
+- Redesigned Home Page.
+- Redesigned Focus Page.
+- Redesigned Rewards Page.
+- Improved Sidebar layout.
+- Improved Rewards Page layout.
+- Fixed Focus Trend chart to use theme-aware colors (\`var(--chart-1)\`) instead of hardcoded black.
+- Fixed chart tooltip styling to display correctly across all themes.
+- Resolved Excalidraw save/load issues.
+- Fixed build errors.
 ***
 
 ## \`v0.15.0-beta\` (2026-02-01)

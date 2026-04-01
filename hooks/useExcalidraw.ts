@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import db, { type ExcalidrawScene } from "@/lib/db";
+import db, { type ExcalidrawScene, type ExcalidrawSceneData } from "@/lib/db";
 
 const AUTOSAVE_SCENE_ID = "__autosave__";
 
@@ -9,11 +9,19 @@ interface ExcalidrawState {
   autosaveScene: ExcalidrawScene | null;
   loading: boolean;
   loadScenes: () => Promise<void>;
-  saveScene: (scene: Partial<ExcalidrawScene> & { title: string; sceneData: unknown }) => Promise<void>;
-  updateScene: (id: number | string, updates: Partial<ExcalidrawScene>) => Promise<void>;
+  saveScene: (
+    scene: Partial<ExcalidrawScene> & {
+      title: string;
+      sceneData: ExcalidrawSceneData | string;
+    },
+  ) => Promise<void>;
+  updateScene: (
+    id: number | string,
+    updates: Partial<ExcalidrawScene>,
+  ) => Promise<void>;
   deleteScene: (id: number | string) => Promise<void>;
   setCurrentScene: (scene: ExcalidrawScene | null) => void;
-  saveAutosave: (sceneData: unknown) => Promise<void>;
+  saveAutosave: (sceneData: ExcalidrawSceneData) => Promise<void>;
   loadAutosave: () => Promise<ExcalidrawScene | null>;
 }
 
@@ -27,17 +35,23 @@ export const useExcalidraw = create<ExcalidrawState>((set, get) => ({
     set({ loading: true });
     try {
       const allScenes = await db.excalidraw.toArray();
-      const autosave = allScenes.find((s) => s.id === AUTOSAVE_SCENE_ID) ?? null;
-      const userScenes = allScenes.filter((s) => s.id !== AUTOSAVE_SCENE_ID).sort((a, b) => 
-        (b.updatedAt?.getTime() || 0) - (a.updatedAt?.getTime() || 0)
-      );
-      
+      const autosave =
+        allScenes.find((s) => s.id === AUTOSAVE_SCENE_ID) ?? null;
+      const userScenes = allScenes
+        .filter((s) => s.id !== AUTOSAVE_SCENE_ID)
+        .sort(
+          (a, b) =>
+            (b.updatedAt?.getTime() || 0) - (a.updatedAt?.getTime() || 0),
+        );
+
       // Parse serialized sceneData for all scenes
       const parsedUserScenes = userScenes.map((scene) => {
-        let parsedData = scene.sceneData;
+        let parsedData: ExcalidrawScene["sceneData"] = scene.sceneData;
         if (typeof scene.sceneData === "string") {
           try {
-            parsedData = JSON.parse(scene.sceneData as string);
+            parsedData = JSON.parse(
+              scene.sceneData as string,
+            ) as ExcalidrawSceneData;
           } catch (e) {
             console.error("Failed to parse scene data:", e);
           }
@@ -48,13 +62,22 @@ export const useExcalidraw = create<ExcalidrawState>((set, get) => ({
       let parsedAutosave = autosave;
       if (parsedAutosave && typeof parsedAutosave.sceneData === "string") {
         try {
-          parsedAutosave = { ...parsedAutosave, sceneData: JSON.parse(parsedAutosave.sceneData as string) };
+          parsedAutosave = {
+            ...parsedAutosave,
+            sceneData: JSON.parse(
+              parsedAutosave.sceneData as string,
+            ) as ExcalidrawSceneData,
+          };
         } catch (e) {
           console.error("Failed to parse autosave data:", e);
         }
       }
 
-      set({ scenes: parsedUserScenes, autosaveScene: parsedAutosave, loading: false });
+      set({
+        scenes: parsedUserScenes,
+        autosaveScene: parsedAutosave,
+        loading: false,
+      });
     } catch (error) {
       console.error("Failed to load Excalidraw scenes:", error);
       set({ loading: false });
@@ -65,9 +88,10 @@ export const useExcalidraw = create<ExcalidrawState>((set, get) => ({
     // Serialize sceneData to JSON string for consistent storage
     let serializedData: string;
     try {
-      serializedData = typeof scene.sceneData === "string" 
-        ? scene.sceneData 
-        : JSON.stringify(scene.sceneData);
+      serializedData =
+        typeof scene.sceneData === "string"
+          ? scene.sceneData
+          : JSON.stringify(scene.sceneData);
     } catch (error) {
       console.error("Failed to serialize scene data:", error);
       return;
@@ -84,12 +108,15 @@ export const useExcalidraw = create<ExcalidrawState>((set, get) => ({
     };
 
     await db.excalidraw.put(sceneToSave);
-    
+
     // Convert back to parsed for store consistency
-    const parsedScene = { ...sceneToSave, sceneData: JSON.parse(serializedData) };
+    const parsedScene = {
+      ...sceneToSave,
+      sceneData: JSON.parse(serializedData) as ExcalidrawSceneData,
+    };
 
     set((state) => {
-      const filteredScenes = state.scenes.filter(s => s.id !== id);
+      const filteredScenes = state.scenes.filter((s) => s.id !== id);
       return {
         scenes: [parsedScene, ...filteredScenes],
         currentScene: parsedScene,
@@ -105,34 +132,33 @@ export const useExcalidraw = create<ExcalidrawState>((set, get) => ({
     const processedUpdates = { ...updates };
     if (updates.sceneData !== undefined) {
       try {
-        processedUpdates.sceneData = typeof updates.sceneData === "string"
-          ? updates.sceneData
-          : JSON.stringify(updates.sceneData);
+        processedUpdates.sceneData =
+          typeof updates.sceneData === "string"
+            ? updates.sceneData
+            : JSON.stringify(updates.sceneData);
       } catch (error) {
         console.error("Failed to serialize scene data:", error);
         return;
       }
     }
-    
+
     const now = new Date();
     await db.excalidraw.update(id, { ...processedUpdates, updatedAt: now });
-    
+
     const updatedScene = { ...existing, ...processedUpdates, updatedAt: now };
     // Parse it back for the state
     if (typeof updatedScene.sceneData === "string") {
       try {
-        updatedScene.sceneData = JSON.parse(updatedScene.sceneData as string);
+        updatedScene.sceneData = JSON.parse(
+          updatedScene.sceneData as string,
+        ) as ExcalidrawSceneData;
       } catch (e) {}
     }
 
     set((state) => ({
-      scenes: state.scenes.map((s) =>
-        s.id === id ? updatedScene : s
-      ),
+      scenes: state.scenes.map((s) => (s.id === id ? updatedScene : s)),
       currentScene:
-        state.currentScene?.id === id
-          ? updatedScene
-          : state.currentScene,
+        state.currentScene?.id === id ? updatedScene : state.currentScene,
     }));
   },
 
@@ -150,7 +176,7 @@ export const useExcalidraw = create<ExcalidrawState>((set, get) => ({
 
   saveAutosave: async (sceneData) => {
     const now = new Date();
-    
+
     // Serialize to JSON string to ensure it's storable in IndexedDB
     let serializedData: string;
     try {
@@ -170,9 +196,12 @@ export const useExcalidraw = create<ExcalidrawState>((set, get) => ({
 
     // Use put to either insert or update the autosave record
     await db.excalidraw.put(autosaveEntry);
-    
+
     // Store parsed version in zustand state
-    const parsedAutosave = { ...autosaveEntry, sceneData: JSON.parse(serializedData) };
+    const parsedAutosave = {
+      ...autosaveEntry,
+      sceneData: JSON.parse(serializedData) as ExcalidrawSceneData,
+    };
     set({ autosaveScene: parsedAutosave });
   },
 
@@ -181,10 +210,12 @@ export const useExcalidraw = create<ExcalidrawState>((set, get) => ({
       const autosave = await db.excalidraw.get(AUTOSAVE_SCENE_ID);
       if (autosave) {
         // Parse the serialized data back
-        let parsedData = autosave.sceneData;
+        let parsedData: ExcalidrawScene["sceneData"] = autosave.sceneData;
         if (typeof autosave.sceneData === "string") {
           try {
-            parsedData = JSON.parse(autosave.sceneData as string);
+            parsedData = JSON.parse(
+              autosave.sceneData as string,
+            ) as ExcalidrawSceneData;
           } catch (e) {
             console.error("Failed to parse autosave data:", e);
           }

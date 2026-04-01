@@ -182,7 +182,7 @@ export default function RewardsPage(): JSX.Element {
     Math.floor(cost * (1 - totalDiscount / 100));
 
   return (
-    <div className="max-w-screen-xl mx-auto px-6 py-8">
+    <div className="container mx-auto px-6 py-8">
       {/* Balance Header */}
       <div className="pb-8 border-b mb-6">
         <div className="flex items-start justify-between gap-4">

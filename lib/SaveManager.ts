@@ -40,7 +40,7 @@
  * @updated v0.9.7-alpha
  */
 
-import db, { QuickLink } from "./db";
+import db, { type ExcalidrawSceneData, QuickLink } from "./db";
 
 /**
  * Enhanced Exported Data Structure Interface
@@ -134,9 +134,9 @@ type ExportedData = {
     }[];
     /** Excalidraw scene records */
     excalidraw: {
-      id?: number;
+      id?: number | string;
       title: string;
-      sceneData: unknown;
+      sceneData: ExcalidrawSceneData | string;
       thumbnail?: string;
       createdAt: string;
       updatedAt: string;
@@ -417,7 +417,7 @@ class SaveManager {
         if (excalidraw.length > 0) {
           await db.excalidraw.bulkAdd(excalidraw);
         }
-      }
+      },
     );
 
     // Restore localStorage contents
@@ -550,7 +550,7 @@ class SaveManager {
       createdAt: new Date(r.createdAt),
       updatedAt: new Date(r.updatedAt),
     }));
-  
+
     const discounts = (data.indexedDB.discounts || []).map((d) => ({
       ...d,
       createdAt: new Date(d.createdAt),
@@ -609,7 +609,7 @@ class SaveManager {
         if (excalidraw.length > 0) {
           await db.excalidraw.bulkAdd(excalidraw);
         }
-      }
+      },
     );
 
     localStorage.clear();

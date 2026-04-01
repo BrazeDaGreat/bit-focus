@@ -33,6 +33,17 @@
  */
 
 import Dexie from "dexie";
+import type { ComponentProps } from "react";
+import type { Excalidraw as ExcalidrawComponent } from "@excalidraw/excalidraw";
+
+type ExcalidrawInitialData = Awaited<
+  Exclude<
+    NonNullable<ComponentProps<typeof ExcalidrawComponent>["initialData"]>,
+    (...args: never[]) => unknown
+  >
+>;
+
+export type ExcalidrawSceneData = ExcalidrawInitialData;
 
 /**
  * Quick Link Interface
@@ -86,7 +97,7 @@ export interface SpecialDiscount {
 export interface ExcalidrawScene {
   id?: number | string;
   title: string;
-  sceneData: unknown; // Excalidraw scene data structure
+  sceneData: ExcalidrawSceneData | string;
   thumbnail?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -250,7 +261,7 @@ class BitFocusDB extends Dexie {
             }
             if (task.completedSubtasks === undefined) {
               task.completedSubtasks = new Array(
-                task.subtasks?.length || 0
+                task.subtasks?.length || 0,
               ).fill(false);
             }
           });

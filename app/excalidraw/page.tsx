@@ -15,7 +15,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useExcalidraw } from "@/hooks/useExcalidraw";
+import { type ExcalidrawScene, type ExcalidrawSceneData } from "@/lib/db";
 import { toast } from "sonner";
+import type { ComponentProps } from "react";
+import type { Excalidraw as ExcalidrawComponent } from "@excalidraw/excalidraw";
 
 // Import Excalidraw styles
 import "@excalidraw/excalidraw/index.css";
@@ -33,15 +36,15 @@ const ExcalidrawCanvas = dynamic(
   }
 );
 
-interface ExcalidrawSceneData {
-  type: string;
-  version: number;
-  source: string;
-  elements: readonly unknown[];
-  appState: Record<string, unknown>;
+interface ExcalidrawSceneLoadable extends ExcalidrawScene {
+  sceneData: string | ExcalidrawSceneData;
 }
 
 const AUTOSAVE_DEBOUNCE_MS = 1000;
+
+type ExcalidrawOnChange = NonNullable<
+  ComponentProps<typeof ExcalidrawComponent>["onChange"]
+>;
 
 export default function ExcalidrawPage(): JSX.Element {
   const { scenes, loadScenes, saveScene, deleteScene, setCurrentScene, saveAutosave, autosaveScene, currentScene, loading } =
@@ -71,7 +74,7 @@ export default function ExcalidrawPage(): JSX.Element {
       let sceneData: ExcalidrawSceneData;
       if (typeof autosaveScene.sceneData === "string") {
         try {
-          sceneData = JSON.parse(autosaveScene.sceneData as string);
+          sceneData = JSON.parse(autosaveScene.sceneData as string) as ExcalidrawSceneData;
         } catch (e) {
           console.error("Failed to parse autosave scene data:", e);
           setIsReady(true);
@@ -98,8 +101,8 @@ export default function ExcalidrawPage(): JSX.Element {
     };
   }, []);
 
-  const handleOnChange = useCallback(
-    (elements: readonly unknown[], appStateData: any) => {
+  const handleOnChange: ExcalidrawOnChange = useCallback(
+    (elements, appStateData) => {
       // Don't process changes until we are ready
       if (!isReady) return;
 
@@ -117,7 +120,7 @@ export default function ExcalidrawPage(): JSX.Element {
         type: "excalidraw",
         version: 2,
         source: "https://excalidraw.com",
-        elements: elements as readonly any[],
+        elements,
         appState: {
           theme,
           viewBackgroundColor,
@@ -140,8 +143,8 @@ export default function ExcalidrawPage(): JSX.Element {
             saveAutosave(newSceneData);
           }, AUTOSAVE_DEBOUNCE_MS);
         }
-      } catch (error) {
-        console.warn("Scene comparison error:", error);
+      } catch {
+        console.warn("Scene comparison error");
       }
     },
     [saveAutosave, isReady]
@@ -185,12 +188,12 @@ export default function ExcalidrawPage(): JSX.Element {
     }
   };
 
-  const handleLoadScene = (scene: any) => {
+  const handleLoadScene = (scene: ExcalidrawSceneLoadable) => {
     // Handle both serialized (string) and parsed data
     let sceneData: ExcalidrawSceneData;
     if (typeof scene.sceneData === "string") {
       try {
-        sceneData = JSON.parse(scene.sceneData as string);
+        sceneData = JSON.parse(scene.sceneData) as ExcalidrawSceneData;
       } catch (e) {
         console.error("Failed to parse scene data:", e);
         toast.error("Failed to load scene");
@@ -217,7 +220,7 @@ export default function ExcalidrawPage(): JSX.Element {
     try {
       await deleteScene(id);
       toast.success("Scene deleted");
-    } catch (error) {
+    } catch {
       toast.error("Failed to delete scene");
     }
   };

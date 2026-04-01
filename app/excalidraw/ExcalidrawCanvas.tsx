@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { type JSX } from "react";
 import { Excalidraw } from "@excalidraw/excalidraw";
+import type { ExcalidrawScene, ExcalidrawSceneData } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -14,12 +15,8 @@ import {
 import { FaSave, FaFolderOpen, FaTrash, FaStar } from "react-icons/fa";
 import { useExcalidraw } from "@/hooks/useExcalidraw";
 
-interface ExcalidrawSceneData {
-  type: string;
-  version: number;
-  source: string;
-  elements: readonly any[];
-  appState: Record<string, unknown>;
+interface ExcalidrawSceneItem extends ExcalidrawScene {
+  sceneData: string | ExcalidrawSceneData;
 }
 
 interface ExcalidrawCanvasProps {
@@ -28,11 +25,11 @@ interface ExcalidrawCanvasProps {
   appState: Record<string, unknown>;
   scenesListOpen: boolean;
   setScenesListOpen: (open: boolean) => void;
-  scenes: Array<{ id?: number | string; title: string; sceneData: unknown }>;
-  handleLoadScene: (scene: { id?: number | string; title: string; sceneData: unknown }) => void;
+  scenes: ExcalidrawSceneItem[];
+  handleLoadScene: (scene: ExcalidrawSceneItem) => void;
   handleDeleteScene: (id: number | string, event: React.MouseEvent) => Promise<void>;
   setSaveDialogOpen: (open: boolean) => void;
-  handleOnChange: (elements: readonly unknown[], appStateData: unknown) => void;
+  handleOnChange: NonNullable<React.ComponentProps<typeof Excalidraw>["onChange"]>;
 }
 
 export function ExcalidrawCanvas({
@@ -48,20 +45,12 @@ export function ExcalidrawCanvas({
   handleOnChange,
 }: ExcalidrawCanvasProps): JSX.Element {
   const { autosaveScene } = useExcalidraw();
-  const [excalidrawAPI, setExcalidrawAPI] = useState<any>(null);
 
   return (
     <div className="w-full h-full excalidraw-container">
       <Excalidraw
         key={currentSceneId || "new-scene"}
-        excalidrawRef={(api) => setExcalidrawAPI(api)}
-        initialData={{
-          elements: currentSceneData?.elements || [],
-          appState: {
-            ...appState,
-            ...currentSceneData?.appState,
-          },
-        }}
+        initialData={currentSceneData ?? undefined}
         onChange={handleOnChange}
         theme={appState.theme as "light" | "dark" | undefined}
         validateEmbeddable

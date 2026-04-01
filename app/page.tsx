@@ -185,7 +185,6 @@ function StatsRow(): JSX.Element {
 
 function FocusTrendChart(): JSX.Element {
   const { focusSessions, loadingFocusSessions } = useFocus();
-  const { theme } = useTheme();
 
   const data = useMemo(() => {
     return Array.from({ length: 30 }, (_, i) => {

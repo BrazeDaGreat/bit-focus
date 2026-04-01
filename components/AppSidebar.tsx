@@ -33,7 +33,6 @@ import {
   FaPaintbrush,
   FaReadme,
   FaWater,
-  FaPalette,
   FaUser,
 } from "react-icons/fa6";
 import { IoColorPalette } from "react-icons/io5";
@@ -48,6 +47,7 @@ import { VERSION } from "@/app/changelog/CHANGELOG";
 import { usePomo } from "@/hooks/PomoContext";
 import { useProjects } from "@/hooks/useProjects";
 import { cn } from "@/lib/utils";
+import dayjs from "dayjs";
 
 const items = [
   { title: "Home", url: "/", icon: <FaHome /> },
@@ -119,13 +119,10 @@ export function AppSidebar(): JSX.Element {
   return (
     <Sidebar>
       {/* ── Header: Brand ── */}
-      <SidebarHeader className="h-14 flex flex-row items-center px-4 border-b py-0 gap-0">
-        <div className="flex items-center gap-2.5">
-          <div className="size-6 rounded bg-primary flex items-center justify-center text-primary-foreground text-xs font-bold select-none">
-            B
-          </div>
-          <span className="text-sm font-semibold tracking-tight">BIT Focus</span>
-        </div>
+      <SidebarHeader className="h-14 flex flex-row items-center border-b py-0 gap-0">
+        <UserConfigButton
+          loadingConfig={loadingConfig}
+        />
       </SidebarHeader>
 
       {/* ── Navigation ── */}
@@ -166,11 +163,8 @@ export function AppSidebar(): JSX.Element {
         <div className="flex items-center justify-between px-3 py-2 border-t">
           <div className="flex items-center gap-1">
             <ThemeIconButton />
-            <UserConfigButton
-              loadingConfig={loadingConfig}
-            />
           </div>
-          <span className="text-xs text-muted-foreground/50 select-none">
+          <span className="text-xs text-muted-foreground/50 select-none py-1.5">
             {VERSION}
           </span>
         </div>
@@ -196,16 +190,29 @@ const THEMES = [
 
 function ThemeIconButton(): JSX.Element {
   const { setTheme, theme } = useTheme();
+  const [ currentTheme, setCurrentTheme ] = useState<typeof THEMES[0] | null>(null);
+
+  useEffect(() => {
+    const foundTheme = THEMES.find((t) => t.value === theme);
+    setCurrentTheme(foundTheme || THEMES[0]);
+  }, [theme, setTheme]);
+
+  if (!currentTheme) {
+    return (
+      <Skeleton className="size-8 rounded-md" />
+    );
+  }
+
   return (
     <Popover>
       <PopoverTrigger asChild>
         <Button
-          variant="ghost"
+          variant="secondary"
           size="icon"
           className="size-8"
           title="Change theme"
         >
-          <FaPalette className="size-3.5" />
+          { currentTheme.icon }
         </Button>
       </PopoverTrigger>
       <PopoverContent
@@ -235,25 +242,41 @@ function ThemeIconButton(): JSX.Element {
   );
 }
 
+const calculateAge = (dob: Date) => {
+    const today = dayjs();
+    const birthDate = dayjs(dob);
+  
+    const years = today.diff(birthDate, 'year');
+    const months = today.diff(birthDate.add(years, 'year'), 'month');
+    const days = today.diff(birthDate.add(years, 'year').add(months, 'month'), 'day');
+    return { years, months, days}
+};
+
 // ── User config button (avatar icon → opens EditConfig popover) ──
 
 function UserConfigButton({ loadingConfig }: { loadingConfig: boolean }): JSX.Element {
+  const { name, dob } = useConfig();
   const [open, setOpen] = useState(false);
 
+  const { years, months, days } = calculateAge(new Date(dob || new Date()));
+
   if (loadingConfig) {
-    return <Skeleton className="size-8 rounded-md" />;
+    return <Skeleton className="w-full h-11 rounded-md" />;
   }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
-          variant="ghost"
-          size="icon"
-          className="size-8"
-          title="User settings"
+          variant={"ghost"}
+          className="w-full flex justify-start h-11"
         >
-          <FaUser className="size-3.5" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {name ? <img src={`https://api.dicebear.com/9.x/shapes/svg?seed=${name}`} alt="avatar" className="w-8 h-8 rounded-full shadow-md" /> : <FaUser className="size-3.5" />}
+        <div className="flex flex-col items-start">
+          { name ? <span className="ml-2">{name}</span> : <span className="ml-2 text-muted-foreground">Set your name</span> }
+          { dob ? <span className="ml-2 text-xs text-muted-foreground">{years}y {months}m {days}d</span> : <span className="ml-2 text-xs text-muted-foreground">Set your DOB</span> }
+        </div>
         </Button>
       </PopoverTrigger>
       <PopoverContent side="top" align="start" className="w-72 p-0">
