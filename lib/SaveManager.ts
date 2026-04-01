@@ -40,7 +40,7 @@
  * @updated v0.9.7-alpha
  */
 
-import db, { QuickLink } from "./db";
+import db, { type ExcalidrawSceneData, QuickLink } from "./db";
 
 /**
  * Enhanced Exported Data Structure Interface
@@ -129,6 +129,15 @@ type ExportedData = {
       title: string;
       percentage: number;
       active: boolean;
+      createdAt: string;
+      updatedAt: string;
+    }[];
+    /** Excalidraw scene records */
+    excalidraw: {
+      id?: number | string;
+      title: string;
+      sceneData: ExcalidrawSceneData | string;
+      thumbnail?: string;
       createdAt: string;
       updatedAt: string;
     }[];
@@ -226,6 +235,12 @@ class SaveManager {
           ...d,
           createdAt: d.createdAt.toISOString(),
           updatedAt: d.updatedAt.toISOString(),
+        })),
+        // Serialize excalidraw scenes with date conversion
+        excalidraw: (await db.excalidraw.toArray()).map((e) => ({
+          ...e,
+          createdAt: e.createdAt.toISOString(),
+          updatedAt: e.updatedAt.toISOString(),
         })),
       },
     };
@@ -331,6 +346,27 @@ class SaveManager {
       updatedAt: new Date(i.updatedAt),
     }));
 
+    // Deserialize rewards with date conversion
+    const rewards = (data.indexedDB.rewards || []).map((r) => ({
+      ...r,
+      createdAt: new Date(r.createdAt),
+      updatedAt: new Date(r.updatedAt),
+    }));
+
+    // Deserialize discounts with date conversion
+    const discounts = (data.indexedDB.discounts || []).map((d) => ({
+      ...d,
+      createdAt: new Date(d.createdAt),
+      updatedAt: new Date(d.updatedAt),
+    }));
+
+    // Deserialize excalidraw scenes with date conversion
+    const excalidraw = (data.indexedDB.excalidraw || []).map((e) => ({
+      ...e,
+      createdAt: new Date(e.createdAt),
+      updatedAt: new Date(e.updatedAt),
+    }));
+
     // Atomic database import operation including all tables
     await db.transaction(
       "rw",
@@ -341,6 +377,9 @@ class SaveManager {
         db.projects,
         db.milestones,
         db.issues,
+        db.rewards,
+        db.discounts,
+        db.excalidraw,
       ],
       async () => {
         // Clear existing data from all tables
@@ -350,6 +389,9 @@ class SaveManager {
         await db.projects.clear();
         await db.milestones.clear();
         await db.issues.clear();
+        await db.rewards.clear();
+        await db.discounts.clear();
+        await db.excalidraw.clear();
 
         // Import new data with project management support
         await db.configuration.bulkAdd(configuration);
@@ -366,7 +408,16 @@ class SaveManager {
         if (issues.length > 0) {
           await db.issues.bulkAdd(issues);
         }
-      }
+        if (rewards.length > 0) {
+          await db.rewards.bulkAdd(rewards);
+        }
+        if (discounts.length > 0) {
+          await db.discounts.bulkAdd(discounts);
+        }
+        if (excalidraw.length > 0) {
+          await db.excalidraw.bulkAdd(excalidraw);
+        }
+      },
     );
 
     // Restore localStorage contents
@@ -428,6 +479,11 @@ class SaveManager {
           ...d,
           createdAt: d.createdAt.toISOString(),
           updatedAt: d.updatedAt.toISOString(),
+        })),
+        excalidraw: (await db.excalidraw.toArray()).map((e) => ({
+          ...e,
+          createdAt: e.createdAt.toISOString(),
+          updatedAt: e.updatedAt.toISOString(),
         })),
       },
     };
@@ -494,11 +550,17 @@ class SaveManager {
       createdAt: new Date(r.createdAt),
       updatedAt: new Date(r.updatedAt),
     }));
-  
+
     const discounts = (data.indexedDB.discounts || []).map((d) => ({
       ...d,
       createdAt: new Date(d.createdAt),
       updatedAt: new Date(d.updatedAt),
+    }));
+
+    const excalidraw = (data.indexedDB.excalidraw || []).map((e) => ({
+      ...e,
+      createdAt: new Date(e.createdAt),
+      updatedAt: new Date(e.updatedAt),
     }));
 
     await db.transaction(
@@ -512,6 +574,7 @@ class SaveManager {
         db.issues,
         db.rewards,
         db.discounts,
+        db.excalidraw,
       ],
       async () => {
         await db.configuration.clear();
@@ -522,6 +585,7 @@ class SaveManager {
         await db.issues.clear();
         await db.rewards.clear();
         await db.discounts.clear();
+        await db.excalidraw.clear();
 
         await db.configuration.bulkAdd(configuration);
         await db.focus.bulkAdd(focus);
@@ -542,7 +606,10 @@ class SaveManager {
         if (discounts.length > 0) {
           await db.discounts.bulkAdd(discounts);
         }
-      }
+        if (excalidraw.length > 0) {
+          await db.excalidraw.bulkAdd(excalidraw);
+        }
+      },
     );
 
     localStorage.clear();

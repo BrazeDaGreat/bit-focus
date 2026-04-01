@@ -1,6 +1,23 @@
-export const VERSION = "v0.15.5";
+export const VERSION = "v0.16.0 (LTS)";
 
 const CHANGELOG = `
+## \`v0.16.0 (LTS)\` (2026-04-01) — Excalidraw & UI Redesign
+- Added a new Excalidraw tab.
+- Added Excalidraw data in SaveManager.
+- Added Saved Drawings section in Excalidraw tab, with the ability to save/load drawings.
+- Redesigned App Sidebar.
+- Redesigned Top Bar.
+- Redesigned Home Page.
+- Redesigned Focus Page.
+- Redesigned Rewards Page.
+- Improved Sidebar layout.
+- Improved Rewards Page layout.
+- Fixed Focus Trend chart to use theme-aware colors (\`var(--chart-1)\`) instead of hardcoded black.
+- Fixed chart tooltip styling to display correctly across all themes.
+- Resolved Excalidraw save/load issues.
+- Fixed build errors.
+***
+
 ## \`v0.15.0-beta\` (2026-02-01)
 - Fix: "Edit Focus Session" now respects start time.
 - Add: Calendar Page, this showcases a rough estimate of where you spent your time, in a calendar view.

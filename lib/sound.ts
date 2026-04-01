@@ -10,6 +10,14 @@
  */
 
 let audioContext: AudioContext | null = null;
+let soundEndTimeoutId: number | null = null;
+
+const CHIME_FREQUENCIES = [880, 1108.73, 1318.51] as const;
+const CHIME_REPETITIONS = 2;
+const CHIME_GAP_SECONDS = 0.45;
+const NOTE_STAGGER_SECONDS = 0.1;
+const NOTE_DURATION_SECONDS = 0.3;
+const PEAK_GAIN = 0.35;
 
 /**
  * Custom event names for notification sound lifecycle
@@ -35,13 +43,11 @@ function getAudioContext(): AudioContext {
  * Based on: repetitions * gapBetweenChimes + last note duration
  */
 function calculateSoundDuration(): number {
-  const repetitions = 6;
-  const gapBetweenChimes = 0.5;
-  const lastNoteOffset = 2 * 0.12; // 3rd note (index 2) offset
-  const noteDuration = 0.5;
-  
-  // Total duration = (repetitions - 1) * gap + last note start offset + note duration
-  const totalSeconds = (repetitions - 1) * gapBetweenChimes + lastNoteOffset + noteDuration;
+  const lastNoteOffset = (CHIME_FREQUENCIES.length - 1) * NOTE_STAGGER_SECONDS;
+  const totalSeconds =
+    (CHIME_REPETITIONS - 1) * CHIME_GAP_SECONDS +
+    lastNoteOffset +
+    NOTE_DURATION_SECONDS;
   return Math.ceil(totalSeconds * 1000); // Convert to ms and round up
 }
 
@@ -67,10 +73,11 @@ export function playNotificationSound(): void {
     // Dispatch start event
     window.dispatchEvent(new CustomEvent(SOUND_EVENTS.START));
 
-    // Bell-like frequencies for a classic timer sound
-    const bellFrequencies = [880, 1108.73, 1318.51]; // A5, C#6, E6 (A major, higher pitch for attention)
-    const repetitions = 6; // Play the chime 6 times
-    const gapBetweenChimes = 0.5; // Gap between each chime repetition
+    // Lightweight chime sequence to avoid UI lag on lower-powered devices.
+    // Still uses a major triad to keep the notification recognizable.
+    const bellFrequencies = CHIME_FREQUENCIES;
+    const repetitions = CHIME_REPETITIONS;
+    const gapBetweenChimes = CHIME_GAP_SECONDS;
 
     for (let rep = 0; rep < repetitions; rep++) {
       const repOffset = rep * gapBetweenChimes;
@@ -87,44 +94,28 @@ export function playNotificationSound(): void {
         oscillator.frequency.setValueAtTime(freq, now);
 
         // Stagger the notes for an arpeggio effect
-        const startTime = now + repOffset + index * 0.12;
-        const duration = 0.5;
+        const startTime = now + repOffset + index * NOTE_STAGGER_SECONDS;
+        const duration = NOTE_DURATION_SECONDS;
 
-        // Higher gain for better audibility
+        // Keep a short envelope to reduce synthesis workload.
         gainNode.gain.setValueAtTime(0, startTime);
-        gainNode.gain.linearRampToValueAtTime(0.5, startTime + 0.01);
-        gainNode.gain.setValueAtTime(0.5, startTime + 0.05);
+        gainNode.gain.linearRampToValueAtTime(PEAK_GAIN, startTime + 0.01);
+        gainNode.gain.setValueAtTime(PEAK_GAIN, startTime + 0.05);
         gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
 
         oscillator.start(startTime);
         oscillator.stop(startTime + duration);
       });
-
-      // Add a low undertone for richness on each repetition
-      const bassOscillator = ctx.createOscillator();
-      const bassGain = ctx.createGain();
-
-      bassOscillator.connect(bassGain);
-      bassGain.connect(ctx.destination);
-
-      bassOscillator.type = "sine";
-      bassOscillator.frequency.setValueAtTime(220, now); // A3 bass note
-
-      const bassStart = now + repOffset;
-      const bassDuration = 0.4;
-
-      bassGain.gain.setValueAtTime(0, bassStart);
-      bassGain.gain.linearRampToValueAtTime(0.3, bassStart + 0.02);
-      bassGain.gain.exponentialRampToValueAtTime(0.01, bassStart + bassDuration);
-
-      bassOscillator.start(bassStart);
-      bassOscillator.stop(bassStart + bassDuration);
     }
 
     // Dispatch end event after sound completes
     const soundDuration = calculateSoundDuration();
-    setTimeout(() => {
+    if (soundEndTimeoutId !== null) {
+      window.clearTimeout(soundEndTimeoutId);
+    }
+    soundEndTimeoutId = window.setTimeout(() => {
       window.dispatchEvent(new CustomEvent(SOUND_EVENTS.END));
+      soundEndTimeoutId = null;
     }, soundDuration);
 
   } catch (error) {
