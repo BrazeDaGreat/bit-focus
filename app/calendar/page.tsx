@@ -326,7 +326,7 @@ export default function CalendarPage(): JSX.Element {
   );
 
   return (
-    <div className="flex-1 flex flex-col px-6 py-6 max-w-screen-xl mx-auto w-full">
+    <div className="flex flex-col px-6 py-6 max-w-screen-xl mx-auto w-full">
       {/* ── Header Bar ───────────────────────────────────────────────── */}
       <div className="flex items-center justify-between py-2 mb-4 border-b pb-4 gap-3 flex-wrap">
         {/* Left: date navigation */}
@@ -396,10 +396,10 @@ export default function CalendarPage(): JSX.Element {
       </div>
 
       {/* ── Body ──────────────────────────────────────────────────────── */}
-      <div className="flex gap-0 flex-1 min-h-0">
+      <div className="flex gap-0">
         {/* Filter panel — desktop only */}
         {!isMobile && (
-          <div className="w-48 shrink-0 border-r pr-5 mr-5">
+          <div className="w-48 shrink-0 border-r pr-5 mr-5 sticky top-6 self-start">
             <FilterPanelContent />
           </div>
         )}
@@ -407,10 +407,10 @@ export default function CalendarPage(): JSX.Element {
         {/* Calendar */}
         <div
           className={cn(
-            "calendar-container flex-1 min-h-0",
+            "calendar-container flex-1",
             isDark && "calendar-dark"
           )}
-          style={{ height: "calc(100vh - 240px)", minHeight: 480 }}
+          style={{ height: 2000 }}
         >
           {loadingFocusSessions ? (
             <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
@@ -429,11 +429,9 @@ export default function CalendarPage(): JSX.Element {
               onSelectEvent={handleSelectEvent}
               eventPropGetter={eventStyleGetter}
               dayLayoutAlgorithm="no-overlap"
-              step={30}
+              step={15}
               timeslots={4}
-              min={new Date(1970, 1, 1, 0, 0, 0)}
-              max={new Date(1970, 1, 1, 23, 59, 59)}
-              tooltipAccessor={(event) =>
+tooltipAccessor={(event) =>
                 `${event.tag}\n${format(event.start, "h:mm a")} – ${format(event.end, "h:mm a")}`
               }
               components={{ toolbar: () => null }}
@@ -485,16 +483,21 @@ export default function CalendarPage(): JSX.Element {
           border-bottom: 1px solid hsl(var(--border));
         }
 
+        /* ── No internal scroll — page scroll handles it ── */
+        .calendar-container .rbc-time-content {
+          overflow-y: hidden !important;
+        }
+
         /* ── Grid lines ── */
         .calendar-container .rbc-timeslot-group {
           border-bottom: 1px solid hsl(var(--border) / 0.6);
-          min-height: 60px;
+          min-height: 40px;
         }
         .calendar-container .rbc-time-slot {
-          border-top: 1px solid hsl(var(--border) / 0.15);
+          border-top: 1px solid hsl(var(--border) / 0.12);
         }
         .calendar-container .rbc-day-slot .rbc-time-slot {
-          border-top: 1px solid hsl(var(--border) / 0.15);
+          border-top: 1px solid hsl(var(--border) / 0.12);
         }
         .calendar-container .rbc-time-content {
           border-top: 1px solid hsl(var(--border));
@@ -530,8 +533,20 @@ export default function CalendarPage(): JSX.Element {
 
         /* ── Current time indicator ── */
         .calendar-container .rbc-current-time-indicator {
-          background-color: hsl(var(--primary));
+          background-color: #ef4444;
           height: 2px;
+          z-index: 10;
+          position: relative;
+        }
+        .calendar-container .rbc-current-time-indicator::before {
+          content: '';
+          position: absolute;
+          left: -5px;
+          top: -4px;
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          background-color: #ef4444;
         }
 
         /* ── Events ── */

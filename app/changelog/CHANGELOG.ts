@@ -1,4 +1,4 @@
-export const VERSION = "v0.16.0 (LTS)";
+export const VERSION = "v0.16.2 (LTS)";
 
 const CHANGELOG = `
 ## \`v0.16.0 (LTS)\` (2026-04-01) — Excalidraw & UI Redesign
@@ -16,13 +16,16 @@ const CHANGELOG = `
 - Fixed chart tooltip styling to display correctly across all themes.
 - Resolved Excalidraw save/load issues.
 - Fixed build errors.
-
 ### \`v0.16.1\` (2026-04-22)
 - Redesigned Projects page.
 - Redesigned Project Details page.
 - Add "Caveman" mode local skill.
 - Fix: PIP Contents are buggy.
 - Removed DESIGN_UPDATE_PLAN.md file.
+### \`v0.16.2 (LTS)\` (2026-04-22)
+- Fix Pomodoro Settings popup.
+- Fix Calendar scroll.
+- Fix red line in Calendar.
 ***
 
 ## \`v0.15.0-beta\` (2026-02-01)
