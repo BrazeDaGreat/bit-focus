@@ -16,6 +16,13 @@ const CHANGELOG = `
 - Fixed chart tooltip styling to display correctly across all themes.
 - Resolved Excalidraw save/load issues.
 - Fixed build errors.
+
+### \`v0.16.1\` (2026-04-22)
+- Redesigned Projects page.
+- Redesigned Project Details page.
+- Add "Caveman" mode local skill.
+- Fix: PIP Contents are buggy.
+- Removed DESIGN_UPDATE_PLAN.md file.
 ***
 
 ## \`v0.15.0-beta\` (2026-02-01)

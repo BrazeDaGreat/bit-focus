@@ -3,25 +3,16 @@ import { PipFunctionProps, usePipSpace } from "@/hooks/usePip";
 import { formatTimeNew } from "@/lib/utils";
 import { FaPause, FaPlay, FaCoffee } from "react-icons/fa";
 import { GiTomato } from "react-icons/gi";
-// import { useEffect, useState } from "react";
-
-// const FETCH_RATE = 1; // Fetch Rate in seconds
 
 export interface PipTimer {
-  /** Current timer value in seconds */
   time: number;
-  /** Whether timer is currently running */
   running: boolean;
-  /** Current timer mode */
   mode: "standard" | "pomodoro";
-  /** Current Pomodoro phase (if applicable) */
   phase: "focus" | "break";
-  /** Pomodoro configuration settings */
   pomodoroSettings: {
     focusDuration: number;
     breakDuration: number;
   };
-  /** Control increment flags for communication */
   inc: {
     pause: number;
     resume: number;
@@ -30,149 +21,199 @@ export interface PipTimer {
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export default function PipTimer(props: PipFunctionProps) {
-  // Sync with enhanced timer state
   const { data, update } = usePipSpace("piptimer", {
     time: 0,
     running: false,
     mode: "standard" as "standard" | "pomodoro",
     phase: "focus" as "focus" | "break",
-    pomodoroSettings: {
-      focusDuration: 25,
-      breakDuration: 5,
-    },
-    inc: {
-      pause: 0,
-      resume: 0,
-    },
+    pomodoroSettings: { focusDuration: 25, breakDuration: 5 },
+    inc: { pause: 0, resume: 0 },
   });
 
-  // Determine display styling based on mode and phase
   const isPomodoro = data.mode === "pomodoro";
   const isBreak = isPomodoro && data.phase === "break";
-  
-  // Phase-specific styling
-  const phaseColor = isBreak ? "#f59e0b" : "#ef4444"; // amber-500 : red-500
-  const phaseIcon = isBreak ? <FaCoffee /> : <GiTomato />;
-  const phaseText = isBreak ? "Break" : "Focus";
 
-  /**
-   * Handle pause action
-   * Sends pause command to main timer through shared state
-   */
-  const handlePause = () => {
-    update({ inc: { pause: 1, resume: 0 } });
+  const accentColor = isBreak ? "#f59e0b" : "#f87171";
+  const accentGlow  = isBreak ? "rgba(245,158,11,0.25)" : "rgba(248,113,113,0.25)";
+  const accentDim   = isBreak ? "rgba(245,158,11,0.12)" : "rgba(248,113,113,0.12)";
+  const accentBorder = isBreak ? "rgba(245,158,11,0.35)" : "rgba(248,113,113,0.35)";
+
+  const getDisplayTime = () => {
+    if (data.mode === "pomodoro") {
+      const total = data.phase === "focus"
+        ? data.pomodoroSettings.focusDuration * 60
+        : data.pomodoroSettings.breakDuration * 60;
+      const remaining = Math.max(0, total - data.time);
+      return { minutes: Math.floor(remaining / 60), seconds: remaining % 60 };
+    }
+    return { minutes: Math.floor(data.time / 60), seconds: data.time % 60 };
   };
 
-  /**
-   * Handle resume action  
-   * Sends resume command to main timer through shared state
-   */
-  const handleResume = () => {
-    update({ inc: { pause: 0, resume: 1 } });
+  const getProgress = () => {
+    if (!isPomodoro) return 0;
+    const total = data.phase === "focus"
+      ? data.pomodoroSettings.focusDuration * 60
+      : data.pomodoroSettings.breakDuration * 60;
+    return Math.min(1, data.time / total);
   };
+
+  const displayTime = getDisplayTime();
+  const progress = getProgress();
+
+  const handlePause  = () => update({ inc: { pause: 1, resume: 0 } });
+  const handleResume = () => update({ inc: { pause: 0, resume: 1 } });
 
   return (
-    <div style={{ 
-      display: "flex", 
-      flexDirection: "column", 
-      alignItems: "center", 
-      justifyContent: "center",
+    <div style={{
+      width: "100vw",
       height: "100vh",
-      gap: "0.25rem",
-      padding: "0.5rem"
+      background: "linear-gradient(160deg, #0c0c0e 0%, #111115 100%)",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: isPomodoro ? "7px" : "10px",
+      position: "relative",
+      overflow: "hidden",
+      fontFamily: "'JetBrains Mono', monospace",
     }}>
-      {/* Mode and Phase Indicator */}
+      {/* Ambient glow */}
+      <div style={{
+        position: "absolute",
+        width: "160px",
+        height: "160px",
+        borderRadius: "50%",
+        background: `radial-gradient(circle, ${accentGlow} 0%, transparent 70%)`,
+        top: "50%",
+        left: "50%",
+        transform: "translate(-50%, -50%)",
+        pointerEvents: "none",
+      }} />
+
+      {/* Subtle grid overlay */}
+      <div style={{
+        position: "absolute",
+        inset: 0,
+        backgroundImage: `
+          linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px)
+        `,
+        backgroundSize: "16px 16px",
+        pointerEvents: "none",
+      }} />
+
+      {/* Phase badge — pomodoro only */}
       {isPomodoro && (
         <div style={{
           display: "flex",
           alignItems: "center",
-          gap: "0.35rem",
-          fontSize: "0.75rem",
-          color: phaseColor,
-          fontWeight: "600",
-          marginBottom: "0.1rem"
+          gap: "4px",
+          padding: "2px 9px 2px 7px",
+          borderRadius: "999px",
+          backgroundColor: accentDim,
+          border: `1px solid ${accentBorder}`,
+          fontSize: "9px",
+          fontWeight: "700",
+          color: accentColor,
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+          position: "relative",
+          zIndex: 1,
         }}>
-          {phaseIcon}
-          <span>{phaseText}</span>
+          {isBreak
+            ? <FaCoffee style={{ fontSize: "8px", flexShrink: 0 }} />
+            : <GiTomato style={{ fontSize: "9px", flexShrink: 0 }} />
+          }
+          {isBreak ? "Break" : "Focus"}
         </div>
       )}
 
-      {/* Main Timer Display */}
-      <h1 style={{
-        fontSize: "2rem",
+      {/* Time display */}
+      <div style={{
+        fontSize: isPomodoro ? "2.1rem" : "2.6rem",
         fontWeight: "800",
-        color: isBreak ? "#f59e0b" : "#ffffff",
-        margin: 0,
-        textAlign: "center",
-        fontFamily: "JetBrains Mono, monospace",
-        lineHeight: "1"
+        color: "#f1f1f3",
+        letterSpacing: "-0.04em",
+        lineHeight: 1,
+        position: "relative",
+        zIndex: 1,
+        textShadow: `0 0 24px ${accentGlow}`,
       }}>
-        {formatTimeNew(
-          { 
-            minutes: data.mode === "pomodoro" && data.phase === "focus"
-              ? Math.floor(Math.max(0, (data.pomodoroSettings.focusDuration * 60) - data.time) / 60)
-              : data.mode === "pomodoro" && data.phase === "break"
-                ? Math.floor(Math.max(0, (data.pomodoroSettings.breakDuration * 60) - data.time) / 60)
-                : Math.floor(data.time / 60),
-            seconds: data.mode === "pomodoro" && data.phase === "focus"
-              ? Math.max(0, (data.pomodoroSettings.focusDuration * 60) - data.time) % 60
-              : data.mode === "pomodoro" && data.phase === "break"
-                ? Math.max(0, (data.pomodoroSettings.breakDuration * 60) - data.time) % 60
-                : data.time % 60
-          },
-          "M:S",
-          "digital"
-        )}
-      </h1>
-
-      {/* Control Buttons */}
-      <div style={{ 
-        display: "flex", 
-        gap: "0.5rem",
-        marginTop: "0.5rem"
-      }}>
-        {data.running ? (
-          <button 
-            className="button primary" 
-            onClick={handlePause}
-            style={{
-              backgroundColor: isBreak ? "#f59e0b" : "#ef4444",
-              color: "white",
-              border: "none",
-              borderRadius: "0.375rem",
-              padding: "0.5rem 1rem",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "0.875rem",
-              transition: "all 0.2s ease"
-            }}
-          >
-            <FaPause />
-          </button>
-        ) : (
-          <button 
-            className="button primary" 
-            onClick={handleResume}
-            style={{
-              backgroundColor: isBreak ? "#f59e0b" : "#ef4444",
-              color: "white",
-              border: "none",
-              borderRadius: "0.375rem",
-              padding: "0.5rem 1rem",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "0.875rem",
-              transition: "all 0.2s ease"
-            }}
-          >
-            <FaPlay />
-          </button>
-        )}
+        {formatTimeNew(displayTime, "M:S", "digital")}
       </div>
+
+      {/* Progress bar — pomodoro only */}
+      {isPomodoro && (
+        <div style={{
+          width: "88px",
+          height: "2px",
+          backgroundColor: "rgba(255,255,255,0.07)",
+          borderRadius: "2px",
+          overflow: "hidden",
+          position: "relative",
+          zIndex: 1,
+        }}>
+          <div style={{
+            height: "100%",
+            width: `${progress * 100}%`,
+            background: `linear-gradient(90deg, ${accentColor}99, ${accentColor})`,
+            borderRadius: "2px",
+            boxShadow: `0 0 6px ${accentColor}`,
+            transition: "width 1s linear",
+          }} />
+        </div>
+      )}
+
+      {/* Control button */}
+      <button
+        onClick={data.running ? handlePause : handleResume}
+        style={{
+          width: "34px",
+          height: "34px",
+          borderRadius: "50%",
+          border: `1.5px solid ${accentBorder}`,
+          backgroundColor: accentDim,
+          color: accentColor,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+          fontSize: "11px",
+          boxShadow: `0 0 14px ${accentGlow}, inset 0 1px 0 rgba(255,255,255,0.08)`,
+          transition: "transform 0.15s ease, box-shadow 0.15s ease",
+          outline: "none",
+          position: "relative",
+          zIndex: 1,
+        }}
+        onMouseEnter={e => {
+          (e.currentTarget as HTMLButtonElement).style.transform = "scale(1.1)";
+          (e.currentTarget as HTMLButtonElement).style.boxShadow = `0 0 20px ${accentGlow}, inset 0 1px 0 rgba(255,255,255,0.12)`;
+        }}
+        onMouseLeave={e => {
+          (e.currentTarget as HTMLButtonElement).style.transform = "scale(1)";
+          (e.currentTarget as HTMLButtonElement).style.boxShadow = `0 0 14px ${accentGlow}, inset 0 1px 0 rgba(255,255,255,0.08)`;
+        }}
+      >
+        {data.running
+          ? <FaPause style={{ fontSize: "9px" }} />
+          : <FaPlay  style={{ fontSize: "9px", marginLeft: "1px" }} />
+        }
+      </button>
+
+      {/* Mode label — standard only, subtle */}
+      {!isPomodoro && (
+        <div style={{
+          fontSize: "8px",
+          color: "rgba(255,255,255,0.25)",
+          letterSpacing: "0.12em",
+          textTransform: "uppercase",
+          fontWeight: "600",
+          position: "relative",
+          zIndex: 1,
+        }}>
+          Standard
+        </div>
+      )}
     </div>
   );
 }

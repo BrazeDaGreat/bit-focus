@@ -1,31 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-/**
- * Projects Page - Main Project Management Interface
- *
- * This page provides the main interface for project management including
- * project listing, creation, and overview statistics. It serves as the
- * entry point for the comprehensive project management system.
- *
- * Features:
- * - Project listing with status indicators and progress
- * - Quick project creation interface
- * - Project statistics and overview cards
- * - Navigation to individual project details with prefetching
- * - Responsive grid layout for project cards
- * - Real-time progress calculations
- *
- * Dependencies:
- * - Project management hook for data operations
- * - UI components for consistent styling
- * - Navigation system for project details
- * - Theme-aware toast notifications
- *
- * @fileoverview Main project management page interface with optimized navigation
- * @author BIT Focus Development Team
- * @since v0.9.0-alpha
- */
-
 "use client";
 
 import { useEffect, useState, type JSX } from "react";
@@ -33,17 +7,9 @@ import Link from "next/link";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
-import { FaPlus, FaClock, FaProjectDiagram } from "react-icons/fa";
-import { VscSourceControl } from "react-icons/vsc";
+import { FaPlus, FaProjectDiagram } from "react-icons/fa";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -64,106 +30,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { useProjects, type Project } from "@/hooks/useProjects";
-import { useConfig } from "@/hooks/useConfig";
-import StatusBadge from "./StatusBadge";
-import { cn, formatNumber, getCurrencySymbol, setClipboard } from "@/lib/utils";
+import { useProjects, type Project, type ProjectWithStats } from "@/hooks/useProjects";
+import { cn, formatNumber, setClipboard } from "@/lib/utils";
 import { FaClipboard } from "react-icons/fa6";
-import { useIsMobile } from "@/hooks/useIsMobile";
 import getIconFromLink from "@/lib/getIconFromLink";
 
-/**
- * Project Card Component with Optimized Navigation
- *
- * Renders an individual project card with statistics, progress, and instant navigation.
- * Uses Next.js Link component for route prefetching and optimized transitions.
- *
- * @param {Object} props - Component props
- * @param {ProjectWithStats} props.project - Project data with statistics
- * @returns {JSX.Element} Project card component with prefetch navigation
- */
-function ProjectCard({ project }: { project: any }): JSX.Element {
-  const { currency } = useConfig();
-
-  return (
-    <Link href={`/projects/${project.id}`} prefetch={true} className="block">
-      <Card className="cursor-pointer hover:shadow-md transition-shadow h-full">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">{project.title}</CardTitle>
-            <StatusBadge status={project.status} />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {/* Statistics */}
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <VscSourceControl className="text-muted-foreground" />
-                <span>v{project.version}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                {getCurrencySymbol(currency)}
-                <span>{formatNumber(project.totalBudget)}</span>
-              </div>
-            </div>
-
-            {/* Quick Links */}
-            <div className="py-2">
-              {project.quickLinks?.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {project.quickLinks.slice(0, 4).map((link: any) => (
-                    <Button
-                      key={link.id}
-                      variant="secondary"
-                      size="icon"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        window.open(link.url, "_blank");
-                      }}
-                      title={link.title}
-                    >
-                      { getIconFromLink(link.url) }
-                    </Button>
-                  ))}
-                </div>
-              ) : (
-                // Dummy, same size as buttons for layout consistency
-                <div className="flex flex-wrap gap-2 opacity-0">
-                  <Button
-                      variant="secondary"
-                      size="icon"
-                      onClick={(e) => {
-                        e.preventDefault();
-                      }}
-                    >
-                      -
-                    </Button>
-                </div>
-              )}
-            </div>
-
-            {/* Creation Date */}
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <FaClock />
-              <span>
-                Created {new Date(project.createdAt).toLocaleDateString()}
-              </span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </Link>
-  );
-}
-
-/**
- * Create Project Dialog Component
- *
- * Provides a modal interface for creating new projects with form validation.
- *
- * @returns {JSX.Element} Project creation dialog
- */
 function CreateProjectDialog(): JSX.Element {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -173,30 +44,21 @@ function CreateProjectDialog(): JSX.Element {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { addProject } = useProjects();
 
-  /**
-   * Handles form submission for creating a new project
-   *
-   * @async
-   * @returns {Promise<void>}
-   */
   const handleSubmit = async (): Promise<void> => {
     if (!title.trim()) {
       toast.error("Please enter a project title");
       return;
     }
-
     setIsSubmitting(true);
     try {
       await addProject(title.trim(), status, version.trim(), notes.trim());
-      toast.success("Project created successfully!");
+      toast.success("Project created!");
       setOpen(false);
-      // Reset form
       setTitle("");
       setStatus("Scheduled");
       setNotes("");
       setVersion("1.0.0");
-    } catch (error) {
-      console.error("Failed to create project:", error);
+    } catch {
       toast.error("Failed to create project");
     } finally {
       setIsSubmitting(false);
@@ -206,8 +68,8 @@ function CreateProjectDialog(): JSX.Element {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
-          <FaPlus className="mr-2" />
+        <Button size="sm">
+          <FaPlus className="mr-1.5 h-3 w-3" />
           New Project
         </Button>
       </DialogTrigger>
@@ -269,6 +131,9 @@ function CreateProjectDialog(): JSX.Element {
           </div>
         </div>
         <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={isSubmitting}>
+            Cancel
+          </Button>
           <Button onClick={handleSubmit} disabled={isSubmitting}>
             {isSubmitting ? "Creating..." : "Create Project"}
           </Button>
@@ -278,42 +143,22 @@ function CreateProjectDialog(): JSX.Element {
   );
 }
 
-/**
- * Copy Projects to Text Component
- *
- * Generates and copies a formatted text summary of project earnings
- *
- * @returns {JSX.Element} Copy button component
- */
 function CopyProjectToText(): JSX.Element {
   const { getAllProjectsWithStats } = useProjects();
   const projects = getAllProjectsWithStats();
 
-  /**
-   * Gets emoji indicator based on milestone status
-   *
-   * @param {string} text - Status text
-   * @returns {string} Emoji indicator
-   */
   function getEmojiByStatus(
     text: "Scheduled" | "Active" | "Closed" | "Paid"
   ): string {
-    if (text === "Scheduled") return "";
     if (text === "Active") return "‼️";
     if (text === "Closed") return "❓";
     if (text === "Paid") return "✅";
     return "";
   }
 
-  /**
-   * Handles copying project earnings summary to clipboard
-   *
-   * @async
-   * @returns {Promise<void>}
-   */
   async function handleClick(): Promise<void> {
     const text: string[] = [];
-    let pending: number = 0;
+    let pending = 0;
 
     projects.forEach((project) => {
       text.push(`\n*${project.title}*`);
@@ -321,121 +166,227 @@ function CopyProjectToText(): JSX.Element {
         if (milestone.budget === 0) return;
         if (milestone.status === "Scheduled") return;
         const emoji = getEmojiByStatus(milestone.status);
-        text.push(
-          `- ${milestone.title} - Rs ${formatNumber(milestone.budget)} ${emoji}`
-        );
+        text.push(`- ${milestone.title} - Rs ${formatNumber(milestone.budget)} ${emoji}`);
         if (milestone.status === "Closed") pending += milestone.budget;
       });
     });
 
     text.push(`\n\n*Pending: Rs ${formatNumber(pending)}*`);
-
     const isCopied = await setClipboard(text.join("\n"));
     if (isCopied) toast.success("Copied to clipboard");
-    else toast.error("Failed to copy to clipboard");
+    else toast.error("Failed to copy");
   }
 
   return (
-    <Button onClick={handleClick}>
-      <FaClipboard />
-      <span>Copy Earnings</span>
+    <Button variant="outline" size="sm" onClick={handleClick}>
+      <FaClipboard className="mr-1.5 h-3 w-3" />
+      Copy Earnings
     </Button>
   );
 }
 
-/**
- * Main Projects Page Component
- *
- * Renders the complete projects management interface with overview statistics
- * and project listing capabilities with optimized navigation.
- *
- * @returns {JSX.Element} Complete projects page interface
- */
+function ProjectCard({ project }: { project: ProjectWithStats }): JSX.Element {
+  const completedMilestones = project.milestones.filter(
+    (m) => m.status === "Closed" || m.status === "Paid"
+  ).length;
+  const totalMilestones = project.milestones.length;
+  const progress =
+    totalMilestones > 0
+      ? Math.round((completedMilestones / totalMilestones) * 100)
+      : 0;
+  const openIssues = project.milestones.reduce(
+    (sum, m) => sum + (m.totalIssues - m.completedIssues),
+    0
+  );
+
+  const statusDot: Record<Project["status"], string> = {
+    Active: "bg-emerald-500",
+    Scheduled: "bg-amber-500",
+    Closed: "bg-muted-foreground",
+  };
+  const statusText: Record<Project["status"], string> = {
+    Active: "text-emerald-600 dark:text-emerald-400",
+    Scheduled: "text-amber-600 dark:text-amber-400",
+    Closed: "text-muted-foreground",
+  };
+
+  return (
+    <Link href={`/projects/${project.id}`} prefetch={true} className="block group">
+      <div className="border rounded-xl p-5 hover:shadow-md transition-all cursor-pointer h-full flex flex-col hover:border-foreground/20">
+        {/* Status */}
+        <div className="flex items-center gap-1.5 mb-3">
+          <div className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", statusDot[project.status])} />
+          <span className={cn("text-xs font-semibold uppercase tracking-widest", statusText[project.status])}>
+            {project.status}
+          </span>
+        </div>
+
+        {/* Title + version */}
+        <h3 className="text-lg font-semibold tracking-tight leading-snug">{project.title}</h3>
+        <p className="text-xs font-mono text-muted-foreground mt-0.5 mb-4">v{project.version}</p>
+
+        {/* Progress */}
+        <div className="mb-1.5">
+          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full rounded-full bg-primary transition-all duration-500"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground mb-4">
+          {completedMilestones}/{totalMilestones} milestones complete
+        </p>
+
+        {/* Footer */}
+        <div className="border-t mt-auto pt-4 flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">
+            {openIssues} open {openIssues === 1 ? "issue" : "issues"}
+          </span>
+          {project.quickLinks && project.quickLinks.length > 0 && (
+            <div className="flex gap-1">
+              {project.quickLinks.slice(0, 3).map((link: any) => (
+                <Button
+                  key={link.id}
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    window.open(link.url, "_blank");
+                  }}
+                  title={link.title}
+                >
+                  {getIconFromLink(link.url)}
+                </Button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 export default function ProjectsPage(): JSX.Element {
   const { theme } = useTheme();
   const { getAllProjectsWithStats, loadProjects } = useProjects();
-  const isMobile = useIsMobile();
+  const [activeFilter, setActiveFilter] = useState<Project["status"] | "All">("All");
 
   useEffect(() => {
     loadProjects();
   }, [loadProjects]);
 
-  const projects = getAllProjectsWithStats();
+  const allProjects = getAllProjectsWithStats();
 
-  /**
-   * Renders project category title
-   *
-   * @param {Object} props - Component props
-   * @param {string} props.text - Category title text
-   * @returns {JSX.Element} Category title element
-   */
-  function ProjectCategoryTitle({ text }: { text: string }): JSX.Element {
-    return <h2 className="text-sm text-muted-foreground">{text}</h2>;
-  }
+  const counts: Record<Project["status"], number> = {
+    Active: allProjects.filter((p) => p.status === "Active").length,
+    Scheduled: allProjects.filter((p) => p.status === "Scheduled").length,
+    Closed: allProjects.filter((p) => p.status === "Closed").length,
+  };
+
+  const filtered =
+    activeFilter === "All"
+      ? allProjects
+      : allProjects.filter((p) => p.status === activeFilter);
+
+  const chipDot: Record<Project["status"], string> = {
+    Active: "bg-emerald-500",
+    Scheduled: "bg-amber-500",
+    Closed: "bg-muted-foreground/60",
+  };
 
   return (
-    <div className="flex-1 p-8 space-y-8 container mx-auto">
+    <div className="flex-1 p-6 md:p-8 container mx-auto">
       {/* Header */}
-      <div
-        className={cn(
-          "flex items-center justify-between",
-          isMobile ? "flex-col gap-2" : ""
-        )}
-      >
+      <div className="flex items-start justify-between gap-4 mb-6 pb-6 border-b">
         <div>
-          <h1 className="text-3xl font-bold">Projects</h1>
-          <p className="text-muted-foreground">
-            Manage your projects, milestones, and issues
+          <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Manage milestones and track progress
           </p>
         </div>
 
-        <div className="flex gap-2">
+        {/* Status chips (desktop) */}
+        <div className="hidden md:flex items-center gap-1.5 flex-shrink-0">
+          {(["Active", "Scheduled", "Closed"] as const).map((status) => (
+            <button
+              key={status}
+              onClick={() =>
+                setActiveFilter(activeFilter === status ? "All" : status)
+              }
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors",
+                activeFilter === status
+                  ? "bg-foreground text-background border-foreground"
+                  : "text-muted-foreground border-border hover:text-foreground hover:border-foreground/40"
+              )}
+            >
+              <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", chipDot[status])} />
+              {counts[status]} {status}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Controls bar */}
+      <div className="flex items-center gap-3 mb-6">
+        {/* Status chips (mobile) */}
+        <div className="flex md:hidden items-center gap-1.5 flex-1 overflow-x-auto pb-1">
+          {(["Active", "Scheduled", "Closed"] as const).map((status) => (
+            <button
+              key={status}
+              onClick={() =>
+                setActiveFilter(activeFilter === status ? "All" : status)
+              }
+              className={cn(
+                "flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors",
+                activeFilter === status
+                  ? "bg-foreground text-background border-foreground"
+                  : "text-muted-foreground border-border"
+              )}
+            >
+              {counts[status]} {status}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2 ml-auto">
           <CopyProjectToText />
           <CreateProjectDialog />
         </div>
       </div>
 
-      {/* Projects Grid */}
-      {projects.length === 0 ? (
-        <Card className="p-12 py-36 text-center">
-          <CardDescription>
-            <FaProjectDiagram className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No projects yet</h3>
-            <p className="text-muted-foreground mb-4">
-              Get started by creating your first project
-            </p>
-          </CardDescription>
-        </Card>
+      {/* Content */}
+      {allProjects.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <FaProjectDiagram className="h-10 w-10 text-muted-foreground/30 mb-4" />
+          <h3 className="text-base font-semibold mb-1">No projects yet</h3>
+          <p className="text-sm text-muted-foreground mb-6">
+            Get started by creating your first project
+          </p>
+          <CreateProjectDialog />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <p className="text-sm text-muted-foreground mb-2">
+            No {activeFilter} projects
+          </p>
+          <button
+            onClick={() => setActiveFilter("All")}
+            className="text-xs text-primary hover:underline"
+          >
+            Show all projects
+          </button>
+        </div>
       ) : (
-        <div className="space-y-6">
-          <ProjectCategoryTitle text="Active Projects" />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projects
-              .filter((i) => i.status === "Active")
-              .map((project) => (
-                <ProjectCard key={project.id} project={project} />
-              ))}
-          </div>
-          <ProjectCategoryTitle text="Scheduled Projects" />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projects
-              .filter((i) => i.status === "Scheduled")
-              .map((project) => (
-                <ProjectCard key={project.id} project={project} />
-              ))}
-          </div>
-          <ProjectCategoryTitle text="Closed Projects" />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projects
-              .filter((i) => i.status === "Closed")
-              .map((project) => (
-                <ProjectCard key={project.id} project={project} />
-              ))}
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {filtered.map((project) => (
+            <ProjectCard key={project.id} project={project} />
+          ))}
         </div>
       )}
 
-      {/* Toast Notifications */}
       <Toaster theme={(theme ?? "system") as "system" | "light" | "dark"} />
     </div>
   );

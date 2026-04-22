@@ -1,32 +1,3 @@
-/**
- * Individual Project Page - Comprehensive Project Management Interface
- *
- * This page provides detailed management capabilities for individual projects
- * including project information, milestones, and issues. Features separate
- * dialog for project editing and drawer for notes management.
- *
- * Features:
- * - Project details editing via dialog (title, status, version)
- * - Notes management via right-side drawer with markdown support
- * - Milestone management with progress tracking
- * - Issue management within milestones
- * - Real-time progress calculations
- * - Budget tracking and currency display
- * - Responsive layout with organized sections
- *
- * Dependencies:
- * - Project management hook for data operations
- * - UI components for forms and layouts
- * - Markdown editor for project notes
- * - Theme-aware notifications
- *
- * @fileoverview Individual project management interface with enhanced editing
- * @author BIT Focus Development Team
- * @since v0.9.0-alpha
- * @updated v0.9.4-alpha - Fixed state management and dialog issues
- * @updated v0.10.2-lts - Added quick links support
- */
-
 "use client";
 
 import { useEffect, useState, type JSX } from "react";
@@ -34,31 +5,19 @@ import { useParams, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
-import { GoDotFill } from "react-icons/go";
 import {
-  FaArrowLeft,
   FaEdit,
   FaPlus,
   FaTrash,
-  FaClock,
-  FaDollarSign,
   FaFlag,
-  FaExclamationCircle,
   FaStickyNote,
   FaChevronUp,
   FaChevronDown,
+  FaChevronRight,
+  FaCheck,
 } from "react-icons/fa";
-import { MdSchedule, MdPlayArrow, MdCheck, MdMoney } from "react-icons/md";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
@@ -100,6 +59,7 @@ import {
   type Milestone,
   type Issue,
   type MilestoneWithProgress,
+  type ProjectWithStats,
   ISSUE_LABELS,
   IssueLabel,
 } from "@/hooks/useProjects";
@@ -107,21 +67,20 @@ import { useConfig } from "@/hooks/useConfig";
 import { cn, formatDate, formatNumber, getCurrencySymbol } from "@/lib/utils";
 import StatusBadge from "../StatusBadge";
 import Markdown from "react-markdown";
-import { FaCalendar, FaCheck, FaLink, FaRegCircle, FaRegCircleCheck, FaX } from "react-icons/fa6";
-import { useIsMobile } from "@/hooks/useIsMobile";
+import {
+  FaLink,
+  FaRegCircle,
+  FaRegCircleCheck,
+  FaX,
+  FaEllipsis,
+} from "react-icons/fa6";
 import getIconFromLink from "@/lib/getIconFromLink";
 import Link from "next/link";
 
-/**
- * Project Edit Dialog Component
- *
- * Provides a modal interface for editing project title, status, and version.
- * Separated from notes editing for better UX and focused editing experience.
- *
- * @param {Object} props - Component props
- * @param {Project} props.project - Project data to edit
- * @returns {JSX.Element} Project edit dialog
- */
+// ---------------------------------------------------------------------------
+// Dialog / Drawer Components (functional, kept from original)
+// ---------------------------------------------------------------------------
+
 function ProjectEditDialog({ project }: { project: Project }): JSX.Element {
   const [isOpen, setIsOpen] = useState(false);
   const [title, setTitle] = useState(project.title);
@@ -130,36 +89,23 @@ function ProjectEditDialog({ project }: { project: Project }): JSX.Element {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { updateProject } = useProjects();
 
-  /**
-   * Handles form submission for project updates
-   * Updates title, status, and version only
-   */
   const handleSave = async () => {
     if (!title.trim()) {
       toast.error("Project title is required");
       return;
     }
-
     setIsSubmitting(true);
     try {
-      await updateProject(project.id!, {
-        title: title.trim(),
-        status,
-        version: version.trim(),
-      });
-      toast.success("Project updated successfully!");
+      await updateProject(project.id!, { title: title.trim(), status, version: version.trim() });
+      toast.success("Project updated!");
       setIsOpen(false);
-    } catch (error) {
-      console.error("Failed to update project:", error);
+    } catch {
       toast.error("Failed to update project");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  /**
-   * Resets form to original values when dialog opens
-   */
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (open) {
@@ -173,16 +119,14 @@ function ProjectEditDialog({ project }: { project: Project }): JSX.Element {
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-          <FaEdit className="mr-2" />
+          <FaEdit className="mr-2 h-3 w-3" />
           Edit Project
         </DropdownMenuItem>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Edit Project</DialogTitle>
-          <DialogDescription>
-            Update the project title, status, and version.
-          </DialogDescription>
+          <DialogDescription>Update title, status, and version.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
@@ -217,17 +161,13 @@ function ProjectEditDialog({ project }: { project: Project }): JSX.Element {
                 id="edit-version"
                 value={version}
                 onChange={(e) => setVersion(e.target.value)}
-                placeholder="Project version..."
+                placeholder="Version..."
               />
             </div>
           </div>
         </div>
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => setIsOpen(false)}
-            disabled={isSubmitting}
-          >
+          <Button variant="outline" onClick={() => setIsOpen(false)} disabled={isSubmitting}>
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={isSubmitting}>
@@ -239,16 +179,6 @@ function ProjectEditDialog({ project }: { project: Project }): JSX.Element {
   );
 }
 
-/**
- * Project Notes Drawer Component
- *
- * Provides a right-side drawer for viewing and editing project notes
- * with markdown support and dedicated editing interface.
- *
- * @param {Object} props - Component props
- * @param {Project} props.project - Project data containing notes
- * @returns {JSX.Element} Project notes drawer
- */
 function ProjectNotesDrawer({ project }: { project: Project }): JSX.Element {
   const [isOpen, setIsOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -256,26 +186,19 @@ function ProjectNotesDrawer({ project }: { project: Project }): JSX.Element {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { updateProject } = useProjects();
 
-  /**
-   * Handles saving updated notes
-   */
   const handleSaveNotes = async () => {
     setIsSubmitting(true);
     try {
       await updateProject(project.id!, { notes: notes.trim() });
-      toast.success("Notes updated successfully!");
+      toast.success("Notes updated!");
       setIsEditing(false);
-    } catch (error) {
-      console.error("Failed to update notes:", error);
+    } catch {
       toast.error("Failed to update notes");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  /**
-   * Handles drawer state changes and resets editing mode
-   */
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (open) {
@@ -284,77 +207,49 @@ function ProjectNotesDrawer({ project }: { project: Project }): JSX.Element {
     }
   };
 
-  /**
-   * Cancels editing and reverts to original notes
-   */
-  const handleCancelEdit = () => {
-    setNotes(project.notes);
-    setIsEditing(false);
-  };
-
   return (
     <Sheet open={isOpen} onOpenChange={handleOpenChange}>
       <SheetTrigger asChild>
-        <Button variant="outline" className="gap-2">
-          <FaStickyNote />
-          Project Notes
+        <Button variant="ghost" size="sm" className="gap-1.5">
+          <FaStickyNote className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Notes</span>
           {project.notes && (
-            <Badge variant="secondary" className="ml-1">
-              ●
-            </Badge>
+            <div className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
           )}
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="w-full sm:max-w-lg px-2 py-6">
+      <SheetContent side="right" className="w-full sm:max-w-lg px-4 py-6">
         <SheetHeader>
-          <SheetTitle className="flex items-center justify-between">
+          <SheetTitle className="flex items-center justify-between pr-6">
             <span>Project Notes</span>
             {!isEditing && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsEditing(true)}
-                className="gap-1"
-              >
+              <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} className="gap-1">
                 <FaEdit className="h-3 w-3" />
                 Edit
               </Button>
             )}
           </SheetTitle>
           <SheetDescription>
-            {isEditing
-              ? "Edit your project notes with markdown support."
-              : "View project notes and documentation."}
+            {isEditing ? "Edit notes (Markdown supported)." : "View project notes."}
           </SheetDescription>
         </SheetHeader>
-
         <div className="flex-1 py-6 overflow-y-auto">
           {isEditing ? (
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="notes-textarea">
-                  Notes (Markdown supported)
-                </Label>
-                <Textarea
-                  id="notes-textarea"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Enter your project notes here... You can use markdown formatting."
-                  rows={15}
-                  className="resize-none"
-                />
-              </div>
+              <Textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Enter project notes... Markdown supported."
+                rows={15}
+                className="resize-none"
+              />
               <div className="flex gap-2">
-                <Button
-                  onClick={handleSaveNotes}
-                  disabled={isSubmitting}
-                  className="flex-1"
-                >
+                <Button onClick={handleSaveNotes} disabled={isSubmitting} className="flex-1">
                   {isSubmitting ? "Saving..." : "Save Notes"}
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={handleCancelEdit}
+                  onClick={() => { setNotes(project.notes); setIsEditing(false); }}
                   disabled={isSubmitting}
                 >
                   Cancel
@@ -364,14 +259,12 @@ function ProjectNotesDrawer({ project }: { project: Project }): JSX.Element {
           ) : (
             <div className="prose prose-sm max-w-none">
               {project.notes ? (
-                <div className="md">
-                  <Markdown>{project.notes}</Markdown>
-                </div>
+                <Markdown>{project.notes}</Markdown>
               ) : (
                 <div className="text-center text-muted-foreground py-8">
-                  <FaStickyNote className="mx-auto h-12 w-12 mb-4 opacity-30" />
-                  <p>No notes yet</p>
-                  <p className="text-sm">Click Edit to add project notes</p>
+                  <FaStickyNote className="mx-auto h-10 w-10 mb-3 opacity-20" />
+                  <p className="text-sm">No notes yet</p>
+                  <p className="text-xs">Click Edit to add project notes</p>
                 </div>
               )}
             </div>
@@ -382,348 +275,7 @@ function ProjectNotesDrawer({ project }: { project: Project }): JSX.Element {
   );
 }
 
-/**
- * Project Header Component
- *
- * Displays project title, status, and basic information with separated
- * edit controls for project details and notes management.
- *
- * @param {Object} props - Component props
- * @param {Project} props.project - Project data to display
- * @returns {JSX.Element} Project header with action controls
- */
-function ProjectHeader({ project }: { project: Project }): JSX.Element {
-  const router = useRouter();
-  const { deleteProject } = useProjects();
-  const isMobile = useIsMobile();
-
-  /**
-   * Handles project deletion with confirmation
-   */
-  const handleDelete = async () => {
-    if (
-      !confirm(
-        "Are you sure you want to delete this project? This will also delete all milestones and issues."
-      )
-    ) {
-      return;
-    }
-
-    try {
-      await deleteProject(project.id!);
-      toast.success("Project deleted successfully!");
-      router.push("/projects");
-    } catch (error) {
-      console.error("Failed to delete project:", error);
-      toast.error("Failed to delete project");
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      <div
-        className={cn(
-          "flex items-center justify-between",
-          isMobile ? "flex-col gap-2" : ""
-        )}
-      >
-        <div
-          className={cn(
-            isMobile ? "flex-col" : "items-center",
-            "flex gap-4 w-full"
-          )}
-        >
-          {!isMobile && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => router.push("/projects")}
-            >
-              <FaArrowLeft />
-            </Button>
-          )}
-          {isMobile && (
-            <div className="flex">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => router.push("/projects")}
-              >
-                <FaArrowLeft />
-              </Button>
-              <h1 className="text-2xl font-bold">{project.title}</h1>
-            </div>
-          )}
-          <div className={cn("flex gap-3 items-center", isMobile && "justify-center")}>
-            {!isMobile && (
-              <h1 className="text-2xl font-bold">{project.title}</h1>
-            )}
-            <Badge variant="outline">v{project.version}</Badge>
-            <StatusBadge status={project.status} />
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <ProjectNotesDrawer project={project} />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon">
-                <FaEdit />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <ProjectEditDialog project={project} />
-              <DropdownMenuItem onClick={handleDelete}>
-                <FaTrash className="mr-2" />
-                Delete Project
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Milestone Card Component
- *
- * Displays milestone information with progress and issue management.
- *
- * @param {Object} props - Component props
- * @param {MilestoneWithProgress} props.milestone - Milestone data with progress
- * @returns {JSX.Element} Milestone card with management controls
- */
-function MilestoneCard({
-  milestone,
-}: {
-  milestone: MilestoneWithProgress;
-}): JSX.Element {
-  const { currency } = useConfig();
-  const { deleteMilestone } = useProjects();
-  const isMobile = useIsMobile();
-
-  /**
-   * Handles milestone deletion with confirmation
-   */
-  const handleDelete = async () => {
-    if (
-      !confirm(
-        "Are you sure you want to delete this milestone? This will also delete all associated issues."
-      )
-    ) {
-      return;
-    }
-
-    try {
-      await deleteMilestone(milestone.id!);
-      toast.success("Milestone deleted successfully!");
-    } catch (error) {
-      console.error("Failed to delete milestone:", error);
-      toast.error("Failed to delete milestone");
-    }
-  };
-
-  const statusConfigs = {
-    Scheduled: { icon: <MdSchedule />, variant: "outline" as const },
-    Active: { icon: <MdPlayArrow />, variant: "default" as const },
-    Closed: { icon: <MdCheck />, variant: "secondary" as const },
-    Paid: { icon: <MdMoney />, variant: "default" as const },
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <div className={cn("flex justify-between", isMobile ? "flex-col" : "items-center")}>
-          <div className={"flex items-center gap-3"}>
-            <CardTitle className={cn(isMobile ? "text-base" : "text-lg")}>{milestone.title}</CardTitle>
-            <Badge
-              variant={statusConfigs[milestone.status].variant}
-              className="gap-1"
-            >
-              {statusConfigs[milestone.status].icon}
-              {milestone.status}
-            </Badge>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className={cn(isMobile && "self-end")}>
-                <FaEdit />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <EditMilestoneDialog milestone={milestone} />
-              <DropdownMenuItem onClick={handleDelete}>
-                <FaTrash className="mr-2" />
-                Delete Milestone
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Info Grid */}
-        <div className={cn("grid grid-cols-2 gap-4 text-sm", isMobile && "grid-cols-1")}>
-          <div className="flex items-center gap-2">
-            {getCurrencySymbol(currency)}
-            <span>{formatNumber(milestone.budget)}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <FaClock className="text-muted-foreground" />
-            <span>
-              {milestone.deadline
-                ? `Due ${formatDate(milestone.deadline)}`
-                : "No deadline"}
-            </span>
-          </div>
-        </div>
-
-        {/* Progress */}
-        <div>
-          <div className="flex justify-between text-sm mb-1">
-            <span>Progress</span>
-            <span>
-              {milestone.progress}% ({milestone.completedIssues}/
-              {milestone.totalIssues})
-            </span>
-          </div>
-          <div className="w-full bg-accent rounded-full h-2">
-            <div
-              className="bg-accent-foreground h-2 rounded-full transition-all"
-              style={{ width: `${milestone.progress}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Issues Toggle */}
-        <div className="flex items-center justify-between">
-          <IssuesDrawer milestone={milestone} />
-          <CreateIssueDialog milestoneId={milestone.id!} />
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-/**
- * Issue Item Component
- *
- * Displays individual issue with status management and actions.
- *
- * @param {Object} props - Component props
- * @param {Issue} props.issue - Issue data to display
- * @returns {JSX.Element} Issue item with management controls
- */
-function IssueItem({ issue }: { issue: Issue }): JSX.Element {
-  const { updateIssue, deleteIssue } = useProjects();
-  const [showDescription, setShowDescription] = useState(false);
-
-  /**
-   * Toggles issue status between Open and Close
-   */
-  const handleStatusToggle = async () => {
-    const newStatus = issue.status === "Open" ? "Close" : "Open";
-    try {
-      await updateIssue(issue.id!, { status: newStatus });
-    } catch (error) {
-      console.error("Failed to update issue status:", error);
-      toast.error("Failed to update issue status");
-    }
-  };
-
-  /**
-   * Handles issue deletion with confirmation
-   */
-  const handleDelete = async () => {
-    if (!confirm("Are you sure you want to delete this issue?")) return;
-
-    try {
-      await deleteIssue(issue.id!);
-      toast.success("Issue deleted successfully!");
-    } catch (error) {
-      console.error("Failed to delete issue:", error);
-      toast.error("Failed to delete issue");
-    }
-  };
-
-  return (
-    <div
-      className={cn(
-        "flex flex-col justify-between p-3 border rounded-md",
-        issue.status === "Close" && "opacity-60"
-      )}
-    >
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={handleStatusToggle}>
-          {issue.status === "Open" ? <FaRegCircle /> : <FaRegCircleCheck />}
-        </Button>
-        <span
-          className={cn(
-            "font-semibold",
-            issue.status === "Close" && "line-through text-muted-foreground"
-          )}
-        >
-          {issue.title}
-        </span>
-      </div>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 pl-2.25 opacity-80">
-          {issue.dueDate && (
-            <>
-              <FaCalendar />
-              <span>{formatDate(issue.dueDate)}</span>
-              <div className="w-2"></div>
-              <GoDotFill className="w-2 h-2 opacity-60" />
-              <div className="w-2"></div>
-            </>
-          )}
-          <Badge variant="outline" className="text-xs">
-            {issue.label}
-          </Badge>
-        </div>
-        <div className="flex gap-1">
-          {issue.description && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => {
-                setShowDescription(!showDescription);
-              }}
-            >
-              {showDescription ? <FaChevronUp /> : <FaChevronDown />}
-            </Button>
-          )}
-          <EditIssueDialog issue={issue} />
-          <Button onClick={handleDelete} variant="ghost" size="icon">
-            <FaTrash />
-          </Button>
-        </div>
-      </div>
-      <div
-        className={cn(
-          "transition-all overflow-hidden text-muted-foreground",
-          showDescription ? "max-h-20 py-2" : "max-h-0 py-0"
-        )}
-      >
-        {issue.description}
-      </div>
-    </div>
-  );
-}
-
-/**
- * Create Milestone Dialog Component
- *
- * Provides a modal interface for creating new milestones within a project.
- *
- * @param {Object} props - Component props
- * @param {number} props.projectId - ID of the parent project
- * @returns {JSX.Element} Milestone creation dialog
- */
-function CreateMilestoneDialog({
-  projectId,
-}: {
-  projectId: number;
-}): JSX.Element {
+function CreateMilestoneDialog({ projectId }: { projectId: number }): JSX.Element {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [status, setStatus] = useState<Milestone["status"]>("Scheduled");
@@ -732,15 +284,11 @@ function CreateMilestoneDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { addMilestone } = useProjects();
 
-  /**
-   * Handles milestone creation form submission
-   */
   const handleSubmit = async () => {
     if (!title.trim() || !budget) {
       toast.error("Please fill in title and budget");
       return;
     }
-
     setIsSubmitting(true);
     try {
       await addMilestone(
@@ -750,14 +298,13 @@ function CreateMilestoneDialog({
         deadline ? new Date(deadline) : undefined,
         parseFloat(budget)
       );
-      toast.success("Milestone created successfully!");
+      toast.success("Milestone created!");
       setOpen(false);
       setTitle("");
       setStatus("Scheduled");
       setDeadline("");
       setBudget("");
-    } catch (error) {
-      console.error("Failed to create milestone:", error);
+    } catch {
       toast.error("Failed to create milestone");
     } finally {
       setIsSubmitting(false);
@@ -767,17 +314,15 @@ function CreateMilestoneDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2">
-          <FaPlus />
-          New Milestone
+        <Button variant="outline" className="gap-2 w-full border-dashed">
+          <FaPlus className="h-3 w-3" />
+          Add Milestone
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Create New Milestone</DialogTitle>
-          <DialogDescription>
-            Add a new milestone to track progress within this project.
-          </DialogDescription>
+          <DialogDescription>Add a milestone to track progress.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
@@ -794,9 +339,7 @@ function CreateMilestoneDialog({
               <Label>Status</Label>
               <Select
                 value={status}
-                onValueChange={(value) =>
-                  setStatus(value as Milestone["status"])
-                }
+                onValueChange={(value) => setStatus(value as Milestone["status"])}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -845,20 +388,7 @@ function CreateMilestoneDialog({
   );
 }
 
-/**
- * Create Issue Dialog Component
- *
- * Provides a modal interface for creating new issues within a milestone.
- *
- * @param {Object} props - Component props
- * @param {number} props.milestoneId - ID of the parent milestone
- * @returns {JSX.Element} Issue creation dialog
- */
-function CreateIssueDialog({
-  milestoneId,
-}: {
-  milestoneId: number;
-}): JSX.Element {
+function CreateIssueDialog({ milestoneId }: { milestoneId: number }): JSX.Element {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [label, setLabel] = useState<IssueLabel>(ISSUE_LABELS[0]);
@@ -867,15 +397,11 @@ function CreateIssueDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { addIssue } = useProjects();
 
-  /**
-   * Handles issue creation form submission
-   */
   const handleSubmit = async () => {
     if (!title.trim()) {
-      toast.error("Please fill in the title");
+      toast.error("Please enter a title");
       return;
     }
-
     setIsSubmitting(true);
     try {
       await addIssue(
@@ -885,14 +411,13 @@ function CreateIssueDialog({
         dueDate ? new Date(dueDate) : undefined,
         description.trim()
       );
-      toast.success("Issue created successfully!");
+      toast.success("Issue created!");
       setOpen(false);
       setTitle("");
       setLabel(ISSUE_LABELS[0]);
       setDueDate("");
       setDescription("");
-    } catch (error) {
-      console.error("Failed to create issue:", error);
+    } catch {
       toast.error("Failed to create issue");
     } finally {
       setIsSubmitting(false);
@@ -902,7 +427,11 @@ function CreateIssueDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className="gap-1">
+        <Button
+          size="sm"
+          variant="ghost"
+          className="gap-1 text-xs text-muted-foreground hover:text-foreground h-7 px-2"
+        >
           <FaPlus className="h-3 w-3" />
           Add Issue
         </Button>
@@ -910,9 +439,7 @@ function CreateIssueDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Create New Issue</DialogTitle>
-          <DialogDescription>
-            Add a new issue to track within this milestone.
-          </DialogDescription>
+          <DialogDescription>Add a new issue to this milestone.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
@@ -927,10 +454,7 @@ function CreateIssueDialog({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Label</Label>
-              <Select
-                value={label}
-                onValueChange={(value) => setLabel(value as IssueLabel)}
-              >
+              <Select value={label} onValueChange={(value) => setLabel(value as IssueLabel)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -977,285 +501,6 @@ function CreateIssueDialog({
   );
 }
 
-/**
- * Main Project Detail Page Component
- *
- * Renders the complete project management interface with reactive
- * state management that doesn't cause unnecessary re-renders.
- *
- * @returns {JSX.Element} Complete project detail page
- */
-export default function ProjectDetailPage(): JSX.Element {
-  const { theme } = useTheme();
-  const params = useParams();
-  const projectId = parseInt(params.id as string);
-  const isMobile = useIsMobile();
-  const [linkDelMode, setLinkDelMode] = useState(false);
-  const [dataLoaded, setDataLoaded] = useState(false);
-
-  const { getProjectWithStats, loadingProjects, deleteQuickLink, loadProjects } = useProjects();
-
-  // Ensure projects are loaded on mount
-  useEffect(() => {
-    const loadData = async () => {
-      if (!dataLoaded) {
-        await loadProjects();
-        setDataLoaded(true);
-      }
-    };
-    loadData();
-  }, [loadProjects, dataLoaded]);
-
-  const project = getProjectWithStats(projectId);
-
-  // Show minimal loading state
-  if (!dataLoaded || loadingProjects) {
-    return (
-      <div className="flex-1 p-8 space-y-8">
-        <Skeleton className="h-16 w-full" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[...Array(3)].map((_, i) => (
-            <Skeleton key={i} className="h-24" />
-          ))}
-        </div>
-        <Skeleton className="h-96 w-full" />
-      </div>
-    );
-  }
-
-  if (!project) {
-    return (
-      <div className="flex-1 p-8 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-2">Project Not Found</h1>
-          <p className="text-muted-foreground mb-4">
-            The project you&apos;re looking for doesn&apos;t exist.
-          </p>
-          <Link href="/projects" prefetch={true}>
-            <Button>Go Back to Projects</Button>
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (!project) {
-    return (
-      <div className="flex-1 p-8 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-2">Project Not Found</h1>
-          <p className="text-muted-foreground mb-4">
-            The project you&apos;re looking for doesn&apos;t exist.
-          </p>
-          <Button onClick={() => window.history.back()}>Go Back</Button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex-1 p-8 space-y-8">
-      {/* Project Header */}
-      <ProjectHeader project={project} />
-
-      {/* Project Statistics */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Progress</CardTitle>
-            <div className="h-4 w-4 text-muted-foreground">%</div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{project.progress}%</div>
-            <div className="w-full bg-accent rounded-full h-2 mt-2">
-              <div
-                className="bg-accent-foreground h-2 rounded-full transition-all"
-                style={{ width: `${project.progress}%` }}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Milestones</CardTitle>
-            <FaFlag className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {project.milestones.length}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {project.milestones.filter((m) => m.status === "Active").length}{" "}
-              active
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Budget</CardTitle>
-            <FaDollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatNumber(project.totalBudget)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Across all milestones
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Quick Links</CardTitle>
-            <div className="flex space-x-2">
-              <AddQuickLinkDialog projectId={projectId} />
-              <Button title={linkDelMode ? "Disable Delete Mode" : "Enable Delete Mode"} onClick={() => setLinkDelMode(!linkDelMode)} variant={"outline"} size={"icon"} className={cn(linkDelMode ? "text-destructive hover:text-destructive/80" : "")}>
-                {linkDelMode ? <FaCheck /> : <FaTrash />}
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {project.quickLinks?.length === 0 && <div className="flex flex-col items-center justify-center opacity-60">
-              <FaLink className="h-4 w-4 text-muted-foreground mb-2" />
-              <p className="text-xs text-muted-foreground">No quick links added yet</p>
-              </div>}
-            <div className="flex space-x-2">
-              {project.quickLinks?.map((quickLink) => (
-                <Button
-                  key={quickLink.url}
-                  onClick={() => {
-                    if (linkDelMode) {
-                      deleteQuickLink(projectId, quickLink.title)
-                      toast.success("Quick link deleted")
-                    } else {
-                     window.open(quickLink.url, "_blank")
-                    }
-                  }}
-                  variant={"outline"}
-                  size={"icon"}
-                  title={linkDelMode ? `Delete ${quickLink.title}` : quickLink.title}
-                  className="relative"
-                >
-                  {/* {linkDelMode && ( */}
-                    <div className={cn("w-3 h-3 bg-destructive absolute -top-1.5 -right-1.5 rounded-full flex items-center justify-center cursor-pointer transition-opacity duration-100 ease-in-out", linkDelMode ? "opacity-100" : "opacity-0")}
-                    
-                    >
-                      <FaX className="!w-2 !h-2 text-white" />
-                    </div>
-                  {/* )} */}
-                  { getIconFromLink(quickLink.url) }
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Milestones Section */}
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-semibold">Milestones</h2>
-            {
-              !isMobile &&
-              <p className="text-sm text-muted-foreground">
-                Track progress with milestones and issues
-              </p>
-            }
-          </div>
-          <CreateMilestoneDialog projectId={projectId} />
-        </div>
-
-        {project.milestones.length === 0 ? (
-          <Card className="p-12 text-center">
-            <CardDescription>
-              <FaFlag className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No milestones yet</h3>
-              <p className="text-muted-foreground mb-4">
-                Create your first milestone to start tracking progress
-              </p>
-            </CardDescription>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {project.milestones.map((milestone) => (
-              <MilestoneCard key={milestone.id} milestone={milestone} />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Toast Notifications */}
-      <Toaster theme={(theme ?? "system") as "system" | "light" | "dark"} />
-    </div>
-  );
-}
-
-/**
- * Issues Drawer Component
- *
- * Provides a right-side drawer for viewing and managing issues within a milestone.
- * Displays all issues with their status, labels, and management controls.
- */
-function IssuesDrawer({
-  milestone,
-}: {
-  milestone: MilestoneWithProgress;
-}): JSX.Element {
-  const [isOpen, setIsOpen] = useState(false);
-  const { getIssuesForMilestone } = useProjects();
-  const issues = getIssuesForMilestone(milestone.id!);
-
-  return (
-    <Sheet open={isOpen} onOpenChange={setIsOpen}>
-      <SheetTrigger asChild>
-        <Button variant="outline" size="sm">
-          {issues.length === 0 ? "No Issues" : `Show Issues (${issues.length})`}
-        </Button>
-      </SheetTrigger>
-      <SheetContent side="right" className="w-full sm:max-w-2xl px-2 py-6">
-        <SheetHeader>
-          <SheetTitle className="flex items-center justify-between">
-            <span>Issues - {milestone.title}</span>
-            <CreateIssueDialog milestoneId={milestone.id!} />
-          </SheetTitle>
-          <SheetDescription>
-            Manage issues within this milestone. Track progress and completion
-            status.
-          </SheetDescription>
-        </SheetHeader>
-
-        <div className="flex-1 py-6 overflow-y-auto">
-          {issues.length === 0 ? (
-            <div className="text-center text-muted-foreground py-8">
-              <FaExclamationCircle className="mx-auto h-12 w-12 mb-4 opacity-30" />
-              <p>No issues yet</p>
-              <p className="text-sm">
-                Create your first issue to start tracking tasks
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {issues.map((issue) => (
-                <IssueItem key={issue.id} issue={issue} />
-              ))}
-            </div>
-          )}
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
-}
-
-/**
- * Edit Issue Dialog Component
- *
- * Provides a modal interface for editing existing issues.
- * Allows modification of title, label, due date, description, and status.
- */
 function EditIssueDialog({ issue }: { issue: Issue }): JSX.Element {
   const [isOpen, setIsOpen] = useState(false);
   const [title, setTitle] = useState(issue.title);
@@ -1268,15 +513,11 @@ function EditIssueDialog({ issue }: { issue: Issue }): JSX.Element {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { updateIssue } = useProjects();
 
-  /**
-   * Handles form submission for issue updates
-   */
   const handleSave = async () => {
     if (!title.trim()) {
       toast.error("Title is required");
       return;
     }
-
     setIsSubmitting(true);
     try {
       const updateData: Partial<Issue> = {
@@ -1284,36 +525,24 @@ function EditIssueDialog({ issue }: { issue: Issue }): JSX.Element {
         label,
         description: description.trim(),
         status,
+        dueDate: dueDate ? new Date(dueDate) : undefined,
       };
-
-      if (dueDate) {
-        updateData.dueDate = new Date(dueDate);
-      } else {
-        updateData.dueDate = undefined;
-      }
-
       await updateIssue(issue.id!, updateData);
-      toast.success("Issue updated successfully!");
+      toast.success("Issue updated!");
       setIsOpen(false);
-    } catch (error) {
-      console.error("Failed to update issue:", error);
+    } catch {
       toast.error("Failed to update issue");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  /**
-   * Resets form to original values when dialog opens
-   */
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (open) {
       setTitle(issue.title);
       setLabel(issue.label as IssueLabel);
-      setDueDate(
-        issue.dueDate ? issue.dueDate.toISOString().split("T")[0] : ""
-      );
+      setDueDate(issue.dueDate ? issue.dueDate.toISOString().split("T")[0] : "");
       setDescription(issue.description);
       setStatus(issue.status);
     }
@@ -1322,20 +551,14 @@ function EditIssueDialog({ issue }: { issue: Issue }): JSX.Element {
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button
-          onSelect={(e) => e.preventDefault()}
-          variant="ghost"
-          size="icon"
-        >
-          <FaEdit />
+        <Button variant="ghost" size="icon" className="h-6 w-6" title="Edit issue">
+          <FaEdit className="h-3 w-3" />
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Edit Issue</DialogTitle>
-          <DialogDescription>
-            Update the issue details and tracking information.
-          </DialogDescription>
+          <DialogDescription>Update issue details.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
@@ -1350,10 +573,7 @@ function EditIssueDialog({ issue }: { issue: Issue }): JSX.Element {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Label</Label>
-              <Select
-                value={label}
-                onValueChange={(value) => setLabel(value as IssueLabel)}
-              >
+              <Select value={label} onValueChange={(value) => setLabel(value as IssueLabel)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -1403,11 +623,7 @@ function EditIssueDialog({ issue }: { issue: Issue }): JSX.Element {
           </div>
         </div>
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => setIsOpen(false)}
-            disabled={isSubmitting}
-          >
+          <Button variant="outline" onClick={() => setIsOpen(false)} disabled={isSubmitting}>
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={isSubmitting}>
@@ -1419,17 +635,7 @@ function EditIssueDialog({ issue }: { issue: Issue }): JSX.Element {
   );
 }
 
-/**
- * Edit Milestone Dialog Component
- *
- * Provides a modal interface for editing existing milestones.
- * Allows modification of title, status, deadline, and budget.
- */
-function EditMilestoneDialog({
-  milestone,
-}: {
-  milestone: MilestoneWithProgress;
-}): JSX.Element {
+function EditMilestoneDialog({ milestone }: { milestone: MilestoneWithProgress }): JSX.Element {
   const [isOpen, setIsOpen] = useState(false);
   const [title, setTitle] = useState(milestone.title);
   const [status, setStatus] = useState(milestone.status);
@@ -1440,49 +646,33 @@ function EditMilestoneDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { updateMilestone } = useProjects();
 
-  /**
-   * Handles form submission for milestone updates
-   */
   const handleSave = async () => {
     if (!title.trim() || !budget) {
       toast.error("Please fill in title and budget");
       return;
     }
-
     const budgetValue = parseFloat(budget);
     if (isNaN(budgetValue) || budgetValue < 0) {
-      toast.error("Please enter a valid budget amount");
+      toast.error("Enter a valid budget");
       return;
     }
-
     setIsSubmitting(true);
     try {
-      const updateData: Partial<Milestone> = {
+      await updateMilestone(milestone.id!, {
         title: title.trim(),
         status,
         budget: budgetValue,
-      };
-
-      if (deadline) {
-        updateData.deadline = new Date(deadline);
-      } else {
-        updateData.deadline = undefined;
-      }
-
-      await updateMilestone(milestone.id!, updateData);
-      toast.success("Milestone updated successfully!");
+        deadline: deadline ? new Date(deadline) : undefined,
+      });
+      toast.success("Milestone updated!");
       setIsOpen(false);
-    } catch (error) {
-      console.error("Failed to update milestone:", error);
+    } catch {
       toast.error("Failed to update milestone");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  /**
-   * Resets form to original values when dialog opens
-   */
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (open) {
@@ -1499,16 +689,14 @@ function EditMilestoneDialog({
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-          <FaEdit className="mr-2" />
+          <FaEdit className="mr-2 h-3 w-3" />
           Edit Milestone
         </DropdownMenuItem>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Edit Milestone</DialogTitle>
-          <DialogDescription>
-            Update the milestone details and tracking information.
-          </DialogDescription>
+          <DialogDescription>Update milestone details.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
@@ -1525,9 +713,7 @@ function EditMilestoneDialog({
               <Label>Status</Label>
               <Select
                 value={status}
-                onValueChange={(value) =>
-                  setStatus(value as Milestone["status"])
-                }
+                onValueChange={(value) => setStatus(value as Milestone["status"])}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -1564,11 +750,7 @@ function EditMilestoneDialog({
           </div>
         </div>
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => setIsOpen(false)}
-            disabled={isSubmitting}
-          >
+          <Button variant="outline" onClick={() => setIsOpen(false)} disabled={isSubmitting}>
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={isSubmitting}>
@@ -1580,15 +762,7 @@ function EditMilestoneDialog({
   );
 }
 
-/**
- * Add Quick Link Dialog Component
- * 
- * This component provides a dialog for adding new quick links to a project.
- * It includes a form for entering the URL and label of the quick link.
- * 
- * @param projectId - The ID of the project to which the quick link will be added
- */
-function AddQuickLinkDialog({ projectId }: { projectId: number }) {
+function AddQuickLinkDialog({ projectId }: { projectId: number }): JSX.Element {
   const [isOpen, setIsOpen] = useState(false);
   const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
@@ -1600,33 +774,31 @@ function AddQuickLinkDialog({ projectId }: { projectId: number }) {
       toast.error("Please fill in both URL and title");
       return;
     }
-
     setIsSubmitting(true);
     try {
       await addQuickLink(projectId, { url, title, id: title });
-      toast.success("Quick link added successfully!");
+      toast.success("Quick link added!");
       setIsOpen(false);
-    } catch (error) {
-      console.error("Failed to add quick link:", error);
+      setUrl("");
+      setTitle("");
+    } catch {
       toast.error("Failed to add quick link");
     } finally {
       setIsSubmitting(false);
     }
   };
-  
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="icon" title="Add Quick Link">
-          <FaLink />
+        <Button variant="outline" size="icon" className="h-8 w-8" title="Add Quick Link">
+          <FaLink className="h-3 w-3" />
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Add Quick Link</DialogTitle>
-          <DialogDescription>
-            Add a new quick link to this project.
-          </DialogDescription>
+          <DialogDescription>Add a quick link to this project.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
@@ -1644,23 +816,490 @@ function AddQuickLinkDialog({ projectId }: { projectId: number }) {
               id="quick-link-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Quick Link Title"
+              placeholder="Link title"
             />
           </div>
         </div>
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => setIsOpen(false)}
-            disabled={isSubmitting}
-          >
+          <Button variant="outline" onClick={() => setIsOpen(false)} disabled={isSubmitting}>
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={isSubmitting}>
-            {isSubmitting ? "Saving..." : "Save Changes"}
+            {isSubmitting ? "Saving..." : "Add Link"}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Issue Row — inline issue item for milestone accordion
+// ---------------------------------------------------------------------------
+
+function IssueRow({ issue }: { issue: Issue }): JSX.Element {
+  const { updateIssue, deleteIssue } = useProjects();
+  const [showDesc, setShowDesc] = useState(false);
+
+  const toggleStatus = async () => {
+    const newStatus = issue.status === "Open" ? "Close" : "Open";
+    try {
+      await updateIssue(issue.id!, { status: newStatus });
+    } catch {
+      toast.error("Failed to update issue");
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm("Delete this issue?")) return;
+    try {
+      await deleteIssue(issue.id!);
+      toast.success("Issue deleted");
+    } catch {
+      toast.error("Failed to delete issue");
+    }
+  };
+
+  return (
+    <div className={cn("group", issue.status === "Close" && "opacity-50")}>
+      <div className="flex items-center gap-3 py-2 border-b border-dashed last:border-0">
+        <button
+          onClick={toggleStatus}
+          className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+          title={issue.status === "Open" ? "Mark done" : "Reopen"}
+        >
+          {issue.status === "Open" ? (
+            <FaRegCircle className="h-3.5 w-3.5" />
+          ) : (
+            <FaRegCircleCheck className="h-3.5 w-3.5" />
+          )}
+        </button>
+
+        <span
+          className={cn(
+            "text-sm flex-1 min-w-0 truncate",
+            issue.status === "Close" && "line-through text-muted-foreground"
+          )}
+        >
+          {issue.title}
+        </span>
+
+        <span className="text-xs px-1.5 py-0.5 rounded-full border text-muted-foreground flex-shrink-0 hidden sm:inline-flex">
+          {issue.label}
+        </span>
+
+        {issue.dueDate && (
+          <span className="text-xs font-mono text-muted-foreground flex-shrink-0 hidden sm:inline">
+            {formatDate(issue.dueDate)}
+          </span>
+        )}
+
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+          {issue.description && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={() => setShowDesc(!showDesc)}
+              title={showDesc ? "Hide description" : "Show description"}
+            >
+              {showDesc ? (
+                <FaChevronUp className="h-3 w-3" />
+              ) : (
+                <FaChevronDown className="h-3 w-3" />
+              )}
+            </Button>
+          )}
+          <EditIssueDialog issue={issue} />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-muted-foreground hover:text-destructive"
+            onClick={handleDelete}
+            title="Delete issue"
+          >
+            <FaTrash className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+
+      {showDesc && issue.description && (
+        <p className="text-xs text-muted-foreground pl-7 pb-2 pr-2 leading-relaxed">
+          {issue.description}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Milestone Accordion Row
+// ---------------------------------------------------------------------------
+
+function MilestoneAccordion({
+  milestone,
+  isExpanded,
+  onToggle,
+}: {
+  milestone: MilestoneWithProgress;
+  isExpanded: boolean;
+  onToggle: () => void;
+}): JSX.Element {
+  const { getIssuesForMilestone, deleteMilestone } = useProjects();
+  const issues = getIssuesForMilestone(milestone.id!);
+
+  const statusStyles: Record<Milestone["status"], string> = {
+    Scheduled: "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30",
+    Active: "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30",
+    Closed: "text-muted-foreground bg-muted",
+    Paid: "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30",
+  };
+
+  const handleDelete = async () => {
+    if (!confirm("Delete this milestone and all its issues?")) return;
+    try {
+      await deleteMilestone(milestone.id!);
+      toast.success("Milestone deleted");
+    } catch {
+      toast.error("Failed to delete milestone");
+    }
+  };
+
+  return (
+    <div className="border-b last:border-b-0">
+      {/* Accordion header */}
+      <div
+        className="flex items-center gap-3 py-3 px-4 cursor-pointer hover:bg-accent/30 transition-colors group"
+        onClick={onToggle}
+      >
+        <span className="text-muted-foreground flex-shrink-0 w-3">
+          {isExpanded ? (
+            <FaChevronDown className="h-3 w-3" />
+          ) : (
+            <FaChevronRight className="h-3 w-3" />
+          )}
+        </span>
+
+        <span className="text-sm font-semibold flex-1 min-w-0 truncate">
+          {milestone.title}
+        </span>
+
+        <span className="text-xs text-muted-foreground flex-shrink-0 font-mono">
+          {milestone.completedIssues}/{milestone.totalIssues}
+        </span>
+
+        <div className="w-20 h-1.5 rounded-full bg-muted overflow-hidden flex-shrink-0">
+          <div
+            className="h-full rounded-full bg-primary transition-all duration-500"
+            style={{ width: `${milestone.progress}%` }}
+          />
+        </div>
+
+        <span
+          className={cn(
+            "text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 hidden sm:inline",
+            statusStyles[milestone.status]
+          )}
+        >
+          {milestone.status}
+        </span>
+
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="flex-shrink-0"
+        >
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                title="Milestone actions"
+              >
+                <FaEllipsis className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <EditMilestoneDialog milestone={milestone} />
+              <DropdownMenuItem
+                onClick={handleDelete}
+                className="text-destructive focus:text-destructive"
+              >
+                <FaTrash className="mr-2 h-3 w-3" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      {/* Expanded issues */}
+      {isExpanded && (
+        <div className="pl-10 pr-4 pb-3">
+          {issues.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-3">No issues yet</p>
+          ) : (
+            <div>
+              {issues.map((issue) => (
+                <IssueRow key={issue.id} issue={issue} />
+              ))}
+            </div>
+          )}
+          <div className="pt-2">
+            <CreateIssueDialog milestoneId={milestone.id!} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main Page
+// ---------------------------------------------------------------------------
+
+export default function ProjectDetailPage(): JSX.Element {
+  const { theme } = useTheme();
+  const params = useParams();
+  const router = useRouter();
+  const projectId = parseInt(params.id as string);
+  const [linkDelMode, setLinkDelMode] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const [expandedMilestones, setExpandedMilestones] = useState<Set<number>>(new Set());
+
+  const { getProjectWithStats, loadingProjects, deleteQuickLink, loadProjects, deleteProject } =
+    useProjects();
+  const { currency } = useConfig();
+
+  useEffect(() => {
+    const load = async () => {
+      if (!dataLoaded) {
+        await loadProjects();
+        setDataLoaded(true);
+      }
+    };
+    load();
+  }, [loadProjects, dataLoaded]);
+
+  const project = getProjectWithStats(projectId) as ProjectWithStats | undefined;
+
+  if (!dataLoaded || loadingProjects) {
+    return (
+      <div className="flex-1 p-6 md:p-8 space-y-6 max-w-screen-xl mx-auto">
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-10 w-full" />
+        <div className="space-y-3">
+          {[...Array(3)].map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (!project) {
+    return (
+      <div className="flex-1 p-8 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-xl font-semibold mb-2">Project Not Found</h1>
+          <p className="text-sm text-muted-foreground mb-4">
+            The project you&apos;re looking for doesn&apos;t exist.
+          </p>
+          <Link href="/projects" prefetch={true}>
+            <Button>Back to Projects</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const completedMilestones = project.milestones.filter(
+    (m) => m.status === "Closed" || m.status === "Paid"
+  ).length;
+
+  const toggleMilestone = (id: number) => {
+    setExpandedMilestones((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleDeleteProject = async () => {
+    if (
+      !confirm(
+        "Delete this project and all its milestones and issues? This cannot be undone."
+      )
+    )
+      return;
+    try {
+      await deleteProject(project.id!);
+      router.push("/projects");
+      toast.success("Project deleted");
+    } catch {
+      toast.error("Failed to delete project");
+    }
+  };
+
+  return (
+    <div className="flex-1 p-6 md:p-8 container mx-auto">
+      {/* Breadcrumb + Actions */}
+      <div className="flex items-center justify-between mb-6">
+        <nav className="flex items-center gap-2 text-sm">
+          <Link
+            href="/projects"
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Projects
+          </Link>
+          <span className="text-muted-foreground">/</span>
+          <span className="font-semibold truncate max-w-[200px] sm:max-w-none">
+            {project.title}
+          </span>
+        </nav>
+
+        <div className="flex items-center gap-1">
+          <ProjectNotesDrawer project={project} />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="gap-1.5">
+                <FaEdit className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Edit</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <ProjectEditDialog project={project} />
+              <DropdownMenuItem
+                onClick={handleDeleteProject}
+                className="text-destructive focus:text-destructive"
+              >
+                <FaTrash className="mr-2 h-3 w-3" />
+                Delete Project
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      {/* Project Meta Strip */}
+      <div className="flex items-center gap-4 md:gap-6 py-3 border-b border-t text-sm flex-wrap mb-6">
+        <StatusBadge status={project.status} />
+        <span className="font-mono text-muted-foreground text-xs">v{project.version}</span>
+        {project.totalBudget > 0 && (
+          <span className="text-muted-foreground text-xs">
+            {getCurrencySymbol(currency)}{formatNumber(project.totalBudget)} total
+          </span>
+        )}
+        <span className="text-muted-foreground text-xs">
+          {completedMilestones}/{project.milestones.length} milestones done
+        </span>
+        <span className="text-muted-foreground text-xs font-mono">{project.progress}%</span>
+      </div>
+
+      {/* Quick Links Row */}
+      <div className="flex items-center gap-2 py-3 border-b mb-8 flex-wrap">
+        <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mr-1">
+          Links
+        </span>
+        {project.quickLinks?.map((link) => (
+          <Button
+            key={link.url}
+            variant="outline"
+            size="icon"
+            className={cn(
+              "h-8 w-8 relative",
+              linkDelMode && "border-destructive/40"
+            )}
+            onClick={() => {
+              if (linkDelMode) {
+                deleteQuickLink(projectId, link.title);
+                toast.success("Quick link deleted");
+              } else {
+                window.open(link.url, "_blank");
+              }
+            }}
+            title={linkDelMode ? `Delete ${link.title}` : link.title}
+          >
+            {linkDelMode && (
+              <div className="w-3 h-3 bg-destructive absolute -top-1 -right-1 rounded-full flex items-center justify-center pointer-events-none">
+                <FaX className="!w-2 !h-2 text-white" />
+              </div>
+            )}
+            {getIconFromLink(link.url)}
+          </Button>
+        ))}
+        <AddQuickLinkDialog projectId={projectId} />
+        {project.quickLinks && project.quickLinks.length > 0 && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn("h-8 w-8", linkDelMode && "text-destructive")}
+            onClick={() => setLinkDelMode(!linkDelMode)}
+            title={linkDelMode ? "Done" : "Remove links"}
+          >
+            {linkDelMode ? (
+              <FaCheck className="h-3.5 w-3.5" />
+            ) : (
+              <FaTrash className="h-3.5 w-3.5" />
+            )}
+          </Button>
+        )}
+      </div>
+
+      {/* Milestones */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            Milestones
+          </h2>
+          {project.milestones.length > 1 && (
+            <button
+              onClick={() => {
+                const allIds = project.milestones.map((m) => m.id!);
+                const allExpanded = allIds.every((id) => expandedMilestones.has(id));
+                if (allExpanded) {
+                  setExpandedMilestones(new Set());
+                } else {
+                  setExpandedMilestones(new Set(allIds));
+                }
+              }}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {project.milestones.every((m) => expandedMilestones.has(m.id!))
+                ? "Collapse all"
+                : "Expand all"}
+            </button>
+          )}
+        </div>
+
+        {project.milestones.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <FaFlag className="h-8 w-8 text-muted-foreground/30 mb-3" />
+            <h3 className="text-sm font-semibold mb-1">No milestones yet</h3>
+            <p className="text-xs text-muted-foreground mb-4">
+              Create your first milestone to start tracking progress
+            </p>
+          </div>
+        ) : (
+          <div className="border rounded-xl overflow-hidden">
+            {project.milestones.map((milestone) => (
+              <MilestoneAccordion
+                key={milestone.id}
+                milestone={milestone}
+                isExpanded={expandedMilestones.has(milestone.id!)}
+                onToggle={() => toggleMilestone(milestone.id!)}
+              />
+            ))}
+          </div>
+        )}
+
+        <div className="mt-4">
+          <CreateMilestoneDialog projectId={projectId} />
+        </div>
+      </div>
+
+      <Toaster theme={(theme ?? "system") as "system" | "light" | "dark"} />
+    </div>
   );
 }
