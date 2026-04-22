@@ -40,7 +40,7 @@
  * @updated v0.9.7-alpha
  */
 
-import db, { type ExcalidrawSceneData, QuickLink } from "./db";
+import db, { type ExcalidrawSceneData, type AIConfig, QuickLink } from "./db";
 
 /**
  * Enhanced Exported Data Structure Interface
@@ -141,6 +141,18 @@ type ExportedData = {
       createdAt: string;
       updatedAt: string;
     }[];
+    /** AI chat records */
+    aiChats: {
+      id: string;
+      title: string;
+      modelId: string;
+      provider: string;
+      messages: string;
+      createdAt: string;
+      updatedAt: string;
+    }[];
+    /** AI config */
+    aiConfig: AIConfig[];
   };
 };
 
@@ -242,6 +254,12 @@ class SaveManager {
           createdAt: e.createdAt.toISOString(),
           updatedAt: e.updatedAt.toISOString(),
         })),
+        aiChats: (await db.aiChats.toArray()).map((c) => ({
+          ...c,
+          createdAt: c.createdAt.toISOString(),
+          updatedAt: c.updatedAt.toISOString(),
+        })),
+        aiConfig: await db.aiConfig.toArray(),
       },
     };
 
@@ -367,6 +385,14 @@ class SaveManager {
       updatedAt: new Date(e.updatedAt),
     }));
 
+    const aiChats = (data.indexedDB.aiChats || []).map((c) => ({
+      ...c,
+      createdAt: new Date(c.createdAt),
+      updatedAt: new Date(c.updatedAt),
+    }));
+
+    const aiConfig = data.indexedDB.aiConfig || [];
+
     // Atomic database import operation including all tables
     await db.transaction(
       "rw",
@@ -380,6 +406,8 @@ class SaveManager {
         db.rewards,
         db.discounts,
         db.excalidraw,
+        db.aiChats,
+        db.aiConfig,
       ],
       async () => {
         // Clear existing data from all tables
@@ -392,6 +420,8 @@ class SaveManager {
         await db.rewards.clear();
         await db.discounts.clear();
         await db.excalidraw.clear();
+        await db.aiChats.clear();
+        await db.aiConfig.clear();
 
         // Import new data with project management support
         await db.configuration.bulkAdd(configuration);
@@ -416,6 +446,12 @@ class SaveManager {
         }
         if (excalidraw.length > 0) {
           await db.excalidraw.bulkAdd(excalidraw);
+        }
+        if (aiChats.length > 0) {
+          await db.aiChats.bulkAdd(aiChats);
+        }
+        if (aiConfig.length > 0) {
+          await db.aiConfig.bulkAdd(aiConfig);
         }
       },
     );
@@ -485,6 +521,12 @@ class SaveManager {
           createdAt: e.createdAt.toISOString(),
           updatedAt: e.updatedAt.toISOString(),
         })),
+        aiChats: (await db.aiChats.toArray()).map((c) => ({
+          ...c,
+          createdAt: c.createdAt.toISOString(),
+          updatedAt: c.updatedAt.toISOString(),
+        })),
+        aiConfig: await db.aiConfig.toArray(),
       },
     };
 
@@ -563,6 +605,14 @@ class SaveManager {
       updatedAt: new Date(e.updatedAt),
     }));
 
+    const aiChats = (data.indexedDB.aiChats || []).map((c) => ({
+      ...c,
+      createdAt: new Date(c.createdAt),
+      updatedAt: new Date(c.updatedAt),
+    }));
+
+    const aiConfig = data.indexedDB.aiConfig || [];
+
     await db.transaction(
       "rw",
       [
@@ -575,6 +625,8 @@ class SaveManager {
         db.rewards,
         db.discounts,
         db.excalidraw,
+        db.aiChats,
+        db.aiConfig,
       ],
       async () => {
         await db.configuration.clear();
@@ -586,6 +638,8 @@ class SaveManager {
         await db.rewards.clear();
         await db.discounts.clear();
         await db.excalidraw.clear();
+        await db.aiChats.clear();
+        await db.aiConfig.clear();
 
         await db.configuration.bulkAdd(configuration);
         await db.focus.bulkAdd(focus);
@@ -608,6 +662,12 @@ class SaveManager {
         }
         if (excalidraw.length > 0) {
           await db.excalidraw.bulkAdd(excalidraw);
+        }
+        if (aiChats.length > 0) {
+          await db.aiChats.bulkAdd(aiChats);
+        }
+        if (aiConfig.length > 0) {
+          await db.aiConfig.bulkAdd(aiConfig);
         }
       },
     );

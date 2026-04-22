@@ -1,6 +1,16 @@
-export const VERSION = "v0.16.2 (LTS)";
+export const VERSION = "v0.17.0-beta";
 
 const CHANGELOG = `
+
+## \`0.17.0-beta\` (2026-04-22) — AI Chat
+- Added a new AI Chat tab, with support for multiple models from Groq and Google.
+- Added a new \`lib/ai-models.ts\` file that contains the available AI models and their information.
+- Added a new \`useAIChat\` hook that handles the state and logic for the AI Chat page.
+- Added a new /api/chat route that handles the chat requests and responses.
+- An add context button, which sends the following data alongside your API request: Your name, age, last 14 days of focus data, your focus points, total time focused in last 1, 7, and 30 days, and current focus state.
+- When context button is checked, it also shows the estimated token usage for the context data.
+***
+
 ## \`v0.16.0 (LTS)\` (2026-04-01) — Excalidraw & UI Redesign
 - Added a new Excalidraw tab.
 - Added Excalidraw data in SaveManager.
