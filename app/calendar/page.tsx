@@ -434,6 +434,9 @@ export default function CalendarPage(): JSX.Element {
 tooltipAccessor={(event) =>
                 `${event.tag}\n${format(event.start, "h:mm a")} – ${format(event.end, "h:mm a")}`
               }
+              getNow={() => new Date()}
+              min={startOfDay(new Date())}
+              max={endOfDay(new Date())}
               components={{ toolbar: () => null }}
             />
           )}
@@ -531,22 +534,9 @@ tooltipAccessor={(event) =>
           background: hsl(var(--muted) / 0.3);
         }
 
-        /* ── Current time indicator ── */
+        /* ── Current time indicator — hidden (RBC positions incorrectly) ── */
         .calendar-container .rbc-current-time-indicator {
-          background-color: #ef4444;
-          height: 2px;
-          z-index: 10;
-          position: relative;
-        }
-        .calendar-container .rbc-current-time-indicator::before {
-          content: '';
-          position: absolute;
-          left: -5px;
-          top: -4px;
-          width: 10px;
-          height: 10px;
-          border-radius: 50%;
-          background-color: #ef4444;
+          display: none;
         }
 
         /* ── Events ── */
