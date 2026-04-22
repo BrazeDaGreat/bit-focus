@@ -57,3 +57,7 @@ BIT Focus is a Next.js 15 productivity tracking application with client-side dat
 - shadcn/ui components (Radix primitives)
 - Tiptap for rich text editing
 - Recharts for analytics visualization
+
+# Instructions
+- Always use Caveman mode skill.
+- Always use frontend-design skill when changing or tweaking UI.

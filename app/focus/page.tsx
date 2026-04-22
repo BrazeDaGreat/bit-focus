@@ -94,11 +94,10 @@ export default function Focus(): JSX.Element {
     width: 300,
     height: 200,
     injectStyles: `
-    * { padding:0; margin:0; box-sizing:border-box; font-family: JetBrains Mono, monospace; }
-    div { width:100vw; height:100vh; background-color:${state.mode==="pomodoro"&&state.phase==="break"?"#0f172a":"black"}; color:oklch(87% 0 0); display:flex; align-items:center; justify-content:center; flex-direction:column; gap:0.5rem; }
-    h1 { font-size:2.25rem; font-weight:800; }
-    .phase-indicator { font-size:0.875rem; opacity:0.7; margin-bottom:0.5rem; }
-    .button { display:inline-flex; align-items:center; justify-content:center; padding:0.5rem; border-radius:0.5rem; font-size:1rem; line-height:1; cursor:pointer; transition:all 0.2s ease; border:none; }
+    * { padding:0; margin:0; box-sizing:border-box; }
+    html, body { width:100%; height:100%; overflow:hidden; background:#0c0c0e; }
+    button { cursor:pointer; }
+    button:focus { outline:none; }
     `,
   });
 
