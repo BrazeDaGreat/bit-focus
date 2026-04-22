@@ -36,6 +36,25 @@ import Dexie from "dexie";
 import type { ComponentProps } from "react";
 import type { Excalidraw as ExcalidrawComponent } from "@excalidraw/excalidraw";
 
+export interface AIChat {
+  id: string;
+  title: string;
+  modelId: string;
+  provider: string;
+  messages: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface AIConfig {
+  key: string;
+  groqApiKey: string;
+  googleApiKey: string;
+  customContextEnabled: boolean;
+  customPrompt: string;
+  defaultModelId: string;
+}
+
 type ExcalidrawInitialData = Awaited<
   Exclude<
     NonNullable<ComponentProps<typeof ExcalidrawComponent>["initialData"]>,
@@ -213,6 +232,9 @@ class BitFocusDB extends Dexie {
    */
   excalidraw: Dexie.Table<ExcalidrawScene, string | number>;
 
+  aiChats: Dexie.Table<AIChat, string>;
+  aiConfig: Dexie.Table<AIConfig, string>;
+
   constructor() {
     super("BitFocusDB");
 
@@ -355,6 +377,12 @@ class BitFocusDB extends Dexie {
       excalidraw_v2: "id, title, createdAt, updatedAt",
     });
 
+    // Database version 9 schema definition (AI chat)
+    this.version(9).stores({
+      ai_chats: "id, createdAt, updatedAt",
+      ai_config: "key",
+    });
+
     // Table reference assignment
     this.configuration = this.table("configuration");
     this.focus = this.table("focus");
@@ -365,6 +393,8 @@ class BitFocusDB extends Dexie {
     this.rewards = this.table("rewards");
     this.discounts = this.table("discounts");
     this.excalidraw = this.table("excalidraw_v2");
+    this.aiChats = this.table("ai_chats");
+    this.aiConfig = this.table("ai_config");
   }
 }
 

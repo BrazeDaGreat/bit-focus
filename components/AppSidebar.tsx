@@ -26,6 +26,7 @@ import {
   FaCalendarAlt,
   FaPenNib,
 } from "react-icons/fa";
+import { BsStars } from "react-icons/bs";
 import { IoIosTimer } from "react-icons/io";
 import {
   FaGear,
@@ -53,9 +54,10 @@ const items = [
   { title: "Home", url: "/", icon: <FaHome /> },
   { title: "Focus", url: "/focus", icon: <IoIosTimer /> },
   { title: "Calendar", url: "/calendar", icon: <FaCalendarAlt /> },
+  { title: "AI Chat (BETA)", url: "/ai", icon: <BsStars /> },
+  { title: "Excalidraw", url: "/excalidraw", icon: <FaPenNib /> },
   { title: "Projects", url: "/projects", icon: <FaProjectDiagram /> },
   { title: "Rewards", url: "/rewards", icon: <FaCoffee /> },
-  { title: "Excalidraw", url: "/excalidraw", icon: <FaPenNib /> },
   { title: "Changelog", url: "/changelog", icon: <FaReadme /> },
 ];
 

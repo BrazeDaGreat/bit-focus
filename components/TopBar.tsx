@@ -35,6 +35,7 @@ import { FaCoffee } from "react-icons/fa";
 const PAGE_TITLES: Record<string, string> = {
   "/": "Home",
   "/focus": "Focus",
+  "/ai": "AI Chat (BETA)",
   "/calendar": "Calendar",
   "/projects": "Projects",
   "/rewards": "Rewards",
