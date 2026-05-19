@@ -1,6 +1,7 @@
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useConfig } from "@/hooks/useConfig";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
+import { Switch } from "@/components/ui/switch";
 import { FaPencil } from "react-icons/fa6";
 import { toast } from "sonner";
 import { LuChevronsUpDown } from "react-icons/lu";
@@ -22,10 +23,11 @@ export const EditConfigSkeleton = () => {
  * Just the form fields — can be embedded in any container (popover, dialog, etc.)
  */
 export function EditConfigForm({ onSave }: { onSave?: () => void }) {
-  const { name, dob, setConfig, webhook, currency } = useConfig();
+  const { name, dob, setConfig, webhook, currency, sendWebhookUpdates } = useConfig();
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
   } = useForm({
     defaultValues: {
@@ -33,6 +35,7 @@ export function EditConfigForm({ onSave }: { onSave?: () => void }) {
       day: dob ? new Date(dob).getDate() : "",
       month: dob ? new Date(dob).getMonth() + 1 : "",
       webhook: webhook ?? "",
+      sendWebhookUpdates: sendWebhookUpdates ?? true,
       year: dob ? new Date(dob).getFullYear() : "",
       currency: currency ?? "USD",
     },
@@ -40,10 +43,10 @@ export function EditConfigForm({ onSave }: { onSave?: () => void }) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onSubmit = (data: any) => {
-    const { name, day, month, year, webhook, currency } = data;
+    const { name, day, month, year, webhook, currency, sendWebhookUpdates } = data;
     const dateOfBirth = new Date(year, month - 1, day);
     toast("Config updated successfully.", { icon: <FaPencil /> });
-    setConfig(name, dateOfBirth, webhook, currency);
+    setConfig(name, dateOfBirth, webhook, currency, sendWebhookUpdates);
     onSave?.();
   };
 
@@ -71,6 +74,28 @@ export function EditConfigForm({ onSave }: { onSave?: () => void }) {
         <Input id="cfg-webhook" {...register("webhook", { validate: (value: string) => { if (value && !/^https?:\/\/.+\..+/.test(value)) return "Invalid webhook URL"; return true; } })} />
         {errors.webhook && <span className="text-red-500 text-xs">{errors.webhook.message}</span>}
 
+        <div className="flex items-center justify-between py-1.5 px-0.5">
+          <div className="flex flex-col gap-0.5">
+            <Label className="text-xs opacity-90 cursor-pointer" htmlFor="cfg-sendWebhookUpdates">
+              Send status updates
+            </Label>
+            <span className="text-[10px] text-muted-foreground">
+              Notify Discord when starting/completing timers
+            </span>
+          </div>
+          <Controller
+            control={control}
+            name="sendWebhookUpdates"
+            render={({ field }) => (
+              <Switch
+                id="cfg-sendWebhookUpdates"
+                checked={field.value}
+                onCheckedChange={field.onChange}
+              />
+            )}
+          />
+        </div>
+
         <Label className="text-xs opacity-90" htmlFor="cfg-currency">Preferred Currency</Label>
         <select id="cfg-currency" {...register("currency")} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50">
           <option value="USD">USD ($)</option>
@@ -85,11 +110,12 @@ export function EditConfigForm({ onSave }: { onSave?: () => void }) {
 }
 
 const EditConfig = () => {
-  const { name, dob, setConfig, webhook, currency } = useConfig();
+  const { name, dob, setConfig, webhook, currency, sendWebhookUpdates } = useConfig();
   const isMobile = useIsMobile();
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
   } = useForm({
     defaultValues: {
@@ -97,6 +123,7 @@ const EditConfig = () => {
       day: dob ? new Date(dob).getDate() : "",
       month: dob ? new Date(dob).getMonth() + 1 : "",
       webhook: webhook ?? "",
+      sendWebhookUpdates: sendWebhookUpdates ?? true,
       year: dob ? new Date(dob).getFullYear() : "",
       currency: currency ?? "USD",
     },
@@ -116,10 +143,10 @@ const EditConfig = () => {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onSubmit = (data: any) => {
-    const { name, day, month, year, webhook, currency } = data;
+    const { name, day, month, year, webhook, currency, sendWebhookUpdates } = data;
     const dateOfBirth = new Date(year, month - 1, day);
     toast("Config updated successfully.", { icon: <FaPencil /> });
-    setConfig(name, dateOfBirth, webhook, currency);
+    setConfig(name, dateOfBirth, webhook, currency, sendWebhookUpdates);
   };
 
   return (
@@ -241,6 +268,28 @@ const EditConfig = () => {
                 {errors.webhook.message}
               </span>
             )}
+
+            <div className="flex items-center justify-between py-1.5 px-0.5">
+              <div className="flex flex-col gap-0.5">
+                <Label className="text-xs opacity-90 cursor-pointer" htmlFor="sendWebhookUpdates">
+                  Send status updates
+                </Label>
+                <span className="text-[10px] text-muted-foreground">
+                  Notify Discord when starting/completing timers
+                </span>
+              </div>
+              <Controller
+                control={control}
+                name="sendWebhookUpdates"
+                render={({ field }) => (
+                  <Switch
+                    id="sendWebhookUpdates"
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                )}
+              />
+            </div>
 
             <Label className="text-xs opacity-90" htmlFor="currency">
               Preferred Currency

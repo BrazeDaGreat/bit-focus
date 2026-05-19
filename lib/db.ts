@@ -36,6 +36,14 @@ import Dexie from "dexie";
 import type { ComponentProps } from "react";
 import type { Excalidraw as ExcalidrawComponent } from "@excalidraw/excalidraw";
 
+export interface TimeBlock {
+  id?: number;
+  tag: string;
+  startTime: Date;
+  endTime: Date;
+  title?: string;
+}
+
 export interface AIChat {
   id: string;
   title: string;
@@ -136,7 +144,7 @@ class BitFocusDB extends Dexie {
    * Configuration Table (Enhanced with Currency)
    */
   configuration: Dexie.Table<
-    { name: string; dob: Date; webhook: string; currency: string },
+    { name: string; dob: Date; webhook: string; currency: string; sendWebhookUpdates?: boolean },
     string
   >;
 
@@ -232,6 +240,7 @@ class BitFocusDB extends Dexie {
    */
   excalidraw: Dexie.Table<ExcalidrawScene, string | number>;
 
+  timeblocks: Dexie.Table<TimeBlock, number>;
   aiChats: Dexie.Table<AIChat, string>;
   aiConfig: Dexie.Table<AIConfig, string>;
 
@@ -383,7 +392,27 @@ class BitFocusDB extends Dexie {
       ai_config: "key",
     });
 
+    // Database version 10 schema definition (add sendWebhookUpdates toggle)
+    this.version(10)
+      .stores({})
+      .upgrade((tx) => {
+        return tx
+          .table("configuration")
+          .toCollection()
+          .modify((config) => {
+            if (config.sendWebhookUpdates === undefined) {
+              config.sendWebhookUpdates = true;
+            }
+          });
+      });
+
+    // Database version 11 schema definition (add calendar timeblocks)
+    this.version(11).stores({
+      timeblocks: "++id, tag, startTime, endTime",
+    });
+
     // Table reference assignment
+    this.timeblocks = this.table("timeblocks");
     this.configuration = this.table("configuration");
     this.focus = this.table("focus");
     this.notes = this.table("notes");

@@ -85,6 +85,7 @@ interface PomoState {
     name: string;
     tag: string;
     webhook: string;
+    sendWebhookUpdates: boolean;
   };
   /** Function to add reward points */
   addPoints: (points: number) => void;
@@ -99,7 +100,7 @@ type Action =
   | { type: "PAUSE"; payload: { elapsedSeconds: number } }
   | { type: "RESET"; payload?: { elapsedSeconds?: number; tag?: string } }
   | { type: "UPDATE"; payload: { elapsedSeconds: number } }
-  | { type: "SET_DATA"; payload: { name: string; tag: string; webhook: string } }
+  | { type: "SET_DATA"; payload: { name: string; tag: string; webhook: string; sendWebhookUpdates: boolean } }
   | { type: "SET_MODE"; payload: { mode: TimerMode } }
   | { type: "SET_POMODORO_SETTINGS"; payload: PomodoroSettings }
   | { type: "NEXT_PHASE" }
@@ -128,7 +129,7 @@ const handleFinish = (
   addFocusSession: (tag: string, startTime: Date, endTime: Date) => Promise<void>,
   tag: string,
   startTime: number,
-  data: { name: string; tag: string; webhook: string },
+  data: { name: string; tag: string; webhook: string; sendWebhookUpdates: boolean },
   addPoints: (points: number) => void,
   actualDuration?: number
 ) => {
@@ -138,11 +139,15 @@ const handleFinish = (
   const timeobj = durationFromSeconds(elapsedSeconds);
   const formattedTime = formatTimeNew(timeobj, "H:M:S", "text");
 
-  if (data.name && data.webhook && data.tag) {
-    sendMessage(
-      `${data.name} focused for \`${formattedTime}\` on \`#${data.tag}\``,
-      data.webhook
-    ).then((s) => console.log("Submitted", s));
+  if (data.name && data.webhook && data.tag && data.sendWebhookUpdates) {
+    const message = [
+      `🎉 **Focus Session Completed!**`,
+      `👤 **User:** ${data.name}`,
+      `🏷️ **Tag:** \`#${data.tag}\``,
+      `⏱️ **Duration:** \`${formattedTime}\``
+    ].join("\n");
+
+    sendMessage(message, data.webhook).then((s) => console.log("Submitted", s));
   }
 
   if (elapsedSeconds < 60) {
@@ -355,7 +360,7 @@ const PomoContext = createContext<{
 export function PomoProvider({ children }: { children: React.ReactNode }) {
   const { addFocusSession } = useFocus();
   const { tag } = useTag();
-  const { name, webhook } = useConfig();
+  const { name, webhook, sendWebhookUpdates } = useConfig();
   const { addPoints } = useRewards();
   const originalTitleRef = useRef<string | null>(null);
   
@@ -371,7 +376,7 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
       breakDuration: 5,
     },
     addFocusSession,
-    data: { name: "", tag: "", webhook: "" },
+    data: { name: "", tag: "", webhook: "", sendWebhookUpdates: true },
     addPoints,
   });
 
@@ -432,9 +437,9 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     dispatch({
       type: "SET_DATA",
-      payload: { name: name || "", tag: tag || "", webhook: webhook || "" },
+      payload: { name: name || "", tag: tag || "", webhook: webhook || "", sendWebhookUpdates: sendWebhookUpdates !== false },
     });
-  }, [name, webhook, tag]);
+  }, [name, webhook, tag, sendWebhookUpdates]);
 
   /**
    * Save timer state to localStorage - simplified without dependencies
@@ -589,7 +594,7 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
   const contextValue = {
     state,
     start: () => {
-      const { name, webhook, tag } = state.data;
+      const { name, webhook, tag, sendWebhookUpdates } = state.data;
       
       // Calculate startTime based on whether this is a fresh start or resume
       let startTime: number;
@@ -603,15 +608,19 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
       }
       
       // Send webhook notification for fresh starts only
-      if (state.elapsedSeconds === 0 && name && webhook && tag) {
+      if (state.elapsedSeconds === 0 && name && webhook && tag && sendWebhookUpdates) {
         const modeText = state.mode === "pomodoro" 
           ? `${state.phase} (${state.phase === "focus" ? state.pomodoroSettings.focusDuration : state.pomodoroSettings.breakDuration}min)`
           : "standard";
         
-        sendMessage(
-          `${name} started ${modeText} timer on \`#${tag}\`.`,
-          webhook
-        ).then((s) => console.log("Submitted", s));
+        const message = [
+          `🚀 **Focus Session Started!**`,
+          `👤 **User:** ${name}`,
+          `🏷️ **Tag:** \`#${tag}\``,
+          `⚙️ **Mode:** \`${modeText}\``
+        ].join("\n");
+
+        sendMessage(message, webhook).then((s) => console.log("Submitted", s));
       }
       
       dispatch({ type: "START", payload: { startTime } });
