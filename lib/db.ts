@@ -136,7 +136,7 @@ class BitFocusDB extends Dexie {
    * Configuration Table (Enhanced with Currency)
    */
   configuration: Dexie.Table<
-    { name: string; dob: Date; webhook: string; currency: string },
+    { name: string; dob: Date; webhook: string; currency: string; sendWebhookUpdates?: boolean },
     string
   >;
 
@@ -382,6 +382,20 @@ class BitFocusDB extends Dexie {
       ai_chats: "id, createdAt, updatedAt",
       ai_config: "key",
     });
+
+    // Database version 10 schema definition (add sendWebhookUpdates toggle)
+    this.version(10)
+      .stores({})
+      .upgrade((tx) => {
+        return tx
+          .table("configuration")
+          .toCollection()
+          .modify((config) => {
+            if (config.sendWebhookUpdates === undefined) {
+              config.sendWebhookUpdates = true;
+            }
+          });
+      });
 
     // Table reference assignment
     this.configuration = this.table("configuration");

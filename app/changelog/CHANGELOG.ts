@@ -1,6 +1,10 @@
-export const VERSION = "v0.17.0-beta";
+export const VERSION = "v0.17.1-beta";
 
 const CHANGELOG = `
+
+## \`v0.17.1-beta\` (2026-05-20) — Webhook Toggle & Enhanced Timer Messages
+- Added: "Send status updates" toggle in Webhook URL configuration, allowing users to enable/disable automated Discord webhook notifications for timer events while keeping Quick Messages and save state uploads functional.
+- Improved: Re-structured timer-related Discord webhook notifications (start and completion events) into a clean, modern multi-line format with clear emoji icons and bold labels for better readability.
 
 ## \`0.17.0-beta\` (2026-04-22) — AI Chat
 - Added a new AI Chat tab, with support for multiple models from Groq and Google.

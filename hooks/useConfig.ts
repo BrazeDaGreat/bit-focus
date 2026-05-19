@@ -53,12 +53,14 @@ interface ConfigState {
   dob: Date;
   /** Discord webhook URL for notifications */
   webhook: string;
+  /** Whether to send timer status updates to the webhook */
+  sendWebhookUpdates: boolean;
   /** User's preferred currency */
   currency: string;
   /** Loading state indicator for UI feedback */
   loadingConfig: boolean;
   /** Function to update configuration with new values */
-  setConfig: (name: string, dob: Date, webhook: string, currency: string) => Promise<void>;
+  setConfig: (name: string, dob: Date, webhook: string, currency: string, sendWebhookUpdates?: boolean) => Promise<void>;
   /** Function to load configuration from database */
   loadConfig: () => Promise<void>;
 }
@@ -123,6 +125,7 @@ export const useConfig = create<ConfigState>((set) => ({
   name: "NULL",
   dob: new Date(),
   webhook: "",
+  sendWebhookUpdates: true,
   currency: "USD", // Add this line
   loadingConfig: true,
 
@@ -155,8 +158,8 @@ export const useConfig = create<ConfigState>((set) => ({
    * );
    * ```
    */
-  setConfig: async (name, dob, webhook, currency) => {
-    console.log(name, dob, webhook);
+  setConfig: async (name, dob, webhook, currency, sendWebhookUpdates = true) => {
+    console.log(name, dob, webhook, sendWebhookUpdates);
 
     // Remove existing configuration to prevent duplicates
     const existingConfig = await db.configuration.toCollection().first();
@@ -166,11 +169,11 @@ export const useConfig = create<ConfigState>((set) => ({
     }
 
     // Add new configuration to database
-    await db.configuration.add({ name, dob, webhook, currency });
+    await db.configuration.add({ name, dob, webhook, currency, sendWebhookUpdates });
     console.log("Config added successfully.");
 
     // Update local state
-    set({ name, dob, webhook, currency });
+    set({ name, dob, webhook, currency, sendWebhookUpdates });
   },
 
   /**
@@ -205,6 +208,7 @@ export const useConfig = create<ConfigState>((set) => ({
           name: config.name,
           dob: config.dob,
           webhook: config.webhook || "", // Handle optional webhook
+          sendWebhookUpdates: config.sendWebhookUpdates !== false, // Default to true if undefined
           currency: config.currency || "USD", // Handle optional currency
         });
       }
