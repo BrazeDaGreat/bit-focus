@@ -175,7 +175,31 @@ function buildFocusContext(
 }
 
 function estimateTokens(text: string): string {
-  const count = Math.round(text.length / 4);
+  if (!text) return "~0 tokens";
+
+  // Match groups of words, numbers, newlines, symbols, and spaces
+  const parts = text.match(/([a-zA-Z]+)|([0-9]+)|(\r?\n)|([^\w\s]+)|([ \t]+)/g) || [];
+
+  let tokenCount = 0;
+  for (const part of parts) {
+    if (/[a-zA-Z]+/.test(part)) {
+      tokenCount += Math.ceil(part.length / 4);
+    } else if (/[0-9]+/.test(part)) {
+      tokenCount += Math.ceil(part.length / 3);
+    } else if (/\r?\n/.test(part)) {
+      tokenCount += 1;
+    } else if (/[ \t]+/.test(part)) {
+      if (part.length === 1) {
+        tokenCount += 0.25;
+      } else {
+        tokenCount += Math.ceil(part.length / 4);
+      }
+    } else {
+      tokenCount += part.length;
+    }
+  }
+
+  const count = Math.round(tokenCount);
   if (count >= 1000) return `~${(count / 1000).toFixed(1)}k tokens`;
   return `~${count} tokens`;
 }

@@ -5,6 +5,11 @@ import db, { type AIChat, type AIConfig } from "@/lib/db";
 import { DEFAULT_MODEL_ID } from "@/lib/ai-models";
 import type { UIMessage as Message } from "ai";
 
+const DEFAULT_SYSTEM_PROMPT = `You are BIT Focus AI, a highly optimized assistant tuned for productivity coaching.
+Adopt an encouraging, analytical, and highly structured tone.
+Prioritize helping the user track focus sessions, analyze breakdowns, and manage reward points.
+Provide concise, actionable advice without conversational filler, using markdown for readability.`;
+
 interface AIChatState {
   chats: AIChat[];
   aiConfig: AIConfig | null;
@@ -87,6 +92,10 @@ export const useAIChat = create<AIChatState>((set, get) => ({
   loadAIConfig: async () => {
     const config = await db.aiConfig.get("default");
     if (config) {
+      if (!config.customPrompt || config.customPrompt.trim() === "") {
+        config.customPrompt = DEFAULT_SYSTEM_PROMPT;
+        await db.aiConfig.put(config);
+      }
       set({ aiConfig: config });
     } else {
       const defaultConfig: AIConfig = {
@@ -94,9 +103,10 @@ export const useAIChat = create<AIChatState>((set, get) => ({
         groqApiKey: "",
         googleApiKey: "",
         customContextEnabled: false,
-        customPrompt: "",
+        customPrompt: DEFAULT_SYSTEM_PROMPT,
         defaultModelId: DEFAULT_MODEL_ID,
       };
+      await db.aiConfig.put(defaultConfig);
       set({ aiConfig: defaultConfig });
     }
   },

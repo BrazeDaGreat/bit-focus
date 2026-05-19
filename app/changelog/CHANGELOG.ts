@@ -1,10 +1,6 @@
-export const VERSION = "v0.17.1-beta";
+export const VERSION = "v0.17.2 (LTS)";
 
 const CHANGELOG = `
-
-## \`v0.17.1-beta\` (2026-05-20) — Webhook Toggle & Enhanced Timer Messages
-- Added: "Send status updates" toggle in Webhook URL configuration, allowing users to enable/disable automated Discord webhook notifications for timer events while keeping Quick Messages and save state uploads functional.
-- Improved: Re-structured timer-related Discord webhook notifications (start and completion events) into a clean, modern multi-line format with clear emoji icons and bold labels for better readability.
 
 ## \`0.17.0-beta\` (2026-04-22) — AI Chat
 - Added a new AI Chat tab, with support for multiple models from Groq and Google.
@@ -13,6 +9,20 @@ const CHANGELOG = `
 - Added a new /api/chat route that handles the chat requests and responses.
 - An add context button, which sends the following data alongside your API request: Your name, age, last 14 days of focus data, your focus points, total time focused in last 1, 7, and 30 days, and current focus state.
 - When context button is checked, it also shows the estimated token usage for the context data.
+
+### \`v0.17.1-beta\` (2026-05-20) — Webhook Toggle & Enhanced Timer Messages
+- Added: "Send status updates" toggle in Webhook URL configuration, allowing users to enable/disable automated Discord webhook notifications for timer events while keeping Quick Messages and save state uploads functional.
+- Improved: Re-structured timer-related Discord webhook notifications (start and completion events) into a clean, modern multi-line format with clear emoji icons and bold labels for better readability.
+
+### \`v0.17.2 (LTS)\` (2026-05-20) — Calendar Timeblocking
+- Added: Calendar Timeblocking — drag any empty area in Day or Week view to plan a time block and assign it to a tag.
+- Added: Timeblocks render as a full-width dotted layer underneath actual focus sessions, making it easy to compare planned vs. actual time.
+- Added: Drag-to-move and resize support for timeblocks via react-big-calendar DnD addon.
+- Added: Click a timeblock to edit its tag or delete it via a mini popup.
+- Added: Timeblocks persisted to IndexedDB (DB version 11, new \`timeblocks\` table) via new \`useTimeblocks\` Zustand store.
+- Added: "Show planned" toggle in the Calendar sidebar to hide/show all timeblocks.
+- Fixed: Hydration mismatch on Calendar page caused by \`useTheme\` returning \`undefined\` during SSR.
+- Added: Zoom levels on calendar page.
 ***
 
 ## \`v0.16.0 (LTS)\` (2026-04-01) — Excalidraw & UI Redesign
