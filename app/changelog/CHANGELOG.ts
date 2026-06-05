@@ -1,6 +1,10 @@
-export const VERSION = "v0.17.2 (LTS)";
+export const VERSION = "v0.18.0-beta";
 
 const CHANGELOG = `
+
+## \`v0.18.0-beta\` (2026-06-02) — Onboarding
+- Added: Custom Fira Code font to the Notepad feature.
+- Added: Support for coding ligatures (e.g. rendering \`->\` as a single right arrow glyph, \`=>\` as a double-line right arrow, etc.) to enhance readability of equations and notes.
 
 ## \`0.17.0-beta\` (2026-04-22) — AI Chat
 - Added a new AI Chat tab, with support for multiple models from Groq and Google.

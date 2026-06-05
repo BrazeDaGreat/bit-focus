@@ -44,7 +44,7 @@
 import type { Metadata } from "next";
 import type { JSX } from "react";
 import { Analytics } from "@vercel/analytics/next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Fira_Code } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/ThemeProvider";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -79,6 +79,19 @@ const geistSans = Geist({
  */
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+/**
+ * Fira Code Font Configuration
+ * 
+ * Configures the Fira Code monospace font with ligature support for the Notepad.
+ * 
+ * @constant
+ * @type {NextFont}
+ */
+const firaCode = Fira_Code({
+  variable: "--font-fira-code",
   subsets: ["latin"],
 });
 
@@ -160,7 +173,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${firaCode.variable} antialiased`}
       >
         {/* Timer State Management Provider */}
         <PomoProvider>
