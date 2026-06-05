@@ -535,3 +535,9 @@
     scale: 1;
   }
 }
+
+.font-notepad {
+  font-family: var(--font-fira-code), var(--font-geist-mono), monospace !important;
+  font-variant-ligatures: common-ligatures !important;
+  font-feature-settings: "liga" on, "calt" on !important;
+}

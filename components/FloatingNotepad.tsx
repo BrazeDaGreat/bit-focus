@@ -272,7 +272,7 @@ export default function FloatingNotepad(): JSX.Element {
               onChange={handleContentChange}
               onKeyDown={handleKeyDown}
               placeholder="6*(4+27) = "
-              className="flex-1 resize-none text-sm leading-relaxed focus-visible:ring-0 focus-visible:ring-offset-0 bg-white/10"
+              className="flex-1 resize-none text-sm leading-relaxed focus-visible:ring-0 focus-visible:ring-offset-0 bg-white/10 font-notepad"
             />
 
             {/* Help Text and Controls */}
