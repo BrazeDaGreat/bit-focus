@@ -11,6 +11,7 @@ import { Button } from "../ui/button";
 import { Label } from "../ui/label";
 import { Input } from "../ui/input";
 import dayjs from "dayjs";
+import { cn } from "@/lib/utils";
 
 
 export const EditConfigSkeleton = () => {
@@ -24,29 +25,46 @@ export const EditConfigSkeleton = () => {
  */
 export function EditConfigForm({ onSave }: { onSave?: () => void }) {
   const { name, dob, setConfig, webhook, currency, sendWebhookUpdates } = useConfig();
+  const hasName = name && name !== "NULL" && name.trim() !== "";
+  const hasDob = !!dob;
   const {
     register,
     handleSubmit,
     control,
     formState: { errors },
+    watch,
   } = useForm({
     defaultValues: {
-      name: name === "NULL" ? "" : name,
-      day: dob ? new Date(dob).getDate() : "",
-      month: dob ? new Date(dob).getMonth() + 1 : "",
+      name: hasName ? name : "",
+      day: hasDob && dob ? new Date(dob).getDate() : "",
+      month: hasDob && dob ? new Date(dob).getMonth() + 1 : "",
       webhook: webhook ?? "",
-      sendWebhookUpdates: sendWebhookUpdates ?? true,
-      year: dob ? new Date(dob).getFullYear() : "",
+      sendWebhookUpdates: sendWebhookUpdates ?? false,
+      year: hasDob && dob ? new Date(dob).getFullYear() : "",
       currency: currency ?? "USD",
     },
   });
 
+  const watchedWebhook = watch("webhook");
+  const isWebhookPresent = !!(watchedWebhook && watchedWebhook.trim());
+  const watchedDay = watch("day");
+  const watchedMonth = watch("month");
+  const watchedYear = watch("year");
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onSubmit = (data: any) => {
-    const { name, day, month, year, webhook, currency, sendWebhookUpdates } = data;
-    const dateOfBirth = new Date(year, month - 1, day);
+    const { name: formName, day, month, year, webhook: formWebhook, currency: formCurrency, sendWebhookUpdates: formSendWebhookUpdates } = data;
+    const hasDobInput = !!(day && month && year);
+    const dateOfBirth = hasDobInput ? new Date(year, month - 1, day) : null;
     toast("Config updated successfully.", { icon: <FaPencil /> });
-    setConfig(name, dateOfBirth, webhook, currency, sendWebhookUpdates);
+    const hasWebhook = !!(formWebhook && formWebhook.trim());
+    setConfig(
+      formName.trim() || "NULL",
+      dateOfBirth,
+      formWebhook,
+      formCurrency,
+      hasWebhook ? formSendWebhookUpdates : false
+    );
     onSave?.();
   };
 
@@ -57,14 +75,50 @@ export function EditConfigForm({ onSave }: { onSave?: () => void }) {
       </div>
       <form className="flex flex-col gap-2" onSubmit={handleSubmit(onSubmit)}>
         <Label className="text-xs opacity-90" htmlFor="cfg-name">Name</Label>
-        <Input id="cfg-name" {...register("name", { required: "Name is required" })} />
-        {errors.name && <span className="text-red-500 text-xs">{errors.name.message}</span>}
+        <Input id="cfg-name" {...register("name")} />
 
         <Label className="text-xs opacity-90" htmlFor="cfg-dob">Date of Birth</Label>
         <div className="flex gap-2">
-          <Input type="number" placeholder="DD" {...register("day", { required: "Day is required", valueAsNumber: true, min: { value: 1, message: "Invalid day" }, max: { value: 31, message: "Invalid day" } })} />
-          <Input type="number" placeholder="MM" {...register("month", { required: "Month is required", valueAsNumber: true, min: { value: 1, message: "Invalid month" }, max: { value: 12, message: "Invalid month" } })} />
-          <Input type="number" placeholder="YYYY" {...register("year", { required: "Year is required", valueAsNumber: true, min: { value: 1900, message: "Invalid year" }, max: { value: new Date().getFullYear(), message: "Invalid year" } })} />
+          <Input
+            type="number"
+            placeholder="DD"
+            {...register("day", {
+              validate: (val) => {
+                const dayVal = Number(val);
+                if (!val && !watchedMonth && !watchedYear) return true;
+                if (!val) return "Day is required";
+                if (isNaN(dayVal) || dayVal < 1 || dayVal > 31) return "Invalid day";
+                return true;
+              }
+            })}
+          />
+          <Input
+            type="number"
+            placeholder="MM"
+            {...register("month", {
+              validate: (val) => {
+                const monthVal = Number(val);
+                if (!val && !watchedDay && !watchedYear) return true;
+                if (!val) return "Month is required";
+                if (isNaN(monthVal) || monthVal < 1 || monthVal > 12) return "Invalid month";
+                return true;
+              }
+            })}
+          />
+          <Input
+            type="number"
+            placeholder="YYYY"
+            {...register("year", {
+              validate: (val) => {
+                const yearVal = Number(val);
+                if (!val && !watchedDay && !watchedMonth) return true;
+                if (!val) return "Year is required";
+                const currentYear = new Date().getFullYear();
+                if (isNaN(yearVal) || yearVal < 1900 || yearVal > currentYear) return "Invalid year";
+                return true;
+              }
+            })}
+          />
         </div>
         {errors.day && <span className="text-red-500 text-xs">{errors.day.message}</span>}
         {errors.month && <span className="text-red-500 text-xs">{errors.month.message}</span>}
@@ -76,7 +130,13 @@ export function EditConfigForm({ onSave }: { onSave?: () => void }) {
 
         <div className="flex items-center justify-between py-1.5 px-0.5">
           <div className="flex flex-col gap-0.5">
-            <Label className="text-xs opacity-90 cursor-pointer" htmlFor="cfg-sendWebhookUpdates">
+            <Label
+              className={cn(
+                "text-xs opacity-90 cursor-pointer transition-opacity",
+                !isWebhookPresent && "opacity-40 cursor-not-allowed"
+              )}
+              htmlFor="cfg-sendWebhookUpdates"
+            >
               Send status updates
             </Label>
             <span className="text-[10px] text-muted-foreground">
@@ -89,8 +149,9 @@ export function EditConfigForm({ onSave }: { onSave?: () => void }) {
             render={({ field }) => (
               <Switch
                 id="cfg-sendWebhookUpdates"
-                checked={field.value}
+                checked={isWebhookPresent ? field.value : false}
                 onCheckedChange={field.onChange}
+                disabled={!isWebhookPresent}
               />
             )}
           />
@@ -112,22 +173,31 @@ export function EditConfigForm({ onSave }: { onSave?: () => void }) {
 const EditConfig = () => {
   const { name, dob, setConfig, webhook, currency, sendWebhookUpdates } = useConfig();
   const isMobile = useIsMobile();
+  const hasName = name && name !== "NULL" && name.trim() !== "";
+  const hasDob = !!dob;
   const {
     register,
     handleSubmit,
     control,
     formState: { errors },
+    watch,
   } = useForm({
     defaultValues: {
-      name: name === "NULL" ? "" : name,
-      day: dob ? new Date(dob).getDate() : "",
-      month: dob ? new Date(dob).getMonth() + 1 : "",
+      name: hasName ? name : "",
+      day: hasDob && dob ? new Date(dob).getDate() : "",
+      month: hasDob && dob ? new Date(dob).getMonth() + 1 : "",
       webhook: webhook ?? "",
-      sendWebhookUpdates: sendWebhookUpdates ?? true,
-      year: dob ? new Date(dob).getFullYear() : "",
+      sendWebhookUpdates: sendWebhookUpdates ?? false,
+      year: hasDob && dob ? new Date(dob).getFullYear() : "",
       currency: currency ?? "USD",
     },
   });
+
+  const watchedWebhook = watch("webhook");
+  const isWebhookPresent = !!(watchedWebhook && watchedWebhook.trim());
+  const watchedDay = watch("day");
+  const watchedMonth = watch("month");
+  const watchedYear = watch("year");
 
   const calculateAge = () => {
     const today = dayjs();
@@ -139,14 +209,22 @@ const EditConfig = () => {
     return { years, months, days}
   };
 
-  const { years, months, days } = calculateAge();
+  const { years, months, days } = dob ? calculateAge() : { years: 0, months: 0, days: 0 };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onSubmit = (data: any) => {
-    const { name, day, month, year, webhook, currency, sendWebhookUpdates } = data;
-    const dateOfBirth = new Date(year, month - 1, day);
+    const { name: formName, day, month, year, webhook: formWebhook, currency: formCurrency, sendWebhookUpdates: formSendWebhookUpdates } = data;
+    const hasDobInput = !!(day && month && year);
+    const dateOfBirth = hasDobInput ? new Date(year, month - 1, day) : null;
     toast("Config updated successfully.", { icon: <FaPencil /> });
-    setConfig(name, dateOfBirth, webhook, currency, sendWebhookUpdates);
+    const hasWebhook = !!(formWebhook && formWebhook.trim());
+    setConfig(
+      formName.trim() || "NULL",
+      dateOfBirth,
+      formWebhook,
+      formCurrency,
+      hasWebhook ? formSendWebhookUpdates : false
+    );
   };
 
   return (
@@ -157,7 +235,7 @@ const EditConfig = () => {
           className="w-full flex h-max items-start justify-between"
         >
           <div className="flex flex-col items-start gap-1 pb-2">
-            {name === "NULL" ? (
+            {!hasName ? (
               <span className="text-lg">Hello</span>
             ) : (
               <div className="flex gap-2 items-center">
@@ -166,9 +244,11 @@ const EditConfig = () => {
                 <span className="text-lg"> Hello, {name}</span>
               </div>
             )}
-            <span className="text-xs">
-              Age: {years}y {months}m {days}d
-            </span>
+            {hasName && dob && (
+              <span className="text-xs">
+                Age: {years}y {months}m {days}d
+              </span>
+            )}
           </div>
           <div className="h-full flex items-center">
             <LuChevronsUpDown />
@@ -189,13 +269,8 @@ const EditConfig = () => {
             </Label>
             <Input
               id="name"
-              {...register("name", { required: "Name is required" })}
+              {...register("name")}
             />
-            {errors.name && (
-              <span className="text-red-500 text-xs">
-                {errors.name.message}
-              </span>
-            )}
 
             <Label className="text-xs opacity-90" htmlFor="dob">
               Date of Birth
@@ -205,33 +280,40 @@ const EditConfig = () => {
                 type="number"
                 placeholder="DD"
                 {...register("day", {
-                  required: "Day is required",
-                  valueAsNumber: true,
-                  min: { value: 1, message: "Invalid day" },
-                  max: { value: 31, message: "Invalid day" },
+                  validate: (val) => {
+                    const dayVal = Number(val);
+                    if (!val && !watchedMonth && !watchedYear) return true;
+                    if (!val) return "Day is required";
+                    if (isNaN(dayVal) || dayVal < 1 || dayVal > 31) return "Invalid day";
+                    return true;
+                  }
                 })}
               />
               <Input
                 type="number"
                 placeholder="MM"
                 {...register("month", {
-                  required: "Month is required",
-                  valueAsNumber: true,
-                  min: { value: 1, message: "Invalid month" },
-                  max: { value: 12, message: "Invalid month" },
+                  validate: (val) => {
+                    const monthVal = Number(val);
+                    if (!val && !watchedDay && !watchedYear) return true;
+                    if (!val) return "Month is required";
+                    if (isNaN(monthVal) || monthVal < 1 || monthVal > 12) return "Invalid month";
+                    return true;
+                  }
                 })}
               />
               <Input
                 type="number"
                 placeholder="YYYY"
                 {...register("year", {
-                  required: "Year is required",
-                  valueAsNumber: true,
-                  min: { value: 1900, message: "Invalid year" },
-                  max: {
-                    value: new Date().getFullYear(),
-                    message: "Invalid year",
-                  },
+                  validate: (val) => {
+                    const yearVal = Number(val);
+                    if (!val && !watchedDay && !watchedMonth) return true;
+                    if (!val) return "Year is required";
+                    const currentYear = new Date().getFullYear();
+                    if (isNaN(yearVal) || yearVal < 1900 || yearVal > currentYear) return "Invalid year";
+                    return true;
+                  }
                 })}
               />
             </div>
@@ -271,7 +353,13 @@ const EditConfig = () => {
 
             <div className="flex items-center justify-between py-1.5 px-0.5">
               <div className="flex flex-col gap-0.5">
-                <Label className="text-xs opacity-90 cursor-pointer" htmlFor="sendWebhookUpdates">
+                <Label
+                  className={cn(
+                    "text-xs opacity-90 cursor-pointer transition-opacity",
+                    !isWebhookPresent && "opacity-40 cursor-not-allowed"
+                  )}
+                  htmlFor="sendWebhookUpdates"
+                >
                   Send status updates
                 </Label>
                 <span className="text-[10px] text-muted-foreground">
@@ -284,8 +372,9 @@ const EditConfig = () => {
                 render={({ field }) => (
                   <Switch
                     id="sendWebhookUpdates"
-                    checked={field.value}
+                    checked={isWebhookPresent ? field.value : false}
                     onCheckedChange={field.onChange}
+                    disabled={!isWebhookPresent}
                   />
                 )}
               />

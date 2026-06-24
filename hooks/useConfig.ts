@@ -50,7 +50,7 @@ interface ConfigState {
   /** User's display name */
   name: string;
   /** User's date of birth for age calculations */
-  dob: Date;
+  dob: Date | null;
   /** Discord webhook URL for notifications */
   webhook: string;
   /** Whether to send timer status updates to the webhook */
@@ -60,7 +60,7 @@ interface ConfigState {
   /** Loading state indicator for UI feedback */
   loadingConfig: boolean;
   /** Function to update configuration with new values */
-  setConfig: (name: string, dob: Date, webhook: string, currency: string, sendWebhookUpdates?: boolean) => Promise<void>;
+  setConfig: (name: string, dob: Date | null, webhook: string, currency: string, sendWebhookUpdates?: boolean) => Promise<void>;
   /** Function to load configuration from database */
   loadConfig: () => Promise<void>;
 }
@@ -123,9 +123,9 @@ interface ConfigState {
  */
 export const useConfig = create<ConfigState>((set) => ({
   name: "NULL",
-  dob: new Date(),
+  dob: null,
   webhook: "",
-  sendWebhookUpdates: true,
+  sendWebhookUpdates: false,
   currency: "USD", // Add this line
   loadingConfig: true,
 
@@ -158,7 +158,7 @@ export const useConfig = create<ConfigState>((set) => ({
    * );
    * ```
    */
-  setConfig: async (name, dob, webhook, currency, sendWebhookUpdates = true) => {
+  setConfig: async (name, dob, webhook, currency, sendWebhookUpdates = false) => {
     console.log(name, dob, webhook, sendWebhookUpdates);
 
     // Remove existing configuration to prevent duplicates
@@ -208,7 +208,7 @@ export const useConfig = create<ConfigState>((set) => ({
           name: config.name,
           dob: config.dob,
           webhook: config.webhook || "", // Handle optional webhook
-          sendWebhookUpdates: config.sendWebhookUpdates !== false, // Default to true if undefined
+          sendWebhookUpdates: config.sendWebhookUpdates === true, // Default to false if undefined
           currency: config.currency || "USD", // Handle optional currency
         });
       }
