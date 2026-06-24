@@ -98,14 +98,17 @@ function buildFocusContext(
   sessions: FocusSession[],
   rewardPoints: number,
   name: string,
-  dob: Date,
+  dob: Date | null,
   timer: TimerContextData
 ): string {
   const now = new Date();
 
   // Age from dob
-  const ageMs = now.getTime() - new Date(dob).getTime();
-  const age = Math.floor(ageMs / (1000 * 60 * 60 * 24 * 365.25));
+  let age = NaN;
+  if (dob) {
+    const ageMs = now.getTime() - new Date(dob).getTime();
+    age = Math.floor(ageMs / (1000 * 60 * 60 * 24 * 365.25));
+  }
 
   // Aggregated totals
   const h24 = sumHoursInPeriod(sessions, 1);
@@ -150,7 +153,7 @@ function buildFocusContext(
   const parts: string[] = [];
   parts.push(`=== User Profile ===`);
   parts.push(`Name: ${(name && name !== "NULL") ? name : "Unknown"}`);
-  parts.push(`Age: ${isNaN(age) || age < 0 || age > 120 ? "Unknown" : age} years old`);
+  parts.push(`Age: ${(name && name !== "NULL" && !isNaN(age) && age >= 0 && age <= 120) ? `${age} years old` : "Unknown"}`);
   parts.push(`Accumulated Focus Points: ${rewardPoints}`);
 
   parts.push(`\n=== Focus Summary ===`);

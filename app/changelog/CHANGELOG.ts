@@ -1,10 +1,18 @@
-export const VERSION = "v0.18.0-beta";
+export const VERSION = "v0.18.1-beta";
 
 const CHANGELOG = `
 
-## \`v0.18.0-beta\` (2026-06-02) — Onboarding
+## \`v0.18.0-beta\` (2026-06-02) — Quality of Life Updates
 - Added: Custom Fira Code font to the Notepad feature.
 - Added: Support for coding ligatures (e.g. rendering \`->\` as a single right arrow glyph, \`=>\` as a double-line right arrow, etc.) to enhance readability of equations and notes.
+### \`v0.18.1-beta\` (2026-06-24)
+- Added: Ambience Mixer in the Sidebar, allowing for customizable background sounds during focus sessions.
+- Fixed: "NULL" text appearing when no name is selected.
+- Fixed: "0y 0m 0d" text appearing when no age is selected.
+- Fixed: "Send status updates" Checkbox is now disabled when Webhook URL is empty.
+- Fixed: Name is now an optional field when saving details.
+- Fixed: Date of Birth fields are now optional, provided if any one of them is filled, the others must be filled as well.
+***
 
 ## \`0.17.0-beta\` (2026-04-22) — AI Chat
 - Added a new AI Chat tab, with support for multiple models from Groq and Google.

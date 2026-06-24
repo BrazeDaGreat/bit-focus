@@ -43,6 +43,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useConfig } from "@/hooks/useConfig";
 import { useEffect, useRef, useCallback, useState, type JSX } from "react";
 import PomoFooterTimer from "./sidebar/PomoFooterTimer";
+import { AmbienceMixer } from "./sidebar/AmbienceMixer";
 import { Skeleton } from "./ui/skeleton";
 import { VERSION } from "@/app/changelog/CHANGELOG";
 import { usePomo } from "@/hooks/PomoContext";
@@ -154,6 +155,13 @@ export function AppSidebar(): JSX.Element {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* ── Ambience mixer ── */}
+        <SidebarGroup className="px-2 pb-2 pt-0 mt-auto">
+          <SidebarGroupContent>
+            <AmbienceMixer />
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
 
       {/* ── Footer ── */}
@@ -254,13 +262,13 @@ const calculateAge = (dob: Date) => {
     return { years, months, days}
 };
 
-// ── User config button (avatar icon → opens EditConfig popover) ──
-
 function UserConfigButton({ loadingConfig }: { loadingConfig: boolean }): JSX.Element {
   const { name, dob } = useConfig();
   const [open, setOpen] = useState(false);
 
-  const { years, months, days } = calculateAge(new Date(dob || new Date()));
+  const hasName = name && name !== "NULL" && name.trim() !== "";
+  const hasDob = !!dob;
+  const age = dob ? calculateAge(new Date(dob)) : null;
 
   if (loadingConfig) {
     return <Skeleton className="w-full h-11 rounded-md" />;
@@ -270,15 +278,45 @@ function UserConfigButton({ loadingConfig }: { loadingConfig: boolean }): JSX.El
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
-          variant={"ghost"}
-          className="w-full flex justify-start h-11"
+          variant="ghost"
+          className="w-full flex justify-start h-11 px-2.5 gap-2"
         >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        {name ? <img src={`https://api.dicebear.com/9.x/shapes/svg?seed=${name}`} alt="avatar" className="w-8 h-8 rounded-full shadow-md" /> : <FaUser className="size-3.5" />}
-        <div className="flex flex-col items-start">
-          { name ? <span className="ml-2">{name}</span> : <span className="ml-2 text-muted-foreground">Set your name</span> }
-          { dob ? <span className="ml-2 text-xs text-muted-foreground">{years}y {months}m {days}d</span> : <span className="ml-2 text-xs text-muted-foreground">Set your DOB</span> }
-        </div>
+          {hasName ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={`https://api.dicebear.com/9.x/shapes/svg?seed=${name}`}
+              alt="avatar"
+              className="w-8 h-8 rounded-full shadow-md shrink-0"
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center border shadow-xs shrink-0">
+              <FaUser className="size-3.5 text-muted-foreground" />
+            </div>
+          )}
+          <div className="flex flex-col items-start text-left min-w-0">
+            {hasName ? (
+              <span className="text-sm font-medium text-foreground truncate w-full">
+                {name}
+              </span>
+            ) : (
+              <span className="text-sm font-medium text-muted-foreground">
+                Guest Profile
+              </span>
+            )}
+            {hasDob && age ? (
+              <span className="text-xs text-muted-foreground truncate w-full">
+                {age.years}y {age.months}m {age.days}d
+              </span>
+            ) : hasName ? (
+              <span className="text-[10px] text-primary/80 hover:text-primary transition-colors font-medium">
+                Set DOB
+              </span>
+            ) : (
+              <span className="text-[10px] text-primary/80 hover:text-primary transition-colors font-medium">
+                Set details
+              </span>
+            )}
+          </div>
         </Button>
       </PopoverTrigger>
       <PopoverContent side="top" align="start" className="w-72 p-0">

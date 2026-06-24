@@ -144,7 +144,7 @@ class BitFocusDB extends Dexie {
    * Configuration Table (Enhanced with Currency)
    */
   configuration: Dexie.Table<
-    { name: string; dob: Date; webhook: string; currency: string; sendWebhookUpdates?: boolean },
+    { name: string; dob: Date | null; webhook: string; currency: string; sendWebhookUpdates?: boolean },
     string
   >;
 

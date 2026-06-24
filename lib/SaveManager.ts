@@ -58,7 +58,7 @@ type ExportedData = {
     /** User configuration data */
     configuration: {
       name: string;
-      dob: string; // Serialized as ISO string
+      dob: string | null; // Serialized as ISO string or null
       webhook: string;
       currency: string;
     }[];
@@ -202,7 +202,7 @@ class SaveManager {
         // Serialize configuration data with date conversion
         configuration: (await db.configuration.toArray()).map((c) => ({
           ...c,
-          dob: c.dob.toISOString(),
+          dob: c.dob ? c.dob.toISOString() : null,
         })),
         // Serialize focus sessions with date conversion
         focus: (await db.focus.toArray()).map((f) => ({
@@ -326,7 +326,7 @@ class SaveManager {
     // Deserialize dates and reconstruct data objects
     const configuration = data.indexedDB.configuration.map((c) => ({
       ...c,
-      dob: new Date(c.dob),
+      dob: c.dob ? new Date(c.dob) : null,
     }));
 
     const focus = data.indexedDB.focus.map((f) => ({
@@ -477,7 +477,7 @@ class SaveManager {
       indexedDB: {
         configuration: (await db.configuration.toArray()).map((c) => ({
           ...c,
-          dob: c.dob.toISOString(),
+          dob: c.dob ? c.dob.toISOString() : null,
         })),
         focus: (await db.focus.toArray()).map((f) => ({
           ...f,
@@ -552,7 +552,7 @@ class SaveManager {
   static async importJSON(data: ExportedData): Promise<void> {
     const configuration = data.indexedDB.configuration.map((c) => ({
       ...c,
-      dob: new Date(c.dob),
+      dob: c.dob ? new Date(c.dob) : null,
     }));
 
     const focus = data.indexedDB.focus.map((f) => ({
