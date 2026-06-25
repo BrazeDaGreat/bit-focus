@@ -39,6 +39,7 @@ import { type JSX, useState, useEffect, useMemo } from "react";
 import { Issue, Milestone, Project, useProjects } from "@/hooks/useProjects";
 import { useRouter } from "next/navigation";
 import FocusHeatmap from "@/components/FocusHeatmap";
+import ColorPicker from "@/components/ui/color-picker";
 import {
   BarChart,
   Bar,
@@ -402,12 +403,14 @@ function IssueRow({
 function TagsSection(): JSX.Element {
   const { savedTags, addSavedTag, removeSavedTag } = useTag();
   const [open, setOpen] = useState(false);
+  const [color, setColor] = useState("#3b82f6");
 
   const { register, handleSubmit, formState: { errors }, reset } = useForm();
 
   const create = (data: any) => {
-    addSavedTag(data.tagname, data.color);
+    addSavedTag(data.tagname, color);
     reset();
+    setColor("#3b82f6");
     setOpen(false);
   };
 
@@ -445,22 +448,9 @@ function TagsSection(): JSX.Element {
                 <span className="text-red-500 text-xs">Required</span>
               )}
               <Label htmlFor="tag-color" className="text-xs">
-                Color HEX
+                Color
               </Label>
-              <Input
-                id="tag-color"
-                className="h-8"
-                placeholder="#3b82f6"
-                {...register("color", {
-                  pattern: {
-                    value: /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/,
-                    message: "Enter a valid HEX color",
-                  },
-                })}
-              />
-              {errors.color && (
-                <span className="text-red-500 text-xs">{`${errors.color.message}`}</span>
-              )}
+              <ColorPicker id="tag-color" value={color} onChange={setColor} />
               <div className="flex gap-2">
                 <Button
                   type="button"

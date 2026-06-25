@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils";
 import BITFdata from "./BITFdata";
 import FloatingNotepad from "./FloatingNotepad";
 import QuickMessageDialog from "./QuickMessageDialog";
+import MiniTimer from "./MiniTimer";
 import { usePathname } from "next/navigation";
 import { FaTrash, FaHandHoldingDollar } from "react-icons/fa6";
 import { FaCoffee } from "react-icons/fa";
@@ -102,6 +103,10 @@ export default function TopBar(): JSX.Element {
 
         {/* Right: utility actions */}
         <div className="flex items-center gap-1">
+          {/* Mini timer — start/pause a session from anywhere */}
+          <MiniTimer />
+          <div className="w-px h-5 bg-border mx-1" />
+
           <QuickMessageDialog />
           <FloatingNotepad />
           <BITFdata />

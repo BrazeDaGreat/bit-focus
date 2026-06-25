@@ -42,7 +42,6 @@ import { EditConfigForm } from "./sidebar/EditConfig";
 import { usePathname, useRouter } from "next/navigation";
 import { useConfig } from "@/hooks/useConfig";
 import { useEffect, useRef, useCallback, useState, type JSX } from "react";
-import PomoFooterTimer from "./sidebar/PomoFooterTimer";
 import { AmbienceMixer } from "./sidebar/AmbienceMixer";
 import { Skeleton } from "./ui/skeleton";
 import { VERSION } from "@/app/changelog/CHANGELOG";
@@ -166,9 +165,6 @@ export function AppSidebar(): JSX.Element {
 
       {/* ── Footer ── */}
       <SidebarFooter className="p-0">
-        {/* Timer block — only shown when running or paused */}
-        <PomoFooterTimer />
-
         {/* Footer row: theme + user config + version */}
         <div className="flex items-center justify-between px-3 py-2 border-t">
           <div className="flex items-center gap-1">

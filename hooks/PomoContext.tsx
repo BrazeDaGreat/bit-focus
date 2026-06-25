@@ -544,20 +544,22 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
             originalTitleRef.current = document.title;
           }
           
-          // Format time for display in title
+          // Format time for display in title. Use H:M:S once the duration
+          // reaches an hour, otherwise M:S — without the hour component the
+          // minutes wrap (e.g. 100 minutes would render as "40:00").
           let displayTime: string;
           if (state.mode === "pomodoro") {
-            const targetDuration = state.phase === "focus" 
+            const targetDuration = state.phase === "focus"
               ? state.pomodoroSettings.focusDuration * 60
               : state.pomodoroSettings.breakDuration * 60;
             const remainingSeconds = Math.max(0, targetDuration - newElapsedSeconds);
             const timeObj = durationFromSeconds(remainingSeconds);
-            displayTime = formatTimeNew(timeObj, "M:S", "digital");
+            displayTime = formatTimeNew(timeObj, remainingSeconds >= 3600 ? "H:M:S" : "M:S", "digital");
             const phasePhrase = state.phase === "focus" ? "Focus" : "Break";
             document.title = `${displayTime} | ${phasePhrase} - BIT Focus`;
           } else {
             const timeObj = durationFromSeconds(newElapsedSeconds);
-            displayTime = formatTimeNew(timeObj, "M:S", "digital");
+            displayTime = formatTimeNew(timeObj, newElapsedSeconds >= 3600 ? "H:M:S" : "M:S", "digital");
             document.title = `${displayTime} - BIT Focus`;
           }
         }

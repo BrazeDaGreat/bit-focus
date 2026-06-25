@@ -25,7 +25,7 @@ import {
   calculateTime,
   cn,
   durationFromSeconds,
-  formatTime,
+  formatClock,
   formatTimeNew,
 } from "@/lib/utils";
 import { useTheme } from "next-themes";
@@ -53,15 +53,13 @@ import dayjs from "dayjs";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-function calcDisplayTime(state: ReturnType<typeof usePomo>["state"]) {
+function calcDisplaySeconds(state: ReturnType<typeof usePomo>["state"]): number {
   const { mode, phase, elapsedSeconds, pomodoroSettings } = state;
-  const raw =
-    mode === "pomodoro" && phase === "focus"
-      ? Math.max(0, pomodoroSettings.focusDuration * 60 - elapsedSeconds)
-      : mode === "pomodoro" && phase === "break"
-      ? Math.max(0, pomodoroSettings.breakDuration * 60 - elapsedSeconds)
-      : elapsedSeconds;
-  return { minutes: Math.floor(raw / 60), seconds: raw % 60 };
+  return mode === "pomodoro" && phase === "focus"
+    ? Math.max(0, pomodoroSettings.focusDuration * 60 - elapsedSeconds)
+    : mode === "pomodoro" && phase === "break"
+    ? Math.max(0, pomodoroSettings.breakDuration * 60 - elapsedSeconds)
+    : elapsedSeconds;
 }
 
 function calcProgress(state: ReturnType<typeof usePomo>["state"]): number {
@@ -132,7 +130,7 @@ export default function Focus(): JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, update]);
 
-  const { minutes, seconds } = calcDisplayTime(state);
+  const displayTotalSeconds = calcDisplaySeconds(state);
   const progress = calcProgress(state);
 
   const modeStrip =
@@ -173,7 +171,7 @@ export default function Focus(): JSX.Element {
               isMobile ? "text-6xl" : "text-8xl"
             )}
           >
-            {formatTime(minutes, seconds)}
+            {formatClock(displayTotalSeconds)}
           </span>
 
           {/* Progress bar — Pomodoro only */}

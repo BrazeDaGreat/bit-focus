@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "../ui/button";
 import { Label } from "../ui/label";
 import { Input } from "../ui/input";
+import CurrencySelect from "@/components/CurrencySelect";
 import dayjs from "dayjs";
 import { cn } from "@/lib/utils";
 
@@ -158,11 +159,17 @@ export function EditConfigForm({ onSave }: { onSave?: () => void }) {
         </div>
 
         <Label className="text-xs opacity-90" htmlFor="cfg-currency">Preferred Currency</Label>
-        <select id="cfg-currency" {...register("currency")} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50">
-          <option value="USD">USD ($)</option>
-          <option value="AED">AED (د.إ)</option>
-          <option value="PKR">PKR (₨)</option>
-        </select>
+        <Controller
+          control={control}
+          name="currency"
+          render={({ field }) => (
+            <CurrencySelect
+              id="cfg-currency"
+              value={field.value}
+              onChange={field.onChange}
+            />
+          )}
+        />
 
         <Button type="submit" variant="outline" className="mt-2">Save</Button>
       </form>
@@ -383,15 +390,17 @@ const EditConfig = () => {
             <Label className="text-xs opacity-90" htmlFor="currency">
               Preferred Currency
             </Label>
-            <select
-              id="currency"
-              {...register("currency")}
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <option value="USD">USD ($)</option>
-              <option value="AED">AED (د.إ)</option>
-              <option value="PKR">PKR (₨)</option>
-            </select>
+            <Controller
+              control={control}
+              name="currency"
+              render={({ field }) => (
+                <CurrencySelect
+                  id="currency"
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              )}
+            />
 
             <Button type="submit" variant="outline" className="mt-2">
               Save
