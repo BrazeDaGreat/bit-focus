@@ -48,9 +48,8 @@ import { Geist, Geist_Mono, Fira_Code } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/ThemeProvider";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/AppSidebar";
 import { PomoProvider } from "@/hooks/PomoContext";
-import TopBar from "@/components/TopBar";
+import AppShell from "@/components/AppShell";
 
 /**
  * Geist Sans Font Configuration
@@ -196,17 +195,8 @@ export default function RootLayout({
               defaultTheme="system"
               enableSystem={true}
             >
-              {/* Main Navigation Sidebar */}
-              <AppSidebar />
-              
-              {/* Main Content Area */}
-              <div className="flex-1 flex flex-col max-h-screen overflow-y-auto">
-                {/* Secondary Navigation Bar */}
-                <TopBar />
-                
-                {/* Page Content Injection Point */}
-                {children}
-              </div>
+              {/* First-run gate: onboarding for new users, app frame otherwise */}
+              <AppShell>{children}</AppShell>
             </ThemeProvider>
           </SidebarProvider>
         </PomoProvider>

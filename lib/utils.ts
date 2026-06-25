@@ -306,6 +306,26 @@ export const durationFromSeconds = (seconds: number): TimeObject =>
   calculateTime(new Date(0), new Date(seconds * 1000), "H:M:S");
 
 /**
+ * Format Seconds as a Digital Clock
+ *
+ * Renders a raw seconds value as a digital clock string. The hour component is
+ * included only once the duration reaches an hour, otherwise the more compact
+ * MM:SS form is used. This avoids the minute component overflowing past 60
+ * (e.g. 100 minutes rendering as "40:00" or "100:00" rather than "01:40:00").
+ *
+ * @param {number} totalSeconds - Duration in seconds (negative values clamp to 0).
+ * @returns {string} `HH:MM:SS` when ≥ 1 hour, otherwise `MM:SS`.
+ *
+ * @example
+ * formatClock(95)   // "01:35"
+ * formatClock(6000) // "01:40:00"
+ */
+export const formatClock = (totalSeconds: number): string => {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  return formatTimeNew(durationFromSeconds(s), s >= 3600 ? "H:M:S" : "M:S", "digital");
+};
+
+/**
  * Aggregate Focus Session Durations
  *
  * Calculates the total duration of multiple focus sessions by summing

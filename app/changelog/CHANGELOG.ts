@@ -1,8 +1,8 @@
-export const VERSION = "v0.18.1-beta";
+export const VERSION = "v0.18.2 (LTS)";
 
 const CHANGELOG = `
 
-## \`v0.18.0-beta\` (2026-06-02) — Quality of Life Updates
+## \`v0.18.0-beta\` (2026-06-02) — QoL Updates & Onboarding
 - Added: Custom Fira Code font to the Notepad feature.
 - Added: Support for coding ligatures (e.g. rendering \`->\` as a single right arrow glyph, \`=>\` as a double-line right arrow, etc.) to enhance readability of equations and notes.
 ### \`v0.18.1-beta\` (2026-06-24)
@@ -12,6 +12,18 @@ const CHANGELOG = `
 - Fixed: "Send status updates" Checkbox is now disabled when Webhook URL is empty.
 - Fixed: Name is now an optional field when saving details.
 - Fixed: Date of Birth fields are now optional, provided if any one of them is filled, the others must be filled as well.
+### \`v0.18.2 (LTS)\` (2026-06-25)
+- Added: First-run Onboarding flow that introduces the app and collects your name, date of birth, starter tags, and webhook notifications, gated behind a new \`AppShell\` component until a profile exists.
+- Added: Theme picker step in Onboarding that applies the selected theme live across the whole app.
+- Added: A "focus dial" progress ring and feature highlights to the Onboarding, themed entirely from design tokens so it reads correctly across every theme.
+- Added: Privacy note on the Onboarding details step clarifying that data stays in your browser and is never sent anywhere.
+- Added: Reusable \`CurrencySelect\` component built on the shadcn/Radix Select.
+- Fixed: Replaced the buggy native currency dropdown in Onboarding and the Edit Details popup with the new \`CurrencySelect\`.
+- Added: \`ColorPicker\` component, replacing manual hex code entry when creating a new tag.
+- Added: Mini timer in the Top Bar to start, pause, and reset focus/Pomodoro sessions from any page, fully synced with the Focus page via the shared timer state.
+- Removed: The duplicate timer block from the Sidebar footer, now that the Top Bar mini timer covers it.
+- Fixed: Document title timer now keeps the hour component past 60 minutes (e.g. 1h40m no longer displays as \`40:00\`).
+- Improved: Focus page timer and Top Bar mini timer now display \`HH:MM:SS\` once a session passes an hour, via a shared \`formatClock\` helper.
 ***
 
 ## \`0.17.0-beta\` (2026-04-22) — AI Chat
