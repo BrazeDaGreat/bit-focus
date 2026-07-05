@@ -50,7 +50,7 @@ export const SHORTCUTS: ShortcutDef[] = [
   { keys: ["H"], description: "Go to Home", category: "Navigation", href: "/", action: "nav" },
   { keys: ["F"], description: "Go to Focus", category: "Navigation", href: "/focus", action: "nav" },
   { keys: ["C"], description: "Go to Calendar", category: "Navigation", href: "/calendar", feature: "calendar", action: "nav" },
-  { keys: ["A"], description: "Go to AI Chat", category: "Navigation", href: "/ai", feature: "aiChat", action: "nav" },
+  { keys: ["G"], description: "Go to AI Chat", category: "Navigation", href: "/ai", feature: "aiChat", action: "nav" },
   { keys: ["E"], description: "Go to Excalidraw", category: "Navigation", href: "/excalidraw", feature: "excalidraw", action: "nav" },
   { keys: ["P"], description: "Go to Projects", category: "Navigation", href: "/projects", feature: "projects", action: "nav" },
   { keys: ["R"], description: "Go to Rewards", category: "Navigation", href: "/rewards", feature: "rewards", action: "nav" },
