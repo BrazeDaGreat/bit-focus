@@ -10,6 +10,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import {
   Popover,
@@ -37,7 +38,7 @@ import { AmbienceMixer } from "./sidebar/AmbienceMixer";
 import { Skeleton } from "./ui/skeleton";
 import { VERSION } from "@/app/changelog/CHANGELOG";
 import { usePomo } from "@/hooks/PomoContext";
-import { useShortcutsDialog } from "@/hooks/useShortcuts";
+import { useShortcutsDialog, SHORTCUTS } from "@/hooks/useShortcuts";
 import { Kbd } from "@/components/ui/kbd";
 import { FaRegKeyboard } from "react-icons/fa6";
 import { useProjects } from "@/hooks/useProjects";
@@ -61,6 +62,7 @@ export function AppSidebar(): JSX.Element {
   const { pause, state, start } = usePomo();
   const { loadConfig, loadingConfig, featureToggles } = useConfig();
   const { loadProjects } = useProjects();
+  const { state: sidebarState } = useSidebar();
 
   const isNavigatingRef = useRef(false);
   const wasRunningRef = useRef(false);
@@ -130,6 +132,8 @@ export function AppSidebar(): JSX.Element {
                 .filter((item) => !item.feature || featureToggles[item.feature])
                 .map((item) => {
                 const isActive = pathname === item.url;
+                const shortcut = SHORTCUTS.find((s) => s.action === "nav" && s.href === item.url);
+                const shortcutKey = shortcut ? shortcut.keys[0] : null;
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
@@ -143,6 +147,9 @@ export function AppSidebar(): JSX.Element {
                     >
                       {item.icon}
                       <span>{item.title}</span>
+                      {shortcutKey && sidebarState !== "collapsed" && (
+                        <Kbd className="ml-auto pointer-events-none">{shortcutKey}</Kbd>
+                      )}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );

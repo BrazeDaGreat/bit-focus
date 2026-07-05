@@ -33,6 +33,7 @@ import {
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { useConfig } from "@/hooks/useConfig";
 import { usePomo } from "@/hooks/PomoContext";
+import { useNotepad } from "@/hooks/useNotepad";
 import {
   activeShortcuts,
   useShortcutsDialog,
@@ -74,6 +75,15 @@ export default function GlobalShortcuts(): JSX.Element {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.repeat) return;
+
+      // ── Notepad (Alt+N works even when typing) ──
+      if (e.altKey && e.key.toLowerCase() === "n") {
+        e.preventDefault();
+        const store = useNotepad.getState();
+        store.setIsOpen(!store.isOpen);
+        return;
+      }
+
       if (isTypingTarget(e.target)) return;
       // Leave browser/OS combos alone (sidebar's own Ctrl+B included)
       if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -116,7 +126,6 @@ export default function GlobalShortcuts(): JSX.Element {
   return <ShortcutsDialog shortcuts={shortcuts} />;
 }
 
-const CATEGORY_ORDER: ShortcutCategory[] = ["Navigation", "Timer", "General"];
 
 /**
  * Shortcuts Help Dialog
@@ -127,47 +136,58 @@ const CATEGORY_ORDER: ShortcutCategory[] = ["Navigation", "Timer", "General"];
 function ShortcutsDialog({ shortcuts }: { shortcuts: ShortcutDef[] }): JSX.Element {
   const { helpOpen, setHelpOpen } = useShortcutsDialog();
 
+  const renderCategory = (category: ShortcutCategory) => {
+    const group = shortcuts.filter((s) => s.category === category);
+    if (group.length === 0) return null;
+    return (
+      <div key={category} className="flex flex-col gap-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/80 px-1">
+          {category}
+        </h3>
+        <div className="rounded-lg border bg-card text-card-foreground shadow-xs divide-y divide-border/50 overflow-hidden">
+          {group.map((s) => (
+            <div
+              key={s.description}
+              className="flex items-center justify-between px-3.5 py-2 text-sm hover:bg-muted/30 transition-colors"
+            >
+              <span className="text-muted-foreground/90 font-medium">{s.description}</span>
+              <KbdGroup>
+                {s.keys.map((k, i) => (
+                  <Fragment key={k}>
+                    {i > 0 && (
+                      <span className="text-muted-foreground/60 text-xs font-bold">+</span>
+                    )}
+                    <Kbd className="bg-background shadow-xs font-mono font-bold border-muted-foreground/20">{k}</Kbd>
+                  </Fragment>
+                ))}
+              </KbdGroup>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Keyboard shortcuts</DialogTitle>
           <DialogDescription>
             Shortcuts work anywhere in the app, except while typing.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex flex-col gap-4 max-h-[60vh] overflow-y-auto pr-1">
-          {CATEGORY_ORDER.map((category) => {
-            const group = shortcuts.filter((s) => s.category === category);
-            if (group.length === 0) return null;
-            return (
-              <div key={category}>
-                <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-1.5">
-                  {category}
-                </h3>
-                <div className="rounded-md border divide-y">
-                  {group.map((s) => (
-                    <div
-                      key={s.description}
-                      className="flex items-center justify-between px-3 py-1.5 text-sm"
-                    >
-                      <span>{s.description}</span>
-                      <KbdGroup>
-                        {s.keys.map((k, i) => (
-                          <Fragment key={k}>
-                            {i > 0 && (
-                              <span className="text-muted-foreground text-xs">+</span>
-                            )}
-                            <Kbd>{k}</Kbd>
-                          </Fragment>
-                        ))}
-                      </KbdGroup>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[65vh] overflow-y-auto pr-1 animate-in fade-in-50 duration-200">
+          {/* Column 1: Navigation */}
+          <div className="flex flex-col gap-4">
+            {renderCategory("Navigation")}
+          </div>
+
+          {/* Column 2: Timer & General */}
+          <div className="flex flex-col gap-6">
+            {renderCategory("Timer")}
+            {renderCategory("General")}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

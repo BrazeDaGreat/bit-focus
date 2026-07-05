@@ -63,6 +63,10 @@ interface NotepadState {
   appendContent: (text: string) => void;
   /** Function to process mathematical expressions and insert results */
   processCalculation: (text: string) => string;
+  /** Whether the notepad is open */
+  isOpen: boolean;
+  /** Set open state of the notepad */
+  setIsOpen: (isOpen: boolean) => void;
 }
 
 /**
@@ -240,7 +244,14 @@ export const useNotepad = create<NotepadState>()(
     (set, get) => ({
       /** Initial empty content */
       content: "",
+      /** Whether the notepad is open */
+      isOpen: false,
       
+      /**
+       * Set open state of the notepad
+       */
+      setIsOpen: (isOpen: boolean) => set({ isOpen }),
+
       /**
        * Set Notepad Content
        *

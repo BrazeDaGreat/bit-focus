@@ -40,7 +40,8 @@ export interface ShortcutDef {
     | "timer-toggle"
     | "timer-reset"
     | "toggle-sidebar"
-    | "open-help";
+    | "open-help"
+    | "toggle-notepad";
 }
 
 /** Every application-wide shortcut, in display order */
@@ -59,6 +60,7 @@ export const SHORTCUTS: ShortcutDef[] = [
   { keys: ["Shift", "R"], description: "Reset the timer", category: "Timer", action: "timer-reset" },
   // ── General ──
   { keys: ["Ctrl", "B"], description: "Toggle the sidebar", category: "General", action: "toggle-sidebar" },
+  { keys: ["Alt", "N"], description: "Toggle Notepad view", category: "General", action: "toggle-notepad" },
   { keys: ["?"], description: "Show keyboard shortcuts", category: "General", action: "open-help" },
 ];
 

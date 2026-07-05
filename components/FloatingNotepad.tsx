@@ -74,13 +74,12 @@ interface Position {
  * @returns {JSX.Element} Complete floating notepad interface
  */
 export default function FloatingNotepad(): JSX.Element {
-  const { content, setContent, clearContent, processCalculation } =
+  const { content, setContent, clearContent, processCalculation, isOpen, setIsOpen } =
     useNotepad();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isMobile = useIsMobile();
 
   // Window state
-  const [isOpen, setIsOpen] = useState(false);
   const [windowPosition, setWindowPosition] = useState<Position>({
     x: 100,
     y: 100,
@@ -91,30 +90,41 @@ export default function FloatingNotepad(): JSX.Element {
   const dragOffset = useRef<Position>({ x: 0, y: 0 });
 
   /**
-   * Load saved position and open state from localStorage on mount
+   * Load saved position from localStorage on mount
    */
   useEffect(() => {
     const savedWindowPos = localStorage.getItem("notepad-window-position");
-    const savedIsOpen = localStorage.getItem("notepad-is-open");
 
     if (savedWindowPos) {
       setWindowPosition(JSON.parse(savedWindowPos));
     }
-    if (savedIsOpen) {
-      setIsOpen(JSON.parse(savedIsOpen));
-    }
   }, []);
 
   /**
-   * Save position and open state to localStorage
+   * Save position to localStorage
    */
   useEffect(() => {
     localStorage.setItem(
       "notepad-window-position",
       JSON.stringify(windowPosition)
     );
-    localStorage.setItem("notepad-is-open", JSON.stringify(isOpen));
-  }, [windowPosition, isOpen]);
+  }, [windowPosition]);
+
+  /**
+   * Focus the textarea and place cursor at the end when the notepad is opened
+   */
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          const length = textareaRef.current.value.length;
+          textareaRef.current.setSelectionRange(length, length);
+        }
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
 
   /**
    * Handle Calculation Processing
