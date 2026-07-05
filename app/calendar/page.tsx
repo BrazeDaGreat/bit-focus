@@ -50,6 +50,7 @@ import {
   reduceSessions,
 } from "@/lib/utils";
 import { useTheme } from "next-themes";
+import { isDarkTheme } from "@/lib/ThemeManager";
 import { Toaster } from "@/components/ui/sonner";
 import { EditFocusSessionDialog } from "@/components/EditFocusSessionDialog";
 import {
@@ -205,7 +206,7 @@ function colorWithAlpha(color: string, alpha: number): string {
 // ── Calendar Page ─────────────────────────────────────────────────────────────
 
 export default function CalendarPage(): JSX.Element {
-  const { theme } = useTheme();
+  const { theme, resolvedTheme } = useTheme();
   const { focusSessions, loadFocusSessions, loadingFocusSessions } = useFocus();
   const { savedTags } = useTag();
   const { timeblocks, loadTimeblocks, addTimeblock, editTimeblock, removeTimeblock } = useTimeblocks();
@@ -497,12 +498,7 @@ export default function CalendarPage(): JSX.Element {
 
   // ── Theme ─────────────────────────────────────────────────────────────────
 
-  const isDark =
-    theme === "dark" ||
-    theme === "amoled" ||
-    theme === "bluenight" ||
-    theme === "amethyst" ||
-    theme === "amethystoverloaded";
+  const isDark = isDarkTheme(theme, resolvedTheme);
 
   const periodLabel = getPeriodLabel(currentDate, currentView);
   const statsLabel =

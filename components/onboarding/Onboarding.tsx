@@ -59,6 +59,7 @@ import {
   FaBell,
   FaLock,
 } from "react-icons/fa6";
+import { THEMES } from "@/lib/ThemeManager";
 
 // ── Static content ────────────────────────────────────────────────────────────
 
@@ -73,22 +74,10 @@ const STEPS = [
 ] as const;
 
 /**
- * Selectable themes with representative swatches. The swatch trio is decorative
- * — `[background, accent, foreground]` — since selecting a theme applies it live
- * to the whole screen, which is the real preview.
+ * Selectable themes with representative swatches, sourced from the central
+ * theme registry ({@link THEMES} in `lib/ThemeManager.ts`).
  */
-const THEME_OPTIONS = [
-  { value: "system", label: "System", swatch: ["#71717a", "#a1a1aa", "#e4e4e7"] },
-  { value: "light", label: "Light", swatch: ["#ffffff", "#78716c", "#1c1917"] },
-  { value: "dark", label: "Dark", swatch: ["#1c1917", "#a8a29e", "#fafaf9"] },
-  { value: "amethyst", label: "Amethyst", swatch: ["#2a2440", "#a78bfa", "#e9d5ff"] },
-  { value: "amethystoverloaded", label: "Amethyst+", swatch: ["#1a1626", "#7c5cdb", "#ede9fe"] },
-  { value: "bluenight", label: "Blue Night", swatch: ["#23272e", "#5ec4c4", "#e5e7eb"] },
-  { value: "amoled", label: "AMOLED", swatch: ["#000000", "#404040", "#f5f5f5"] },
-  { value: "pastel-blue", label: "Pastel Blue", swatch: ["#eff4fb", "#7aa3d6", "#3a4a5e"] },
-  { value: "pastel-orange", label: "Pastel Orange", swatch: ["#fbf4ef", "#e0a06a", "#5e4a3a"] },
-  { value: "pastel-purple", label: "Pastel Purple", swatch: ["#f6effb", "#b07ad6", "#4a3a5e"] },
-] as const;
+const THEME_OPTIONS = THEMES;
 
 /** Feature highlights shown on the welcome step. */
 const FEATURES = [

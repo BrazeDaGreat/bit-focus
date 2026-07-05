@@ -19,8 +19,6 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   FaHome,
-  FaMoon,
-  FaSun,
   FaProjectDiagram,
   FaCoffee,
   FaCalendarAlt,
@@ -28,15 +26,8 @@ import {
 } from "react-icons/fa";
 import { BsStars } from "react-icons/bs";
 import { IoIosTimer } from "react-icons/io";
-import {
-  FaGear,
-  FaGem,
-  FaPaintbrush,
-  FaReadme,
-  FaWater,
-  FaUser,
-} from "react-icons/fa6";
-import { IoColorPalette } from "react-icons/io5";
+import { FaReadme, FaUser } from "react-icons/fa6";
+import { THEMES, type ThemeDefinition } from "@/lib/ThemeManager";
 import { useTheme } from "next-themes";
 import { EditConfigForm } from "./sidebar/EditConfig";
 import { usePathname, useRouter } from "next/navigation";
@@ -181,22 +172,14 @@ export function AppSidebar(): JSX.Element {
 
 // ── Theme icon button that opens a popover of theme options ──
 
-const THEMES = [
-  { value: "light", label: "Light", icon: <FaSun className="size-3.5" /> },
-  { value: "dark", label: "Dark", icon: <FaMoon className="size-3.5" /> },
-  { value: "system", label: "System", icon: <FaGear className="size-3.5" /> },
-  { value: "amethyst", label: "Amethyst", icon: <FaGem className="size-3.5 text-purple-400" /> },
-  { value: "amethystoverloaded", label: "Amethyst+", icon: <FaGem className="size-3.5 text-purple-700" /> },
-  { value: "bluenight", label: "Blue Night", icon: <FaWater className="size-3.5 text-cyan-400" /> },
-  { value: "amoled", label: "AMOLED", icon: <IoColorPalette className="size-3.5 text-neutral-400" /> },
-  { value: "pastel-blue", label: "Pastel Blue", icon: <FaPaintbrush className="size-3.5 text-blue-300" /> },
-  { value: "pastel-orange", label: "Pastel Orange", icon: <FaPaintbrush className="size-3.5 text-orange-300" /> },
-  { value: "pastel-purple", label: "Pastel Purple", icon: <FaPaintbrush className="size-3.5 text-purple-300" /> },
-];
+function ThemeIcon({ theme: t }: { theme: ThemeDefinition }): JSX.Element {
+  const Icon = t.icon;
+  return <Icon className={cn("size-3.5", t.iconClass)} />;
+}
 
 function ThemeIconButton(): JSX.Element {
   const { setTheme, theme } = useTheme();
-  const [ currentTheme, setCurrentTheme ] = useState<typeof THEMES[0] | null>(null);
+  const [ currentTheme, setCurrentTheme ] = useState<ThemeDefinition | null>(null);
 
   useEffect(() => {
     const foundTheme = THEMES.find((t) => t.value === theme);
@@ -218,7 +201,7 @@ function ThemeIconButton(): JSX.Element {
           className="size-8"
           title="Change theme"
         >
-          { currentTheme.icon }
+          <ThemeIcon theme={currentTheme} />
         </Button>
       </PopoverTrigger>
       <PopoverContent
@@ -238,7 +221,7 @@ function ThemeIconButton(): JSX.Element {
                   : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
               )}
             >
-              {t.icon}
+              <ThemeIcon theme={t} />
               {t.label}
             </button>
           ))}
