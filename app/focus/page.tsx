@@ -43,6 +43,7 @@ import { Toaster } from "@/components/ui/sonner";
 import TagBadge from "@/components/TagBadge";
 import { EditFocusSession } from "./EditFocusSection";
 import GraphDialog from "./Graph";
+import ManualSessionDialog from "./ManualSession";
 import PomodoroSettings from "@/components/PomodoroSettings";
 import { usePip, usePipSpace } from "@/hooks/usePip";
 import PipTimer from "@/components/PipTimer";
@@ -497,7 +498,10 @@ function SessionLog({ sessions }: { sessions: FocusSession[] }): JSX.Element {
         <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           Session Log
         </p>
-        <GraphDialog />
+        <div className="flex items-center gap-2">
+          <ManualSessionDialog />
+          <GraphDialog />
+        </div>
       </div>
 
       {sessions.length === 0 ? (

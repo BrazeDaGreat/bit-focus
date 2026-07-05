@@ -47,6 +47,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { Geist, Geist_Mono, Fira_Code } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/ThemeProvider";
+import { THEME_CLASS_MAP } from "@/lib/ThemeManager";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { PomoProvider } from "@/hooks/PomoContext";
 import AppShell from "@/components/AppShell";
@@ -181,17 +182,7 @@ export default function RootLayout({
             {/* Theme Management Provider */}
             <ThemeProvider
               attribute="class"
-              value={{
-                light: "light",
-                dark: "dark",
-                amethyst: "amethyst",
-                amethystoverloaded: "amethystoverloaded",
-                bluenight: "bluenight",
-                amoled: "amoled",
-                "pastel-blue": "pastel-blue",
-                "pastel-orange": "pastel-orange",
-                "pastel-purple": "pastel-purple",
-              }}
+              value={THEME_CLASS_MAP}
               defaultTheme="system"
               enableSystem={true}
             >

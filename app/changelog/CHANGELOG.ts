@@ -1,4 +1,4 @@
-export const VERSION = "v0.18.2 (LTS)";
+export const VERSION = "v0.18.4 (LTS)";
 
 const CHANGELOG = `
 
@@ -24,6 +24,13 @@ const CHANGELOG = `
 - Removed: The duplicate timer block from the Sidebar footer, now that the Top Bar mini timer covers it.
 - Fixed: Document title timer now keeps the hour component past 60 minutes (e.g. 1h40m no longer displays as \`40:00\`).
 - Improved: Focus page timer and Top Bar mini timer now display \`HH:MM:SS\` once a session passes an hour, via a shared \`formatClock\` helper.
+### \`v0.18.3-beta\` (2026-07-03)
+- Added: Centralized \`ThemeManager.ts\` for managing supported themes.
+- Removed: Old theme management code scattered across multiple files.
+- Added: \`isDarkTheme()\` function for conditional styling based on the current theme.
+### \`v0.18.4 (LTS)\` (2026-07-05)
+- Added: 5 new themes: Evergreen, Rosé, Parchment, Nord, and Ember.
+- Added "+ Manual" button on Focus page, for manually adding previously missed/untracked focus sessions.
 ***
 
 ## \`0.17.0-beta\` (2026-04-22) — AI Chat
