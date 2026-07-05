@@ -29,8 +29,7 @@ import FloatingNotepad from "./FloatingNotepad";
 import QuickMessageDialog from "./QuickMessageDialog";
 import MiniTimer from "./MiniTimer";
 import { usePathname } from "next/navigation";
-import { FaTrash, FaHandHoldingDollar } from "react-icons/fa6";
-import { FaCoffee } from "react-icons/fa";
+import { FaTrash, FaHandHoldingDollar, FaCoins } from "react-icons/fa6";
 
 /** Map of pathname patterns to display names */
 const PAGE_TITLES: Record<string, string> = {
@@ -115,15 +114,14 @@ export default function TopBar(): JSX.Element {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
-                variant="outline"
                 size="sm"
+                variant="outline"
                 className={cn(
-                  "h-8 gap-1.5 px-3 font-mono text-xs font-semibold rounded-full",
                   rewardPoints < 0 && "text-red-500 border-red-500/40"
                 )}
               >
-                <FaCoffee className="size-3" />
-                {rewardPoints.toFixed(0)} pts
+                <FaCoins className="mr-2" />
+                {(rewardPoints / 100).toFixed(2)}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">

@@ -31,24 +31,27 @@ import { THEMES, type ThemeDefinition } from "@/lib/ThemeManager";
 import { useTheme } from "next-themes";
 import { EditConfigForm } from "./sidebar/EditConfig";
 import { usePathname, useRouter } from "next/navigation";
-import { useConfig } from "@/hooks/useConfig";
+import { useConfig, type FeatureKey } from "@/hooks/useConfig";
 import { useEffect, useRef, useCallback, useState, type JSX } from "react";
 import { AmbienceMixer } from "./sidebar/AmbienceMixer";
 import { Skeleton } from "./ui/skeleton";
 import { VERSION } from "@/app/changelog/CHANGELOG";
 import { usePomo } from "@/hooks/PomoContext";
+import { useShortcutsDialog } from "@/hooks/useShortcuts";
+import { Kbd } from "@/components/ui/kbd";
+import { FaRegKeyboard } from "react-icons/fa6";
 import { useProjects } from "@/hooks/useProjects";
 import { cn } from "@/lib/utils";
 import dayjs from "dayjs";
 
-const items = [
+const items: { title: string; url: string; icon: JSX.Element; feature?: FeatureKey }[] = [
   { title: "Home", url: "/", icon: <FaHome /> },
   { title: "Focus", url: "/focus", icon: <IoIosTimer /> },
-  { title: "Calendar", url: "/calendar", icon: <FaCalendarAlt /> },
-  { title: "AI Chat (BETA)", url: "/ai", icon: <BsStars /> },
-  { title: "Excalidraw", url: "/excalidraw", icon: <FaPenNib /> },
-  { title: "Projects", url: "/projects", icon: <FaProjectDiagram /> },
-  { title: "Rewards", url: "/rewards", icon: <FaCoffee /> },
+  { title: "Calendar", url: "/calendar", icon: <FaCalendarAlt />, feature: "calendar" },
+  { title: "AI Chat (BETA)", url: "/ai", icon: <BsStars />, feature: "aiChat" },
+  { title: "Excalidraw", url: "/excalidraw", icon: <FaPenNib />, feature: "excalidraw" },
+  { title: "Projects", url: "/projects", icon: <FaProjectDiagram />, feature: "projects" },
+  { title: "Rewards", url: "/rewards", icon: <FaCoffee />, feature: "rewards" },
   { title: "Changelog", url: "/changelog", icon: <FaReadme /> },
 ];
 
@@ -56,7 +59,7 @@ export function AppSidebar(): JSX.Element {
   const pathname = usePathname();
   const router = useRouter();
   const { pause, state, start } = usePomo();
-  const { loadConfig, loadingConfig } = useConfig();
+  const { loadConfig, loadingConfig, featureToggles } = useConfig();
   const { loadProjects } = useProjects();
 
   const isNavigatingRef = useRef(false);
@@ -123,7 +126,9 @@ export function AppSidebar(): JSX.Element {
         <SidebarGroup className="p-2">
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => {
+              {items
+                .filter((item) => !item.feature || featureToggles[item.feature])
+                .map((item) => {
                 const isActive = pathname === item.url;
                 return (
                   <SidebarMenuItem key={item.title}>
@@ -160,6 +165,7 @@ export function AppSidebar(): JSX.Element {
         <div className="flex items-center justify-between px-3 py-2 border-t">
           <div className="flex items-center gap-1">
             <ThemeIconButton />
+            <ShortcutsButton />
           </div>
           <span className="text-xs text-muted-foreground/50 select-none py-1.5">
             {VERSION}
@@ -167,6 +173,26 @@ export function AppSidebar(): JSX.Element {
         </div>
       </SidebarFooter>
     </Sidebar>
+  );
+}
+
+// ── Keyboard shortcuts button (bottom-left) that opens the help dialog ──
+
+function ShortcutsButton(): JSX.Element {
+  const { setHelpOpen } = useShortcutsDialog();
+  return (
+    <Button
+      variant="secondary"
+      size="icon"
+      className="size-8 relative group/kbd"
+      title="Keyboard shortcuts (?)"
+      onClick={() => setHelpOpen(true)}
+    >
+      <FaRegKeyboard className="size-3.5 group-hover/kbd:opacity-0 transition-opacity" />
+      <Kbd className="absolute inset-0 m-auto size-fit opacity-0 group-hover/kbd:opacity-100 transition-opacity bg-transparent border-0">
+        ?
+      </Kbd>
+    </Button>
   );
 }
 

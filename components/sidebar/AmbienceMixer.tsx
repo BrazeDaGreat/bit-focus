@@ -76,7 +76,7 @@ export function AmbienceMixer(): JSX.Element {
       </div>
 
       {/* Track rows */}
-      <div className="flex max-h-44 flex-col gap-1.5 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:thin]">
+      <div className="flex max-h-44 flex-col gap-1.5 overflow-y-auto overscroll-contain pr-1">
         {AMBIENCES.map((ambience) => {
           const state = tracks[ambience.id];
           const enabled = !!state?.enabled;
