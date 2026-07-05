@@ -1,5 +1,5 @@
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { useConfig } from "@/hooks/useConfig";
+import { useConfig, type FeatureKey } from "@/hooks/useConfig";
 import { useForm, Controller } from "react-hook-form";
 import { Switch } from "@/components/ui/switch";
 import { FaPencil } from "react-icons/fa6";
@@ -14,6 +14,45 @@ import CurrencySelect from "@/components/CurrencySelect";
 import dayjs from "dayjs";
 import { cn } from "@/lib/utils";
 
+
+const FEATURE_LIST: { key: FeatureKey; label: string }[] = [
+  { key: "calendar", label: "Calendar" },
+  { key: "aiChat", label: "AI Chat" },
+  { key: "excalidraw", label: "Excalidraw" },
+  { key: "projects", label: "Projects" },
+  { key: "rewards", label: "Rewards" },
+];
+
+/** Live on/off switches for optional pages. Disabled features hide their page. */
+function FeatureToggles() {
+  const { featureToggles, setFeatureToggle } = useConfig();
+
+  return (
+    <div className="flex flex-col gap-1">
+      <Label className="text-xs opacity-90">Feature Toggles</Label>
+      <span className="text-[10px] text-muted-foreground">
+        Turning a feature off hides its page
+      </span>
+      <div className="mt-1 flex flex-col gap-1.5">
+        {FEATURE_LIST.map(({ key, label }) => (
+          <div key={key} className="flex items-center justify-between px-0.5">
+            <Label
+              className="text-xs opacity-90 cursor-pointer"
+              htmlFor={`feature-${key}`}
+            >
+              {label}
+            </Label>
+            <Switch
+              id={`feature-${key}`}
+              checked={featureToggles[key]}
+              onCheckedChange={(checked) => setFeatureToggle(key, checked)}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export const EditConfigSkeleton = () => {
   return <div className="h-[74px] flex flex-col items-center justify-center">
@@ -170,6 +209,10 @@ export function EditConfigForm({ onSave }: { onSave?: () => void }) {
             />
           )}
         />
+
+        <div className="mt-2 border-t pt-3">
+          <FeatureToggles />
+        </div>
 
         <Button type="submit" variant="outline" className="mt-2">Save</Button>
       </form>

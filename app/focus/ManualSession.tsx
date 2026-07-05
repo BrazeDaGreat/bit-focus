@@ -8,7 +8,7 @@
  *
  * @fileoverview Manual focus session entry dialog component
  * @author BIT Focus Development Team
- * @since v0.18.2
+ * @since v0.18.4
  */
 
 import { Button } from "@/components/ui/button";

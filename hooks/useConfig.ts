@@ -39,6 +39,19 @@
 import { create } from "zustand";
 import db from "@/lib/db";
 
+/** Toggleable app features. Pages for disabled features are hidden. */
+export type FeatureKey = "calendar" | "aiChat" | "excalidraw" | "projects" | "rewards";
+
+export type FeatureToggles = Record<FeatureKey, boolean>;
+
+export const DEFAULT_FEATURE_TOGGLES: FeatureToggles = {
+  calendar: true,
+  aiChat: true,
+  excalidraw: true,
+  projects: true,
+  rewards: true,
+};
+
 /**
  * Configuration State Interface
  *
@@ -57,10 +70,14 @@ interface ConfigState {
   sendWebhookUpdates: boolean;
   /** User's preferred currency */
   currency: string;
+  /** Which optional features (pages) are enabled */
+  featureToggles: FeatureToggles;
   /** Loading state indicator for UI feedback */
   loadingConfig: boolean;
   /** Function to update configuration with new values */
   setConfig: (name: string, dob: Date | null, webhook: string, currency: string, sendWebhookUpdates?: boolean) => Promise<void>;
+  /** Function to enable/disable a single feature */
+  setFeatureToggle: (key: FeatureKey, enabled: boolean) => Promise<void>;
   /** Function to load configuration from database */
   loadConfig: () => Promise<void>;
 }
@@ -121,12 +138,13 @@ interface ConfigState {
  * @see {@link db} for database operations
  * @see {@link https://github.com/pmndrs/zustand} for Zustand documentation
  */
-export const useConfig = create<ConfigState>((set) => ({
+export const useConfig = create<ConfigState>((set, get) => ({
   name: "NULL",
   dob: null,
   webhook: "",
   sendWebhookUpdates: false,
   currency: "USD", // Add this line
+  featureToggles: DEFAULT_FEATURE_TOGGLES,
   loadingConfig: true,
 
   /**
@@ -168,12 +186,29 @@ export const useConfig = create<ConfigState>((set) => ({
       console.log("Previous entry deleted.");
     }
 
-    // Add new configuration to database
-    await db.configuration.add({ name, dob, webhook, currency, sendWebhookUpdates });
+    // Add new configuration to database (preserve feature toggles)
+    const featureToggles = get().featureToggles;
+    await db.configuration.add({ name, dob, webhook, currency, sendWebhookUpdates, featureToggles });
     console.log("Config added successfully.");
 
     // Update local state
     set({ name, dob, webhook, currency, sendWebhookUpdates });
+  },
+
+  /**
+   * Enable/Disable Feature
+   *
+   * Updates a single feature toggle and persists it to the existing
+   * configuration record (if one exists).
+   */
+  setFeatureToggle: async (key, enabled) => {
+    const featureToggles = { ...get().featureToggles, [key]: enabled };
+    set({ featureToggles });
+    await db.configuration
+      .toCollection()
+      .modify((config) => {
+        config.featureToggles = featureToggles;
+      });
   },
 
   /**
@@ -210,6 +245,7 @@ export const useConfig = create<ConfigState>((set) => ({
           webhook: config.webhook || "", // Handle optional webhook
           sendWebhookUpdates: config.sendWebhookUpdates === true, // Default to false if undefined
           currency: config.currency || "USD", // Handle optional currency
+          featureToggles: { ...DEFAULT_FEATURE_TOGGLES, ...config.featureToggles }, // Missing keys default ON
         });
       }
     } catch (error) {

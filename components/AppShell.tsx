@@ -12,7 +12,7 @@
  *
  * @fileoverview Gates the app behind onboarding until a profile exists.
  * @author BIT Focus Development Team
- * @since v0.18.2-beta
+ * @since v0.18.2
  */
 
 "use client";
@@ -22,6 +22,7 @@ import { useConfig } from "@/hooks/useConfig";
 import { AppSidebar } from "@/components/AppSidebar";
 import TopBar from "@/components/TopBar";
 import Onboarding from "@/components/onboarding/Onboarding";
+import GlobalShortcuts from "@/components/GlobalShortcuts";
 
 /**
  * Boot Splash
@@ -83,6 +84,7 @@ export default function AppShell({
   return (
     <>
       <AppSidebar />
+      <GlobalShortcuts />
       <div className="flex-1 flex flex-col max-h-screen overflow-y-auto">
         <TopBar />
         {children}

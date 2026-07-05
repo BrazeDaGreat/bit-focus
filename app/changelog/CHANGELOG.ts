@@ -1,8 +1,8 @@
-export const VERSION = "v0.18.4 (LTS)";
+export const VERSION = "v0.18.8 (LTS)";
 
 const CHANGELOG = `
 
-## \`v0.18.0-beta\` (2026-06-02) — QoL Updates & Onboarding
+## \`v0.18.0-beta\` (2026-06-02) — QoL Updates, Shortcuts, and Onboarding
 - Added: Custom Fira Code font to the Notepad feature.
 - Added: Support for coding ligatures (e.g. rendering \`->\` as a single right arrow glyph, \`=>\` as a double-line right arrow, etc.) to enhance readability of equations and notes.
 ### \`v0.18.1-beta\` (2026-06-24)
@@ -31,6 +31,18 @@ const CHANGELOG = `
 ### \`v0.18.4 (LTS)\` (2026-07-05)
 - Added: 5 new themes: Evergreen, Rosé, Parchment, Nord, and Ember.
 - Added "+ Manual" button on Focus page, for manually adding previously missed/untracked focus sessions.
+### \`v0.18.5-beta\` (2026-07-05)
+- Fixed: The "Ambience" card now uses the custom scrollbar instead of default one.
+- Fixed: The points button in top right is now designed the same as rest of the buttons, with "pts" removed in place of a Coins icon.
+### \`v0.18.6 (LTS)\` (2026-07-05)
+- Added: Feature Toggler, ability to turn features ON or OFF, this hides the respective pages from sidebar.
+### \`v0.18.7-beta\` (2026-07-05)
+- Fixed: Saving the toggled feature states.
+### \`v0.18.8 (LTS)\` (2026-07-05)
+- Added: Global Shortcuts.
+- Added: New \`useShortcuts()\` hook.
+- Added: \`<Kbd />\` component.
+- Added: Shortcuts viewer popup. It can be opened via a button.
 ***
 
 ## \`0.17.0-beta\` (2026-04-22) — AI Chat
