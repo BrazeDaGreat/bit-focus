@@ -1,4 +1,4 @@
-export const VERSION = "v0.18.8 (LTS)";
+export const VERSION = "v0.18.10 (LTS)";
 
 const CHANGELOG = `
 
@@ -43,6 +43,13 @@ const CHANGELOG = `
 - Added: New \`useShortcuts()\` hook.
 - Added: \`<Kbd />\` component.
 - Added: Shortcuts viewer popup. It can be opened via a button.
+### \`v0.18.9-beta\` (2026-07-05)
+- Added: Alt+N keyboard shortcut to toggle the Notepad view (supports toggling off while typing).
+- Added: Auto-focus and selection placement at the end of text when Notepad opens.
+- Added: Keycap indicators (<Kbd />) next to sidebar navigation links when the sidebar is expanded.
+- Improved: Redesigned the Keyboard Shortcuts help dialog into a balanced two-column grid layout for better visual presentation and premium aesthetics.
+### \`v0.18.10 (LTS)\` (2026-07-05)
+- Changed: AI Chat navigation keyboard shortcut from A to G.
 ***
 
 ## \`0.17.0-beta\` (2026-04-22) — AI Chat

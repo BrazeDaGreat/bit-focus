@@ -40,7 +40,8 @@ export interface ShortcutDef {
     | "timer-toggle"
     | "timer-reset"
     | "toggle-sidebar"
-    | "open-help";
+    | "open-help"
+    | "toggle-notepad";
 }
 
 /** Every application-wide shortcut, in display order */
@@ -49,7 +50,7 @@ export const SHORTCUTS: ShortcutDef[] = [
   { keys: ["H"], description: "Go to Home", category: "Navigation", href: "/", action: "nav" },
   { keys: ["F"], description: "Go to Focus", category: "Navigation", href: "/focus", action: "nav" },
   { keys: ["C"], description: "Go to Calendar", category: "Navigation", href: "/calendar", feature: "calendar", action: "nav" },
-  { keys: ["A"], description: "Go to AI Chat", category: "Navigation", href: "/ai", feature: "aiChat", action: "nav" },
+  { keys: ["G"], description: "Go to AI Chat", category: "Navigation", href: "/ai", feature: "aiChat", action: "nav" },
   { keys: ["E"], description: "Go to Excalidraw", category: "Navigation", href: "/excalidraw", feature: "excalidraw", action: "nav" },
   { keys: ["P"], description: "Go to Projects", category: "Navigation", href: "/projects", feature: "projects", action: "nav" },
   { keys: ["R"], description: "Go to Rewards", category: "Navigation", href: "/rewards", feature: "rewards", action: "nav" },
@@ -59,6 +60,7 @@ export const SHORTCUTS: ShortcutDef[] = [
   { keys: ["Shift", "R"], description: "Reset the timer", category: "Timer", action: "timer-reset" },
   // ── General ──
   { keys: ["Ctrl", "B"], description: "Toggle the sidebar", category: "General", action: "toggle-sidebar" },
+  { keys: ["Alt", "N"], description: "Toggle Notepad view", category: "General", action: "toggle-notepad" },
   { keys: ["?"], description: "Show keyboard shortcuts", category: "General", action: "open-help" },
 ];
 
