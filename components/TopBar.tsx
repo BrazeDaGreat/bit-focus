@@ -173,7 +173,7 @@ export default function TopBar(): JSX.Element {
               />
             </div>
             <p className="text-sm text-muted-foreground">
-              Current balance: {rewardPoints.toFixed(0)} pts
+              Current balance: {(rewardPoints / 100).toFixed(2)} pts
             </p>
           </div>
           <DialogFooter>
@@ -216,11 +216,11 @@ export default function TopBar(): JSX.Element {
               />
             </div>
             <p className="text-sm text-muted-foreground">
-              Current balance: {rewardPoints.toFixed(0)} pts
+              Current balance: {(rewardPoints / 100).toFixed(2)} pts
             </p>
             <p className="text-sm text-muted-foreground">
               After loan:{" "}
-              {(rewardPoints + parseInt(loanAmount || "0")).toFixed(0)} pts
+              {((rewardPoints + parseInt(loanAmount || "0")) / 100).toFixed(2)} pts
             </p>
           </div>
           <DialogFooter>

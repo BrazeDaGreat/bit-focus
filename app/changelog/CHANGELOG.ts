@@ -1,4 +1,4 @@
-export const VERSION = "v0.18.10 (LTS)";
+export const VERSION = "v0.18.11-beta";
 
 const CHANGELOG = `
 
@@ -50,6 +50,8 @@ const CHANGELOG = `
 - Improved: Redesigned the Keyboard Shortcuts help dialog into a balanced two-column grid layout for better visual presentation and premium aesthetics.
 ### \`v0.18.10 (LTS)\` (2026-07-05)
 - Changed: AI Chat navigation keyboard shortcut from A to G.
+### \`v0.18.11-beta\` (2026-07-16)
+- Changed: Reward points now display divided by 100 (e.g. 1029 → 10.29) across the entire Rewards page and TopBar dialogs — balance header, item card costs, purchase confirmation breakdown, throw-away dialog, and loan dialog.
 ***
 
 ## \`0.17.0-beta\` (2026-04-22) — AI Chat

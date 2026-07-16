@@ -196,7 +196,7 @@ export default function RewardsPage(): JSX.Element {
                 rewardPoints < 0 && "text-destructive"
               )}
             >
-              ⬡ {rewardPoints.toFixed(0)}
+              ⬡ {(rewardPoints / 100).toFixed(2)}
               <span className="text-2xl text-muted-foreground ml-2 font-normal">
                 pts
               </span>
@@ -464,15 +464,15 @@ export default function RewardsPage(): JSX.Element {
                     {hasDiscount ? (
                       <>
                         <span className="text-xs line-through text-muted-foreground font-mono">
-                          ⬡ {item.cost}
+                          ⬡ {(item.cost / 100).toFixed(2)}
                         </span>
                         <span className="text-sm font-mono font-semibold text-primary">
-                          ⬡ {finalCost} pts
+                          ⬡ {(finalCost / 100).toFixed(2)} pts
                         </span>
                       </>
                     ) : (
                       <span className="text-sm font-mono font-semibold">
-                        ⬡ {item.cost} pts
+                        ⬡ {(item.cost / 100).toFixed(2)} pts
                       </span>
                     )}
                   </div>
@@ -591,7 +591,7 @@ export default function RewardsPage(): JSX.Element {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Original cost</span>
-                  <span className="font-mono">⬡ {purchasingItem.cost}</span>
+                  <span className="font-mono">⬡ {(purchasingItem.cost / 100).toFixed(2)}</span>
                 </div>
                 {totalDiscount > 0 && (
                   <>
@@ -607,9 +607,9 @@ export default function RewardsPage(): JSX.Element {
                       <span className="text-muted-foreground">You save</span>
                       <span className="text-primary font-mono">
                         −⬡{" "}
-                        {Math.floor(
+                        {(Math.floor(
                           (purchasingItem.cost * totalDiscount) / 100
-                        )}
+                        ) / 100).toFixed(2)}
                       </span>
                     </div>
                   </>
@@ -617,7 +617,7 @@ export default function RewardsPage(): JSX.Element {
                 <div className="flex justify-between font-semibold border-t pt-2">
                   <span>Final cost</span>
                   <span className="font-mono text-primary">
-                    ⬡ {finalCostFor(purchasingItem.cost)}
+                    ⬡ {(finalCostFor(purchasingItem.cost) / 100).toFixed(2)}
                   </span>
                 </div>
                 <div className="border-t pt-2 space-y-1">
@@ -629,7 +629,7 @@ export default function RewardsPage(): JSX.Element {
                         rewardPoints < 0 && "text-destructive"
                       )}
                     >
-                      ⬡ {rewardPoints.toFixed(0)}
+                      ⬡ {(rewardPoints / 100).toFixed(2)}
                     </span>
                   </div>
                   <div className="flex justify-between font-medium">
@@ -643,8 +643,8 @@ export default function RewardsPage(): JSX.Element {
                     >
                       ⬡{" "}
                       {(
-                        rewardPoints - finalCostFor(purchasingItem.cost)
-                      ).toFixed(0)}
+                        (rewardPoints - finalCostFor(purchasingItem.cost)) / 100
+                      ).toFixed(2)}
                     </span>
                   </div>
                 </div>
