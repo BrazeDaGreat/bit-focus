@@ -11,13 +11,7 @@ export const AI_MODELS: AIModel[] = [
   // Groq
   { id: "openai/gpt-oss-120b", name: "GPT OSS 120B", provider: "groq" },
   { id: "openai/gpt-oss-20b", name: "GPT OSS 20B", provider: "groq" },
-  {
-    id: "llama-3.3-70b-versatile",
-    name: "Llama 3.3 70B Versatile",
-    provider: "groq",
-  },
-  { id: "llama-3.1-8b-instant", name: "Llama 3.1 8B", provider: "groq" },
-  { id: "qwen/qwen3-32b", name: "Qwen 3 32B", provider: "groq" },
+  { id: "qwen/qwen3.6-27b", name: "Qwen 3.6 27B", provider: "groq" },
   // Google — Gemma 4
   { id: "gemma-4-31b-it", name: "Gemma 4 31B", provider: "google" },
   { id: "gemma-4-26b-a4b-it", name: "Gemma 4 26B A4B", provider: "google" },

@@ -85,6 +85,10 @@ interface FocusState {
     id: number,
     updatedSession: Partial<FocusSession>
   ) => Promise<void>;
+  /** Function to delete multiple focus sessions by ID */
+  bulkRemoveFocusSessions: (ids: number[]) => Promise<void>;
+  /** Function to re-tag multiple focus sessions at once */
+  bulkUpdateTag: (ids: number[], tag: string) => Promise<void>;
 }
 
 /**
@@ -311,6 +315,49 @@ export const useFocus = create<FocusState>((set) => ({
     set((state) => ({
       focusSessions: state.focusSessions.map((session) =>
         session.id === id ? { ...session, ...updatedSession } : session
+      ),
+    }));
+  },
+
+  /**
+   * Bulk Remove Focus Sessions
+   *
+   * Deletes multiple focus sessions in a single database operation
+   * and removes them from local state.
+   *
+   * @async
+   * @param {number[]} ids - Identifiers of the sessions to remove
+   * @returns {Promise<void>} Resolves when all sessions are deleted
+   */
+  bulkRemoveFocusSessions: async (ids: number[]) => {
+    await db.focus.bulkDelete(ids);
+
+    const idSet = new Set(ids);
+    set((state) => ({
+      focusSessions: state.focusSessions.filter(
+        (session) => !idSet.has(session.id!)
+      ),
+    }));
+  },
+
+  /**
+   * Bulk Update Session Tag
+   *
+   * Re-tags multiple focus sessions at once, persisting each change
+   * to the database before updating local state.
+   *
+   * @async
+   * @param {number[]} ids - Identifiers of the sessions to re-tag
+   * @param {string} tag - New tag to apply to every session
+   * @returns {Promise<void>} Resolves when all sessions are updated
+   */
+  bulkUpdateTag: async (ids: number[], tag: string) => {
+    await Promise.all(ids.map((id) => db.focus.update(id, { tag })));
+
+    const idSet = new Set(ids);
+    set((state) => ({
+      focusSessions: state.focusSessions.map((session) =>
+        idSet.has(session.id!) ? { ...session, tag } : session
       ),
     }));
   },
