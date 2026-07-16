@@ -24,6 +24,7 @@ import {
   FaCoffee,
   FaCalendarAlt,
   FaPenNib,
+  FaTable,
 } from "react-icons/fa";
 import { BsStars } from "react-icons/bs";
 import { IoIosTimer } from "react-icons/io";
@@ -48,6 +49,7 @@ import dayjs from "dayjs";
 const items: { title: string; url: string; icon: JSX.Element; feature?: FeatureKey }[] = [
   { title: "Home", url: "/", icon: <FaHome /> },
   { title: "Focus", url: "/focus", icon: <IoIosTimer /> },
+  { title: "Focus Table", url: "/focus-table", icon: <FaTable /> },
   { title: "Calendar", url: "/calendar", icon: <FaCalendarAlt />, feature: "calendar" },
   { title: "AI Chat (BETA)", url: "/ai", icon: <BsStars />, feature: "aiChat" },
   { title: "Excalidraw", url: "/excalidraw", icon: <FaPenNib />, feature: "excalidraw" },

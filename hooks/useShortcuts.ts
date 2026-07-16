@@ -49,6 +49,7 @@ export const SHORTCUTS: ShortcutDef[] = [
   // ── Navigation ──
   { keys: ["H"], description: "Go to Home", category: "Navigation", href: "/", action: "nav" },
   { keys: ["F"], description: "Go to Focus", category: "Navigation", href: "/focus", action: "nav" },
+  { keys: ["T"], description: "Go to Focus Table", category: "Navigation", href: "/focus-table", action: "nav" },
   { keys: ["C"], description: "Go to Calendar", category: "Navigation", href: "/calendar", feature: "calendar", action: "nav" },
   { keys: ["G"], description: "Go to AI Chat", category: "Navigation", href: "/ai", feature: "aiChat", action: "nav" },
   { keys: ["E"], description: "Go to Excalidraw", category: "Navigation", href: "/excalidraw", feature: "excalidraw", action: "nav" },

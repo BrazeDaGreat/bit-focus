@@ -1,4 +1,4 @@
-export const VERSION = "v0.18.11-beta";
+export const VERSION = "v0.18.12 (LTS)";
 
 const CHANGELOG = `
 
@@ -52,6 +52,10 @@ const CHANGELOG = `
 - Changed: AI Chat navigation keyboard shortcut from A to G.
 ### \`v0.18.11-beta\` (2026-07-16)
 - Changed: Reward points now display divided by 100 (e.g. 1029 → 10.29) across the entire Rewards page and TopBar dialogs — balance header, item card costs, purchase confirmation breakdown, throw-away dialog, and loan dialog.
+- Added: Qwen 3.6 27B AI model to Groq provider.
+- Removed: Deprecated Llama models and Qwen 3 32B from Groq provider.
+### \`v0.18.12 (LTS)\` (2026-07-16)
+- Added: Focus Table page for browsing, filtering, sorting, paginating, bulk editing, deleting, and CSV export of focus sessions, accessible from the sidebar and the \`T\` shortcut.
 ***
 
 ## \`0.17.0-beta\` (2026-04-22) — AI Chat
