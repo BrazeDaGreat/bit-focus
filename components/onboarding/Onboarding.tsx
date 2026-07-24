@@ -36,6 +36,9 @@ import {
 import { useTheme } from "next-themes";
 import { useConfig } from "@/hooks/useConfig";
 import { useTag } from "@/hooks/useTag";
+import { useAuth } from "@/hooks/useAuth";
+import ProviderButtons from "@/components/auth/ProviderButtons";
+import AccountAvatar from "@/components/auth/AccountAvatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -58,6 +61,8 @@ import {
   FaPlus,
   FaBell,
   FaLock,
+  FaCloudArrowDown,
+  FaLaptop,
 } from "react-icons/fa6";
 import { THEMES } from "@/lib/ThemeManager";
 
@@ -66,6 +71,7 @@ import { THEMES } from "@/lib/ThemeManager";
 /** Ordered step metadata. `eyebrow` labels the dial; `title` heads the panel. */
 const STEPS = [
   { eyebrow: "Welcome", title: "Focus, for a bit." },
+  { eyebrow: "Account", title: "Been here before?" },
   { eyebrow: "Appearance", title: "Pick your palette." },
   { eyebrow: "Identity", title: "Who's focusing?" },
   { eyebrow: "Tags", title: "What will you track?" },
@@ -272,8 +278,8 @@ export default function Onboarding(): JSX.Element {
 
   /** Whether the current step may advance to the next. */
   const canAdvance = (() => {
-    if (step === 2) return hasName && !dobInvalid; // identity
-    if (step === 4) return !webhookInvalid; // notifications
+    if (step === 3) return hasName && !dobInvalid; // identity
+    if (step === 5) return !webhookInvalid; // notifications
     return true;
   })();
 
@@ -379,8 +385,9 @@ export default function Onboarding(): JSX.Element {
             <div className="mt-8" key={step}>
               <div className="_animate_in">
                 {step === 0 && <WelcomeStep />}
-                {step === 1 && <ThemeStep />}
-                {step === 2 && (
+                {step === 1 && <AccountStep onNameFromAccount={setName} />}
+                {step === 2 && <ThemeStep />}
+                {step === 3 && (
                   <IdentityStep
                     name={name}
                     setName={setName}
@@ -395,7 +402,7 @@ export default function Onboarding(): JSX.Element {
                     dobInvalid={dobInvalid}
                   />
                 )}
-                {step === 3 && (
+                {step === 4 && (
                   <TagsStep
                     picked={picked}
                     isPicked={isPicked}
@@ -410,7 +417,7 @@ export default function Onboarding(): JSX.Element {
                     }
                   />
                 )}
-                {step === 4 && (
+                {step === 5 && (
                   <NotificationsStep
                     webhook={webhook}
                     setWebhook={setWebhook}
@@ -420,7 +427,7 @@ export default function Onboarding(): JSX.Element {
                     setSendUpdates={setSendUpdates}
                   />
                 )}
-                {step === 5 && (
+                {step === 6 && (
                   <ReadyStep
                     name={trimmedName}
                     age={age}
@@ -471,8 +478,9 @@ function WelcomeStep(): JSX.Element {
     <div className="flex flex-col gap-6">
       <p className="text-muted-foreground leading-relaxed">
         BIT Focus keeps a quiet record of your focused time and the work it goes
-        into. No accounts, no cloud — everything lives in this browser. Here&apos;s
-        what you get.
+        into. Everything lives in this browser by default — connect an account
+        later only if you want it on more than one device. Here&apos;s what you
+        get.
       </p>
       <div className="grid sm:grid-cols-2 gap-3">
         {FEATURES.map((f) => (
@@ -489,6 +497,97 @@ function WelcomeStep(): JSX.Element {
             </p>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Account Step
+ *
+ * Placed second on purpose. Someone reinstalling or setting up a second device
+ * should not have to fill in a profile that already exists in the cloud — if
+ * they connect here and this device is empty, the sync engine restores
+ * everything and the rest of onboarding becomes unnecessary.
+ *
+ * @param props.onNameFromAccount - Seeds the identity step with the provider
+ *   name, so the next screen is already filled in.
+ */
+function AccountStep({
+  onNameFromAccount,
+}: {
+  onNameFromAccount: (name: string) => void;
+}): JSX.Element {
+  const { user } = useAuth();
+
+  if (user) {
+    return (
+      <div className="flex flex-col gap-6">
+        <p className="text-muted-foreground leading-relaxed">
+          Connected. Anything you set up from here on will be waiting on your
+          other devices.
+        </p>
+
+        <div className="flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
+          <AccountAvatar seed={user.name} className="size-11 border shrink-0" />
+          <div className="flex flex-col min-w-0">
+            <span className="font-medium truncate">
+              {user.name || "Your account"}
+            </span>
+            <span className="text-xs text-muted-foreground truncate">
+              {user.email}
+            </span>
+          </div>
+          <FaCheck className="size-4 text-primary ml-auto shrink-0" />
+        </div>
+
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Had data on another device? It has already been restored if there was
+          any to restore.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <p className="text-muted-foreground leading-relaxed">
+        If you&apos;ve used BIT Focus before, sign in and your sessions,
+        projects, and tags come back exactly as you left them. Starting fresh?
+        Skip this — you can connect any time.
+      </p>
+
+      <ProviderButtons
+        onConnected={() => {
+          // The provider name is a sensible default for the identity step.
+          const connected = useAuth.getState().user;
+          if (connected?.name) onNameFromAccount(connected.name);
+          toast(`Signed in as ${connected?.email ?? "you"}.`, {
+            icon: <FaCheck />,
+          });
+        }}
+      />
+
+      <div className="grid sm:grid-cols-2 gap-3">
+        <div className="rounded-xl border bg-card p-4 flex flex-col gap-2">
+          <span className="grid place-items-center size-9 rounded-lg bg-primary/10 text-primary">
+            <FaCloudArrowDown className="size-4" />
+          </span>
+          <p className="font-medium text-sm">Pick up anywhere</p>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Start a session on your laptop, check the numbers on your phone.
+          </p>
+        </div>
+        <div className="rounded-xl border bg-card p-4 flex flex-col gap-2">
+          <span className="grid place-items-center size-9 rounded-lg bg-muted text-muted-foreground">
+            <FaLaptop className="size-4" />
+          </span>
+          <p className="font-medium text-sm">Stays optional</p>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Every feature works signed out. Nothing leaves this browser until
+            you say so.
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -586,8 +685,8 @@ function IdentityStep({
           <span className="font-medium text-foreground">
             This stays on your device.
           </span>{" "}
-          BIT Focus has no accounts and no servers — your name and details are
-          saved only in this browser and never sent anywhere.
+          Your name and details are saved in this browser. They leave it only if
+          you connect an account, and then only to your own account.
         </p>
       </div>
 
@@ -858,11 +957,14 @@ function ReadyStep({
   tagCount: number;
   notify: boolean;
 }): JSX.Element {
+  const { user } = useAuth();
+
   const rows = [
     { label: "Name", value: name || "—" },
     { label: "Age", value: age != null ? `${age}` : "Not set" },
     { label: "Starter tags", value: `${tagCount}` },
     { label: "Status updates", value: notify ? "On" : "Off" },
+    { label: "Sync", value: user ? "On" : "This device only" },
   ];
 
   return (

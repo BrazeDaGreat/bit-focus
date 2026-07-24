@@ -41,6 +41,49 @@
  */
 
 import db, { type ExcalidrawSceneData, type AIConfig, QuickLink } from "./db";
+import { PB_AUTH_STORAGE_KEY } from "./pocketbase";
+
+/**
+ * localStorage keys that survive an import.
+ *
+ * Restoring a backup replaces localStorage wholesale, which would otherwise
+ * sign the user out of the account they are restoring from and reset the sync
+ * bookkeeping mid-operation. These keys belong to the device and the session,
+ * not to the data being restored.
+ */
+const PROTECTED_LOCAL_KEYS: readonly string[] = [
+  PB_AUTH_STORAGE_KEY,
+  "bitfocus.sync.state",
+  "bitfocus.sync.device",
+];
+
+/** True when a localStorage key belongs to the device rather than the backup. */
+export function isProtectedLocalKey(key: string): boolean {
+  return PROTECTED_LOCAL_KEYS.includes(key);
+}
+
+/**
+ * Replace localStorage with the imported contents, keeping device-owned keys.
+ *
+ * @param entries - Key/value pairs from the backup.
+ */
+function restoreLocalStorage(entries: Record<string, string>): void {
+  const preserved = new Map<string, string>();
+  for (const key of PROTECTED_LOCAL_KEYS) {
+    const value = localStorage.getItem(key);
+    if (value !== null) preserved.set(key, value);
+  }
+
+  localStorage.clear();
+
+  for (const [key, value] of Object.entries(entries)) {
+    if (isProtectedLocalKey(key)) continue;
+    localStorage.setItem(key, value);
+  }
+  for (const [key, value] of preserved) {
+    localStorage.setItem(key, value);
+  }
+}
 
 /**
  * Enhanced Exported Data Structure Interface
@@ -153,8 +196,18 @@ type ExportedData = {
     }[];
     /** AI config */
     aiConfig: AIConfig[];
+    /** Calendar timeblock records */
+    timeblocks?: {
+      id?: number;
+      tag: string;
+      startTime: string; // Serialized as ISO string
+      endTime: string; // Serialized as ISO string
+      title?: string;
+    }[];
   };
 };
+
+export type { ExportedData };
 
 /**
  * Enhanced Save Manager Class
@@ -260,13 +313,21 @@ class SaveManager {
           updatedAt: c.updatedAt.toISOString(),
         })),
         aiConfig: await db.aiConfig.toArray(),
+        // Serialize calendar timeblocks with date conversion
+        timeblocks: (await db.timeblocks.toArray()).map((t) => ({
+          ...t,
+          startTime: t.startTime.toISOString(),
+          endTime: t.endTime.toISOString(),
+        })),
       },
     };
 
     // Export localStorage contents
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (key) {
+      // Session tokens and sync bookkeeping are device-owned: they never leave
+      // this browser, in a backup file or a cloud snapshot.
+      if (key && !isProtectedLocalKey(key)) {
         data.localStorage[key] = localStorage.getItem(key) || "";
       }
     }
@@ -393,6 +454,13 @@ class SaveManager {
 
     const aiConfig = data.indexedDB.aiConfig || [];
 
+    // Deserialize timeblocks with date conversion
+    const timeblocks = (data.indexedDB.timeblocks || []).map((t) => ({
+      ...t,
+      startTime: new Date(t.startTime),
+      endTime: new Date(t.endTime),
+    }));
+
     // Atomic database import operation including all tables
     await db.transaction(
       "rw",
@@ -408,6 +476,7 @@ class SaveManager {
         db.excalidraw,
         db.aiChats,
         db.aiConfig,
+        db.timeblocks,
       ],
       async () => {
         // Clear existing data from all tables
@@ -422,6 +491,7 @@ class SaveManager {
         await db.excalidraw.clear();
         await db.aiChats.clear();
         await db.aiConfig.clear();
+        await db.timeblocks.clear();
 
         // Import new data with project management support
         await db.configuration.bulkAdd(configuration);
@@ -453,14 +523,14 @@ class SaveManager {
         if (aiConfig.length > 0) {
           await db.aiConfig.bulkAdd(aiConfig);
         }
+        if (timeblocks.length > 0) {
+          await db.timeblocks.bulkAdd(timeblocks);
+        }
       },
     );
 
-    // Restore localStorage contents
-    localStorage.clear();
-    for (const [key, value] of Object.entries(data.localStorage)) {
-      localStorage.setItem(key, value);
-    }
+    // Restore localStorage contents, keeping the session and sync bookkeeping
+    restoreLocalStorage(data.localStorage);
   }
 
   /**
@@ -527,12 +597,20 @@ class SaveManager {
           updatedAt: c.updatedAt.toISOString(),
         })),
         aiConfig: await db.aiConfig.toArray(),
+        // Serialize calendar timeblocks with date conversion
+        timeblocks: (await db.timeblocks.toArray()).map((t) => ({
+          ...t,
+          startTime: t.startTime.toISOString(),
+          endTime: t.endTime.toISOString(),
+        })),
       },
     };
 
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (key) {
+      // Session tokens and sync bookkeeping are device-owned: they never leave
+      // this browser, in a backup file or a cloud snapshot.
+      if (key && !isProtectedLocalKey(key)) {
         data.localStorage[key] = localStorage.getItem(key) || "";
       }
     }
@@ -613,6 +691,13 @@ class SaveManager {
 
     const aiConfig = data.indexedDB.aiConfig || [];
 
+    // Deserialize timeblocks with date conversion
+    const timeblocks = (data.indexedDB.timeblocks || []).map((t) => ({
+      ...t,
+      startTime: new Date(t.startTime),
+      endTime: new Date(t.endTime),
+    }));
+
     await db.transaction(
       "rw",
       [
@@ -627,6 +712,7 @@ class SaveManager {
         db.excalidraw,
         db.aiChats,
         db.aiConfig,
+        db.timeblocks,
       ],
       async () => {
         await db.configuration.clear();
@@ -640,6 +726,7 @@ class SaveManager {
         await db.excalidraw.clear();
         await db.aiChats.clear();
         await db.aiConfig.clear();
+        await db.timeblocks.clear();
 
         await db.configuration.bulkAdd(configuration);
         await db.focus.bulkAdd(focus);
@@ -669,13 +756,13 @@ class SaveManager {
         if (aiConfig.length > 0) {
           await db.aiConfig.bulkAdd(aiConfig);
         }
+        if (timeblocks.length > 0) {
+          await db.timeblocks.bulkAdd(timeblocks);
+        }
       },
     );
 
-    localStorage.clear();
-    for (const [key, value] of Object.entries(data.localStorage)) {
-      localStorage.setItem(key, value);
-    }
+    restoreLocalStorage(data.localStorage);
   }
 }
 

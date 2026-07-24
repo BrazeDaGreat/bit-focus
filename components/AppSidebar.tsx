@@ -32,6 +32,8 @@ import { FaReadme, FaUser } from "react-icons/fa6";
 import { THEMES, type ThemeDefinition } from "@/lib/ThemeManager";
 import { useTheme } from "next-themes";
 import { EditConfigForm } from "./sidebar/EditConfig";
+import AccountAvatar from "./auth/AccountAvatar";
+import { useAuth } from "@/hooks/useAuth";
 import { usePathname, useRouter } from "next/navigation";
 import { useConfig, type FeatureKey } from "@/hooks/useConfig";
 import { useEffect, useRef, useCallback, useState, type JSX } from "react";
@@ -278,6 +280,7 @@ const calculateAge = (dob: Date) => {
 
 function UserConfigButton({ loadingConfig }: { loadingConfig: boolean }): JSX.Element {
   const { name, dob } = useConfig();
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
 
   const hasName = name && name !== "NULL" && name.trim() !== "";
@@ -295,12 +298,10 @@ function UserConfigButton({ loadingConfig }: { loadingConfig: boolean }): JSX.El
           variant="ghost"
           className="w-full flex justify-start h-11 px-2.5 gap-2"
         >
-          {hasName ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={`https://api.dicebear.com/9.x/shapes/svg?seed=${name}`}
-              alt="avatar"
-              className="w-8 h-8 rounded-full shadow-md shrink-0"
+          {hasName || user ? (
+            <AccountAvatar
+              seed={name}
+              className="w-8 h-8 shadow-md shrink-0"
             />
           ) : (
             <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center border shadow-xs shrink-0">
@@ -308,9 +309,9 @@ function UserConfigButton({ loadingConfig }: { loadingConfig: boolean }): JSX.El
             </div>
           )}
           <div className="flex flex-col items-start text-left min-w-0">
-            {hasName ? (
+            {hasName || user ? (
               <span className="text-sm font-medium text-foreground truncate w-full">
-                {name}
+                {hasName ? name : user?.name || "Connected"}
               </span>
             ) : (
               <span className="text-sm font-medium text-muted-foreground">
@@ -333,7 +334,11 @@ function UserConfigButton({ loadingConfig }: { loadingConfig: boolean }): JSX.El
           </div>
         </Button>
       </PopoverTrigger>
-      <PopoverContent side="top" align="start" className="w-72 p-0">
+      <PopoverContent
+        side="top"
+        align="start"
+        className="w-80 p-0 max-h-[min(34rem,calc(100vh-5rem))] overflow-y-auto"
+      >
         <EditConfigForm onSave={() => setOpen(false)} />
       </PopoverContent>
     </Popover>
