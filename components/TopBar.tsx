@@ -28,6 +28,7 @@ import BITFdata from "./BITFdata";
 import FloatingNotepad from "./FloatingNotepad";
 import QuickMessageDialog from "./QuickMessageDialog";
 import MiniTimer from "./MiniTimer";
+import SyncChip from "./auth/SyncChip";
 import { usePathname } from "next/navigation";
 import { FaTrash, FaHandHoldingDollar, FaCoins } from "react-icons/fa6";
 
@@ -41,6 +42,8 @@ const PAGE_TITLES: Record<string, string> = {
   "/rewards": "Rewards",
   "/excalidraw": "Excalidraw",
   "/changelog": "Changelog",
+  "/focus-table": "Focus Table",
+  "/account": "Account",
 };
 
 function usePageTitle(): string {
@@ -106,6 +109,7 @@ export default function TopBar(): JSX.Element {
           <MiniTimer />
           <div className="w-px h-5 bg-border mx-1" />
 
+          <SyncChip />
           <QuickMessageDialog />
           <FloatingNotepad />
           <BITFdata />

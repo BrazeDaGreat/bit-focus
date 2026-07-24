@@ -11,6 +11,7 @@ import { Button } from "../ui/button";
 import { Label } from "../ui/label";
 import { Input } from "../ui/input";
 import CurrencySelect from "@/components/CurrencySelect";
+import AccountPanel from "@/components/auth/AccountPanel";
 import dayjs from "dayjs";
 import { cn } from "@/lib/utils";
 
@@ -110,6 +111,10 @@ export function EditConfigForm({ onSave }: { onSave?: () => void }) {
 
   return (
     <div className="grid gap-4 p-4">
+      {/* Account and sync sit above the local profile fields: connecting is the
+          one thing here that changes where the data lives. */}
+      <AccountPanel onNavigate={onSave} />
+
       <div className="space-y-1">
         <h4 className="font-medium leading-none text-sm">Edit Details</h4>
       </div>

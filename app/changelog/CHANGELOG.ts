@@ -1,6 +1,23 @@
-export const VERSION = "v0.18.12 (LTS)";
+export const VERSION = "v0.19.0-beta";
 
 const CHANGELOG = `
+
+## \`v0.19.0-beta\` (2026-07-24) — Accounts & Cross-Device Sync
+- Added: Optional accounts. BIT Focus stays local-first — every feature works signed out, and connecting an account is entirely opt-in.
+- Added: Sign in with Google (soon), Discord, or GitHub. There is no email/password path; providers are read live from the server, so a button only appears for a provider that actually works.
+- Added: Full two-way sync of everything — focus sessions, tags, projects, milestones, issues, rewards, discounts, notes, drawings, AI chats, timeblocks, and settings.
+- Added: New \`/account\` page with the sync ledger (last sync, revision, last writing device, pending changes), manual upload/download, a background-sync toggle, and account removal.
+- Added: Account section at the top of the Profile dropdown, showing who is connected, whether data is current, and a "Sync now" button.
+- Added: Account step in Onboarding — sign in on a fresh device and your existing data is restored before you fill anything in.
+- Added: Sync indicator in the Top Bar that shows sync state at a glance and syncs on click.
+- Added: "Sync rail" indicator — a device↔cloud link whose travelling marker moves right when uploading and left when downloading, and visibly breaks when the two ends disagree.
+- Added: Conflict resolution dialog. When this device and the cloud both changed, sync stops and asks, comparing what each version holds (sessions, projects, notes, timeblocks, drawings, chats, size) instead of silently overwriting one.
+- Added: Auto-sync triggers — 4s after your last change, a 60s heartbeat, instantly when another device writes (realtime), when the tab regains focus, and on page close.
+- Added: New \`lib/pocketbase.ts\`, \`lib/SyncManager.ts\`, \`hooks/useAuth.ts\`, and \`hooks/useSync.ts\`.
+- Added: Calendar timeblocks are now included in export, import, and sync — they were previously missing from \`.bitf.json\` backups.
+- Fixed: Importing a \`.bitf.json\` backup no longer signs you out; session and sync keys are preserved across a restore.
+- Security: Session tokens are never written into exports or cloud snapshots. All collections are owner-scoped, so an account can only ever read and write its own data.
+***
 
 ## \`v0.18.0-beta\` (2026-06-02) — QoL Updates, Shortcuts, and Onboarding
 - Added: Custom Fira Code font to the Notepad feature.

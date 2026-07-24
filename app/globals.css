@@ -754,3 +754,36 @@
   font-variant-ligatures: common-ligatures !important;
   font-feature-settings: "liga" on, "calt" on !important;
 }
+/* ── Sync rail ──────────────────────────────────────────────────────────────
+   The travelling marker on the device↔cloud rail. Direction carries meaning:
+   rightward is an upload, leftward is a download. */
+
+@keyframes _sync_travel_up {
+  0% { left: 0; opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+
+@keyframes _sync_travel_down {
+  0% { left: 100%; opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { left: 0; opacity: 0; }
+}
+
+._sync_push {
+  animation: _sync_travel_up 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+._sync_pull {
+  animation: _sync_travel_down 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ._sync_push,
+  ._sync_pull {
+    animation: none;
+    opacity: 0.7;
+  }
+}

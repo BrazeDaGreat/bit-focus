@@ -23,6 +23,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import TopBar from "@/components/TopBar";
 import Onboarding from "@/components/onboarding/Onboarding";
 import GlobalShortcuts from "@/components/GlobalShortcuts";
+import SyncBridge from "@/components/auth/SyncBridge";
 
 /**
  * Boot Splash
@@ -77,12 +78,20 @@ export default function AppShell({
     return <BootSplash />;
   }
 
+  // Sync runs in both branches: someone can connect an account during
+  // onboarding to restore an existing profile onto a fresh device.
   if (needsOnboarding) {
-    return <Onboarding />;
+    return (
+      <>
+        <SyncBridge />
+        <Onboarding />
+      </>
+    );
   }
 
   return (
     <>
+      <SyncBridge />
       <AppSidebar />
       <GlobalShortcuts />
       <div className="flex-1 flex flex-col max-h-screen overflow-y-auto">
