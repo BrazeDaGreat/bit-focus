@@ -96,25 +96,29 @@ export default function TopBar(): JSX.Element {
 
   return (
     <>
-      <div className="h-14 px-4 border-b flex items-center justify-between gap-2 shrink-0">
+      <header className="grid min-h-14 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 border-b px-3 py-2 sm:px-4 lg:h-14 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:gap-x-3 lg:py-0">
         {/* Left: sidebar trigger + page title */}
-        <div className="flex items-center gap-3">
+        <div className="col-start-1 row-start-1 flex min-w-0 items-center gap-2 sm:gap-3">
           <SidebarTrigger className="size-8" />
-          <h1 className="text-lg font-semibold tracking-tight">{pageTitle}</h1>
+          <h1 className="truncate text-base font-semibold tracking-tight sm:text-lg">
+            {pageTitle}
+          </h1>
         </div>
 
-        {/* Right: utility actions */}
-        <div className="flex items-center gap-1">
+        {/* Mobile gets a dedicated command row; desktop folds it back inline. */}
+        <div className="col-span-2 row-start-2 flex min-w-0 items-center gap-1 lg:col-span-1 lg:col-start-2 lg:row-start-1">
           {/* Mini timer — start/pause a session from anywhere */}
-          <MiniTimer />
-          <div className="w-px h-5 bg-border mx-1" />
+          <MiniTimer className="min-w-0 flex-1 lg:flex-none" />
+          <div className="mx-1 hidden h-5 w-px bg-border sm:block" />
 
           <SyncChip />
           <QuickMessageDialog />
           <FloatingNotepad />
           <BITFdata />
+        </div>
 
-          {/* Points pill */}
+        {/* Points stay glanceable beside the title on mobile. */}
+        <div className="col-start-2 row-start-1 lg:col-start-3">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -148,7 +152,7 @@ export default function TopBar(): JSX.Element {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-      </div>
+      </header>
 
       {/* Throw Away Points Dialog */}
       <Dialog open={throwAwayDialogOpen} onOpenChange={setThrowAwayDialogOpen}>

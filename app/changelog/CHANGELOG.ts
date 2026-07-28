@@ -1,6 +1,17 @@
-export const VERSION = "v0.19.0-beta";
+export const VERSION = "v0.19.1-beta";
 
 const CHANGELOG = `
+
+## \`v0.19.1-beta\` (2026-07-28) — Responsive Top Bar & AI Chat
+- Improved: Redesigned the Top Bar for mobile with a two-row layout that keeps the page title, reward points, timer, sync status, and utility actions accessible without horizontal overflow.
+- Improved: Top Bar utility labels now collapse responsively at narrower widths and expand again on wide screens, without hydration-driven layout shifts.
+- Improved: The mini timer compresses gracefully on small devices while retaining its primary controls and full timer options.
+- Improved: AI Chat now uses a full-width single-pane layout on mobile and tablet, with conversation history moved into an on-demand slide-out drawer.
+- Added: A compact mobile AI Chat toolbar for opening conversation history, starting a new chat, and accessing AI settings.
+- Improved: AI Chat message bubbles, loading states, Markdown tables, code blocks, long text, model selection, context controls, and composer spacing now adapt to narrow screens.
+- Improved: The AI Settings dialog now respects mobile viewport height, uses tighter small-screen spacing, and safely scrolls oversized focus-context previews.
+- Fixed: AI Chat height now follows the available application frame instead of assuming the Top Bar is always 56px tall.
+***
 
 ## \`v0.19.0-beta\` (2026-07-24) — Accounts & Cross-Device Sync
 - Added: Optional accounts. BIT Focus stays local-first — every feature works signed out, and connecting an account is entirely opt-in.

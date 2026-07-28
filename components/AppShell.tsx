@@ -94,7 +94,7 @@ export default function AppShell({
       <SyncBridge />
       <AppSidebar />
       <GlobalShortcuts />
-      <div className="flex-1 flex flex-col max-h-screen overflow-y-auto">
+      <div className="flex min-w-0 max-h-screen flex-1 flex-col overflow-y-auto">
         <TopBar />
         {children}
       </div>

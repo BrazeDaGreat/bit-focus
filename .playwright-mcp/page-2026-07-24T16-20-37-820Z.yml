@@ -1,0 +1,25 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]: bit-flux
+    - generic [ref=e12]:
+      - heading "Write it down now. Sort it out later." [level=1] [ref=e13]: Write it down now.Sort it out later.
+      - paragraph [ref=e14]: Dump everything in one box. It gets split, titled and filed for you — the original always kept.
+    - generic [ref=e15]:
+      - paragraph [ref=e16]: “call the dentist back, maybe voice notes for capture, ship Aris memory by friday”
+      - generic [ref=e17]:
+        - generic [ref=e18]:
+          - generic [ref=e20]: call the dentist back
+          - generic [ref=e21]: task
+        - generic [ref=e22]:
+          - generic [ref=e24]: voice notes for capture?
+          - generic [ref=e25]: idea
+        - generic [ref=e26]:
+          - generic [ref=e28]: ship Aris memory Friday
+          - generic [ref=e29]: reminder
+  - generic [ref=e30]:
+    - generic [ref=e31]:
+      - generic [ref=e32]:
+        - heading "Sign in" [level=2] [ref=e33]
+        - paragraph [ref=e34]: Pick an account. Nothing else to fill in.
+      - button "Switch to dark theme" [ref=e35]
+    - paragraph [ref=e45]: Your thoughts stay in your own account. Nothing is shared.

@@ -27,6 +27,13 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -230,6 +237,7 @@ export default function AIPage(): JSX.Element {
   const [activeChatMessages, setActiveChatMessages] = useState<Message[]>([]);
   const [selectedModelId, setSelectedModelId] = useState<string>(DEFAULT_MODEL_ID);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [mobileChatsOpen, setMobileChatsOpen] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
 
   useEffect(() => {
@@ -266,6 +274,19 @@ export default function AIPage(): JSX.Element {
     setActiveChatMessages([]);
     setActiveChat(chat);
   }, [createChat, selectedModelId]);
+
+  const handleSelectMobileChat = useCallback(
+    async (chat: AIChat) => {
+      setMobileChatsOpen(false);
+      await handleSelectChat(chat);
+    },
+    [handleSelectChat]
+  );
+
+  const handleNewMobileChat = useCallback(async () => {
+    setMobileChatsOpen(false);
+    await handleNewChat();
+  }, [handleNewChat]);
 
   const handleDeleteChat = useCallback(
     async (chatId: string, e: React.MouseEvent) => {
@@ -320,115 +341,94 @@ export default function AIPage(): JSX.Element {
   }, [aiConfig, saveAIConfig]);
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden bg-background">
+    <div className="flex min-h-0 flex-1 overflow-hidden bg-background">
       {/* ── Left panel: chat list ── */}
-      <aside className="w-60 shrink-0 border-r flex flex-col bg-sidebar/50">
-        <div className="px-3 py-2.5 border-b flex items-center justify-between">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Chats
-          </span>
-          <Button
-            size="icon"
-            variant="ghost"
-            className="size-6 rounded-md"
-            onClick={handleNewChat}
-            title="New chat"
-          >
-            <Plus className="size-3.5" />
-          </Button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-1.5 space-y-0.5">
-            {loading ? (
-              <SidebarSkeleton />
-            ) : chats.length === 0 ? (
-              <p className="text-center py-8 text-muted-foreground/60 text-xs px-4 leading-relaxed">
-                No conversations yet.
-                <br />
-                Press + to start one.
-              </p>
-            ) : (
-              chats.map((chat) => (
-                <button
-                  key={chat.id}
-                  onClick={() => handleSelectChat(chat)}
-                  className={cn(
-                    "w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-left text-xs transition-colors group",
-                    activeChat?.id === chat.id
-                      ? "bg-accent text-foreground font-medium border-l-2 border-primary rounded-l-none"
-                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                  )}
-                >
-                  <MessageSquare className="size-3 shrink-0 opacity-50" />
-                  <span className="truncate flex-1 min-w-0">{chat.title}</span>
-                  <span
-                    role="button"
-                    onClick={(e) => handleDeleteChat(chat.id, e)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-destructive/20 hover:text-destructive ml-auto shrink-0"
-                  >
-                    <Trash2 className="size-3" />
-                  </span>
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-
-        <div className="p-2 border-t">
-          <button
-            onClick={() => setSettingsOpen(true)}
-            className="w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-xs text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
-          >
-            <Settings className="size-3.5" />
-            API Keys & Settings
-          </button>
-        </div>
+      <aside className="hidden w-60 shrink-0 border-r bg-sidebar/50 lg:flex lg:flex-col">
+        <ChatHistoryContents
+          chats={chats}
+          loading={loading}
+          activeChatId={activeChat?.id}
+          onSelectChat={handleSelectChat}
+          onDeleteChat={handleDeleteChat}
+          onNewChat={handleNewChat}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
       </aside>
 
-      {/* ── Right panel: chat area ── */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Top bar */}
-        {/* <div className="h-12 border-b flex items-center px-4 gap-2 shrink-0 bg-background/80 backdrop-blur-sm">
-          {loading ? (
-            <>
-              <div className="h-5 w-16 rounded-full bg-muted-foreground/15 animate-pulse" />
-              <div className="h-5 w-24 rounded-full bg-muted-foreground/15 animate-pulse" />
-            </>
-          ) : (
-            <>
-              {aiConfig?.customContextEnabled && (
-                <Badge
-                  variant="secondary"
-                  className="text-xs gap-1 py-0.5 bg-primary/10 text-primary border-primary/20"
-                >
-                  <Sparkles className="size-3" />
-                  Context
-                </Badge>
-              )}
-              {noApiKey && (
-                <Badge
-                  variant="secondary"
-                  className="text-xs gap-1 py-0.5 bg-destructive/10 text-destructive border-destructive/20"
-                >
-                  <AlertCircle className="size-3" />
-                  No key for {PROVIDER_LABELS[selectedModel?.provider]}
-                </Badge>
-              )}
-            </>
-          )}
-          <div className="ml-auto">
+      {/* Mobile: conversations become an on-demand pocket index. */}
+      <Sheet open={mobileChatsOpen} onOpenChange={setMobileChatsOpen}>
+        <SheetContent
+          side="left"
+          className="w-[min(20rem,88vw)] gap-0 bg-sidebar p-0"
+        >
+          <SheetHeader className="flex-row items-center justify-between gap-2 border-b px-3 py-2.5 pr-12 text-left">
+            <div className="min-w-0">
+              <SheetTitle className="text-sm">Conversations</SheetTitle>
+              <SheetDescription className="text-xs">
+                {chats.length} {chats.length === 1 ? "chat" : "chats"}
+              </SheetDescription>
+            </div>
             <Button
-              variant="ghost"
               size="icon"
-              className="size-8"
-              onClick={() => setSettingsOpen(true)}
-              title="Settings"
+              variant="ghost"
+              className="size-7 rounded-md"
+              onClick={handleNewMobileChat}
+              aria-label="New chat"
             >
-              <Settings className="size-4" />
+              <Plus className="size-3.5" />
             </Button>
-          </div>
-        </div> */}
+          </SheetHeader>
+          <ChatHistoryContents
+            chats={chats}
+            loading={loading}
+            activeChatId={activeChat?.id}
+            onSelectChat={handleSelectMobileChat}
+            onDeleteChat={handleDeleteChat}
+            onNewChat={handleNewMobileChat}
+            onOpenSettings={() => {
+              setMobileChatsOpen(false);
+              setSettingsOpen(true);
+            }}
+            showHeader={false}
+          />
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Right panel: chat area ── */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex h-11 shrink-0 items-center gap-1 border-b bg-background/95 px-2 backdrop-blur-sm lg:hidden">
+          <Button
+            variant="ghost"
+            className="h-8 min-w-0 flex-1 justify-start gap-2 px-2"
+            onClick={() => setMobileChatsOpen(true)}
+            aria-label="Open conversations"
+          >
+            <MessageSquare className="size-3.5 shrink-0 text-muted-foreground" />
+            <span className="truncate text-xs font-medium">
+              {activeChat?.title ?? "Conversations"}
+            </span>
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            onClick={handleNewChat}
+            aria-label="New chat"
+            title="New chat"
+          >
+            <Plus className="size-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            onClick={() => setSettingsOpen(true)}
+            aria-label="AI settings"
+            title="AI settings"
+          >
+            <Settings className="size-4" />
+          </Button>
+        </div>
 
         {/* Content */}
         {!activeChat ? (
@@ -468,6 +468,103 @@ export default function AIPage(): JSX.Element {
   );
 }
 
+interface ChatHistoryContentsProps {
+  chats: AIChat[];
+  loading: boolean;
+  activeChatId?: string;
+  onSelectChat: (chat: AIChat) => void;
+  onDeleteChat: (chatId: string, event: React.MouseEvent) => void;
+  onNewChat: () => void;
+  onOpenSettings: () => void;
+  showHeader?: boolean;
+}
+
+function ChatHistoryContents({
+  chats,
+  loading,
+  activeChatId,
+  onSelectChat,
+  onDeleteChat,
+  onNewChat,
+  onOpenSettings,
+  showHeader = true,
+}: ChatHistoryContentsProps): JSX.Element {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      {showHeader && (
+        <div className="flex items-center justify-between border-b px-3 py-2.5">
+          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Chats
+          </span>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-6 rounded-md"
+            onClick={onNewChat}
+            title="New chat"
+          >
+            <Plus className="size-3.5" />
+          </Button>
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto">
+        <div className="space-y-0.5 p-1.5">
+          {loading ? (
+            <SidebarSkeleton />
+          ) : chats.length === 0 ? (
+            <p className="px-4 py-8 text-center text-xs leading-relaxed text-muted-foreground/60">
+              No conversations yet.
+              <br />
+              Press + to start one.
+            </p>
+          ) : (
+            chats.map((chat) => (
+              <div
+                key={chat.id}
+                className={cn(
+                  "group flex min-w-0 items-center rounded-md text-xs transition-colors",
+                  activeChatId === chat.id
+                    ? "rounded-l-none border-l-2 border-primary bg-accent text-foreground"
+                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                )}
+              >
+                <button
+                  onClick={() => onSelectChat(chat)}
+                  className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left"
+                >
+                  <MessageSquare className="size-3 shrink-0 opacity-50" />
+                  <span className={cn("min-w-0 flex-1 truncate", activeChatId === chat.id && "font-medium")}>
+                    {chat.title}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => onDeleteChat(chat.id, event)}
+                  className="mr-1 shrink-0 rounded p-1.5 opacity-60 transition-opacity hover:bg-destructive/20 hover:text-destructive md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
+                  aria-label={`Delete ${chat.title}`}
+                >
+                  <Trash2 className="size-3" />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      <div className="border-t p-2">
+        <button
+          onClick={onOpenSettings}
+          className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-xs text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+        >
+          <Settings className="size-3.5" />
+          API Keys & Settings
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Skeletons ──────────────────────────────────────────────────────────────
 
 function SidebarSkeleton(): JSX.Element {
@@ -501,7 +598,7 @@ function ChatLoadingSkeleton(): JSX.Element {
 
   return (
     <div className="flex-1 overflow-hidden">
-      <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+      <div className="mx-auto max-w-3xl space-y-5 px-3 py-4 sm:space-y-6 sm:px-4 sm:py-6">
         {messages.map((msg, i) => (
           <div
             key={i}
@@ -513,7 +610,7 @@ function ChatLoadingSkeleton(): JSX.Element {
             )}
             <div className={`space-y-2 ${msg.role === "user" ? "items-end" : "items-start"} flex flex-col`}>
               <div
-                className={`rounded-2xl px-4 py-3 space-y-2 animate-pulse ${
+                className={`max-w-full rounded-2xl px-3 py-2.5 space-y-2 animate-pulse sm:px-4 sm:py-3 ${
                   msg.role === "user"
                     ? "bg-primary/[0.06] border border-primary/[0.10] rounded-tr-sm"
                     : "bg-muted/40 rounded-tl-sm"
@@ -570,7 +667,9 @@ function CompactModelSelector({
   return (
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger className="h-7 gap-1 text-xs border-0 bg-transparent hover:bg-muted px-2.5 rounded-lg focus:ring-0 focus:ring-offset-0 w-auto min-w-0 text-muted-foreground hover:text-foreground transition-colors">
-        <span className="truncate max-w-[120px]">{selectedName}</span>
+        <span className="max-w-[76px] truncate min-[380px]:max-w-[100px] sm:max-w-[120px]">
+          {selectedName}
+        </span>
       </SelectTrigger>
       <SelectContent className="text-xs">
         {(Object.entries(grouped) as [AIProvider, AIModel[]][]).map(
@@ -606,7 +705,7 @@ function EmptyState({
   selectedModel: AIModel;
 }): JSX.Element {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-5 px-8 text-center">
+    <div className="flex flex-1 flex-col items-center justify-center gap-5 px-5 py-8 text-center sm:px-8">
       <div className="size-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
         <Bot className="size-7 text-primary/70" />
       </div>
@@ -754,11 +853,11 @@ interface ThreadUIProps {
 
 function ThreadUI({ disabled, modelId, onModelChange, customContextEnabled, onToggleContext, contextTokenLabel }: ThreadUIProps): JSX.Element {
   return (
-    <ThreadPrimitive.Root className="flex flex-col h-full overflow-hidden">
-      <ThreadPrimitive.Viewport className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-4 py-6">
+    <ThreadPrimitive.Root className="flex h-full min-h-0 flex-col overflow-hidden">
+      <ThreadPrimitive.Viewport className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-3xl px-3 py-4 sm:px-4 sm:py-6">
           <ThreadPrimitive.Empty>
-            <div className="flex flex-col items-center justify-center gap-3 text-center min-h-96">
+            <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 text-center sm:min-h-96">
               <Sparkles className="size-8 text-muted-foreground/40" />
               <p className="text-sm text-muted-foreground">
                 Type a message to begin.
@@ -774,7 +873,7 @@ function ThreadUI({ disabled, modelId, onModelChange, customContextEnabled, onTo
           />
           <ThreadPrimitive.If running>
             <div className="flex justify-start mb-6">
-              <div className="flex gap-3 max-w-[85%] min-w-0">
+              <div className="flex min-w-0 max-w-full gap-2 sm:max-w-[85%] sm:gap-3">
                 <div className="size-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 mt-0.5">
                   <Bot className="size-3.5 text-primary/70" />
                 </div>
@@ -788,10 +887,10 @@ function ThreadUI({ disabled, modelId, onModelChange, customContextEnabled, onTo
       </ThreadPrimitive.Viewport>
 
       {/* Composer */}
-      <div className="p-4 pb-5">
+      <div className="p-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4 sm:pb-5">
         <div className="max-w-3xl mx-auto">
           {disabled ? (
-            <div className="flex items-center gap-2.5 px-4 py-3.5 rounded-2xl border border-border/60 bg-muted/20 text-muted-foreground text-sm">
+            <div className="flex items-center gap-2.5 rounded-2xl border border-border/60 bg-muted/20 px-3 py-3 text-sm text-muted-foreground sm:px-4 sm:py-3.5">
               <AlertCircle className="size-4 shrink-0" />
               <span className="text-xs">Add an API key in settings to start chatting.</span>
             </div>
@@ -799,18 +898,18 @@ function ThreadUI({ disabled, modelId, onModelChange, customContextEnabled, onTo
             <ComposerPrimitive.Root className="rounded-2xl border border-border/60 bg-card/40 backdrop-blur-sm shadow-sm overflow-hidden focus-within:border-border focus-within:bg-card/80 transition-all duration-200">
               {/* Input area */}
               <ComposerPrimitive.Input
-                className="w-full bg-transparent resize-none outline-none text-sm min-h-[52px] max-h-48 leading-relaxed px-4 pt-3.5 pb-2 placeholder:text-muted-foreground/50 block"
+                className="block min-h-[48px] max-h-48 w-full resize-none bg-transparent px-3 pt-3 pb-2 text-sm leading-relaxed outline-none placeholder:text-muted-foreground/50 sm:min-h-[52px] sm:px-4 sm:pt-3.5"
                 placeholder="Message AI…"
                 rows={2}
               />
               {/* Bottom toolbar */}
-              <div className="flex items-center gap-2 px-3 py-2 border-t border-border/30">
+              <div className="flex items-center gap-1.5 border-t border-border/30 px-2 py-2 sm:gap-2 sm:px-3">
                 {/* Context toggle pill */}
                 <button
                   type="button"
                   onClick={onToggleContext}
                   className={cn(
-                    "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-150 border",
+                    "flex min-w-0 items-center gap-1.5 rounded-lg border px-2 py-1 text-xs font-medium transition-all duration-150 sm:px-2.5",
                     customContextEnabled
                       ? "bg-primary/10 text-primary border-primary/25 hover:bg-primary/15"
                       : "text-muted-foreground border-transparent hover:bg-muted hover:text-foreground"
@@ -820,7 +919,7 @@ function ThreadUI({ disabled, modelId, onModelChange, customContextEnabled, onTo
                   <Sparkles className="size-3" />
                   Context
                   {customContextEnabled && contextTokenLabel && (
-                    <span className="opacity-70 font-normal">{contextTokenLabel}</span>
+                    <span className="hidden font-normal opacity-70 sm:inline">{contextTokenLabel}</span>
                   )}
                 </button>
 
@@ -859,9 +958,9 @@ function ThreadUI({ disabled, modelId, onModelChange, customContextEnabled, onTo
 
 function UserMessage(): JSX.Element {
   return (
-    <MessagePrimitive.Root className="flex justify-end mb-6 group">
-      <div className="max-w-[70%] min-w-0">
-        <div className="bg-primary/[0.08] border border-primary/[0.12] rounded-2xl rounded-tr-sm px-4 py-3 text-sm leading-relaxed">
+    <MessagePrimitive.Root className="group mb-5 flex justify-end sm:mb-6">
+      <div className="min-w-0 max-w-[88%] sm:max-w-[70%]">
+        <div className="rounded-2xl rounded-tr-sm border border-primary/[0.12] bg-primary/[0.08] px-3 py-2.5 text-sm leading-relaxed [overflow-wrap:anywhere] sm:px-4 sm:py-3">
           <MessagePrimitive.Content />
         </div>
       </div>
@@ -871,13 +970,13 @@ function UserMessage(): JSX.Element {
 
 function AssistantMessage(): JSX.Element {
   return (
-    <MessagePrimitive.Root className="flex justify-start mb-6 group">
-      <div className="flex gap-3 max-w-[85%] min-w-0">
+    <MessagePrimitive.Root className="group mb-5 flex justify-start sm:mb-6">
+      <div className="flex min-w-0 max-w-full gap-2 sm:max-w-[85%] sm:gap-3">
         <div className="size-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 mt-0.5">
           <Bot className="size-3.5 text-primary/70" />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-sm leading-relaxed prose-message">
+          <div className="prose-message text-sm leading-relaxed [overflow-wrap:anywhere]">
             <MessagePrimitive.Content
               components={{ Text: MarkdownText }}
             />
@@ -913,6 +1012,7 @@ function MarkdownText({ text }: { text: string }): JSX.Element {
         "prose-pre:overflow-x-auto",
         // table
         "prose-table:text-xs prose-th:font-semibold prose-th:text-foreground",
+        "prose-table:block prose-table:max-w-full prose-table:overflow-x-auto",
         "prose-thead:border-b prose-thead:border-border",
         "prose-tr:border-b prose-tr:border-border/50",
         "prose-td:py-1.5 prose-th:py-1.5",
@@ -1040,7 +1140,7 @@ function SettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[calc(100dvh-1rem)] max-w-[calc(100%-1rem)] gap-3 overflow-y-auto p-4 sm:max-h-[90vh] sm:max-w-lg sm:gap-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="text-base">AI Settings</DialogTitle>
           <DialogDescription className="text-xs">
@@ -1190,7 +1290,7 @@ function SettingsDialog({
                   <Info className="size-3" />
                   Focus data preview
                 </div>
-                <pre className="text-xs text-muted-foreground/80 whitespace-pre-wrap font-mono leading-relaxed">
+                <pre className="overflow-x-auto whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-muted-foreground/80">
                   {focusPreview}
                 </pre>
               </div>
