@@ -1,16 +1,14 @@
-export const VERSION = "v0.19.1-beta";
+export const VERSION = "v0.20.0=beta";
 
 const CHANGELOG = `
-
-## \`v0.19.1-beta\` (2026-07-28) — Responsive Top Bar & AI Chat
-- Improved: Redesigned the Top Bar for mobile with a two-row layout that keeps the page title, reward points, timer, sync status, and utility actions accessible without horizontal overflow.
-- Improved: Top Bar utility labels now collapse responsively at narrower widths and expand again on wide screens, without hydration-driven layout shifts.
-- Improved: The mini timer compresses gracefully on small devices while retaining its primary controls and full timer options.
-- Improved: AI Chat now uses a full-width single-pane layout on mobile and tablet, with conversation history moved into an on-demand slide-out drawer.
-- Added: A compact mobile AI Chat toolbar for opening conversation history, starting a new chat, and accessing AI settings.
-- Improved: AI Chat message bubbles, loading states, Markdown tables, code blocks, long text, model selection, context controls, and composer spacing now adapt to narrow screens.
-- Improved: The AI Settings dialog now respects mobile viewport height, uses tighter small-screen spacing, and safely scrolls oversized focus-context previews.
-- Fixed: AI Chat height now follows the available application frame instead of assuming the Top Bar is always 56px tall.
+## \`v0.20.0=beta\` (2026-07-30) — QoL Updates Batch 2
+- Added: Project card version numbers are now clickable, with a dedicated dialog for manual SemVer entry or quick major, minor, and patch increments.
+- Improved: Reworked every existing theme into a calmer, ADHD-friendly pastel-inspired palette while keeping all theme names unchanged.
+- Improved: Light themes now use softly tinted paper-like backgrounds, comfortable ink colors, and clearer surface hierarchy instead of stark white and high-contrast neutrals.
+- Improved: Dark, Amethyst, Amethyst+, Blue Night, AMOLED, Evergreen, Nord, and Ember now use cleaner smoky backgrounds, distinct card and sidebar layers, and gentle pastel accents.
+- Improved: Theme colors now share a consistent semantic comfort system for backgrounds, surfaces, text, muted states, borders, focus rings, destructive actions, sidebars, and charts.
+- Improved: Theme picker swatches now accurately preview the refreshed palettes.
+- Fixed: Scrollbars now follow the active theme instead of showing harsh hardcoded light and dark colors.
 ***
 
 ## \`v0.19.0-beta\` (2026-07-24) — Accounts & Cross-Device Sync
@@ -28,6 +26,15 @@ const CHANGELOG = `
 - Added: Calendar timeblocks are now included in export, import, and sync — they were previously missing from \`.bitf.json\` backups.
 - Fixed: Importing a \`.bitf.json\` backup no longer signs you out; session and sync keys are preserved across a restore.
 - Security: Session tokens are never written into exports or cloud snapshots. All collections are owner-scoped, so an account can only ever read and write its own data.
+### \`v0.19.1-beta\` (2026-07-28) — Responsive Top Bar & AI Chat
+- Improved: Redesigned the Top Bar for mobile with a two-row layout that keeps the page title, reward points, timer, sync status, and utility actions accessible without horizontal overflow.
+- Improved: Top Bar utility labels now collapse responsively at narrower widths and expand again on wide screens, without hydration-driven layout shifts.
+- Improved: The mini timer compresses gracefully on small devices while retaining its primary controls and full timer options.
+- Improved: AI Chat now uses a full-width single-pane layout on mobile and tablet, with conversation history moved into an on-demand slide-out drawer.
+- Added: A compact mobile AI Chat toolbar for opening conversation history, starting a new chat, and accessing AI settings.
+- Improved: AI Chat message bubbles, loading states, Markdown tables, code blocks, long text, model selection, context controls, and composer spacing now adapt to narrow screens.
+- Improved: The AI Settings dialog now respects mobile viewport height, uses tighter small-screen spacing, and safely scrolls oversized focus-context previews.
+- Fixed: AI Chat height now follows the available application frame instead of assuming the Top Bar is always 56px tall.
 ***
 
 ## \`v0.18.0-beta\` (2026-06-02) — QoL Updates, Shortcuts, and Onboarding
