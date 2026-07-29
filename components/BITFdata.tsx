@@ -1,4 +1,3 @@
-import { useIsMobile } from "@/hooks/useIsMobile";
 import SaveManager from "@/lib/SaveManager";
 import { type JSX, useEffect, useRef, useState, useCallback } from "react";
 import { toast } from "sonner";
@@ -44,7 +43,6 @@ import axios from "axios";
 export default function BITFdata(): JSX.Element {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const isMobile = useIsMobile();
   const { webhook } = useConfig();
   const hasWebhook = webhook && webhook.trim().length > 0;
 
@@ -217,9 +215,14 @@ export default function BITFdata(): JSX.Element {
       {/* Dropdown Menu */}
       <DropdownMenu onOpenChange={setIsOpen}>
         <DropdownMenuTrigger asChild>
-          <Button size="sm" variant="outline">
-            <FaFileCsv className="mr-2" />
-            {!isMobile && "BITF Data"}
+          <Button
+            size="sm"
+            variant="outline"
+            aria-label="Manage BIT Focus data"
+            title="BITF data"
+          >
+            <FaFileCsv className="xl:mr-2" />
+            <span className="hidden xl:inline">BITF Data</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent>

@@ -223,9 +223,15 @@ export default function FloatingNotepad(): JSX.Element {
   return (
     <>
       {/* Floating Button */}
-      <Button size="sm" variant="outline" onClick={() => setIsOpen(!isOpen)}>
-        <FaStickyNote className="mr-2" />
-        {!isMobile && "Notepad"}
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => setIsOpen(!isOpen)}
+        aria-label={isOpen ? "Close notepad" : "Open notepad"}
+        title="Notepad"
+      >
+        <FaStickyNote className="xl:mr-2" />
+        <span className="hidden xl:inline">Notepad</span>
       </Button>
 
       {/* Floating Window */}

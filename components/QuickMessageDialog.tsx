@@ -34,7 +34,6 @@ import { sendMessage } from "@/lib/webhook";
 import { useConfig } from "@/hooks/useConfig";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
-import { useIsMobile } from "@/hooks/useIsMobile";
 
 /**
  * Quick Message Dropdown Component
@@ -54,7 +53,6 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 export default function QuickMessageDropdown() {
   const { webhook, name } = useConfig();
   const [sending, setSending] = useState(false);
-  const isMobile = useIsMobile();
 
   /**
    * Handles sending a selected quick message via webhook
@@ -96,16 +94,22 @@ export default function QuickMessageDropdown() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button size="sm" variant="outline" disabled={sending}>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={sending}
+          aria-label={sending ? "Sending quick message" : "Send a quick message"}
+          title={sending ? "Sending…" : "Quick message"}
+        >
           {sending ? (
             <>
-              <Loader2 className={`h-4 w-4 animate-spin ${!isMobile ? "mr-2" : ""}`} />
-              {!isMobile && "Sending..."}
+              <Loader2 className="size-4 animate-spin xl:mr-2" />
+              <span className="hidden xl:inline">Sending...</span>
             </>
           ) : (
             <>
-              <FaMessage className={!isMobile ? "mr-2" : ""} />
-              {!isMobile && "Quick Message"}
+              <FaMessage className="xl:mr-2" />
+              <span className="hidden xl:inline">Quick Message</span>
             </>
           )}
         </Button>

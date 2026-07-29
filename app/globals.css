@@ -662,6 +662,340 @@
 }
 
 
+/* ADHD-friendly comfort palette
+   Low-chroma surfaces reduce visual noise; restrained contrast keeps hierarchy clear.
+   Theme-specific primitives preserve each name's character while this shared mapping
+   keeps interaction states consistent across light and dark modes. */
+:root {
+  --comfort-bg: oklch(0.930 0.028 295);
+  --comfort-surface: oklch(0.958 0.018 295);
+  --comfort-ink: oklch(0.290 0.025 290);
+  --comfort-primary: oklch(0.500 0.075 290);
+  --comfort-on-primary: oklch(0.970 0.014 295);
+  --comfort-soft: oklch(0.885 0.035 285);
+  --comfort-muted: oklch(0.900 0.025 295);
+  --comfort-muted-ink: oklch(0.460 0.028 290);
+  --comfort-accent: oklch(0.865 0.040 325);
+  --comfort-border: oklch(0.800 0.030 295);
+  --comfort-sidebar: oklch(0.905 0.032 295);
+  --comfort-danger: oklch(0.580 0.120 25);
+  --comfort-danger-ink: oklch(0.985 0.008 95);
+  --comfort-chart-1: oklch(0.590 0.080 245);
+  --comfort-chart-2: oklch(0.620 0.070 165);
+  --comfort-chart-3: oklch(0.650 0.075 75);
+  --comfort-chart-4: oklch(0.600 0.070 315);
+  --comfort-chart-5: oklch(0.620 0.065 25);
+}
+
+.dark {
+  --comfort-bg: oklch(0.225 0.018 285);
+  --comfort-surface: oklch(0.265 0.022 285);
+  --comfort-ink: oklch(0.900 0.018 285);
+  --comfort-primary: oklch(0.745 0.070 285);
+  --comfort-on-primary: oklch(0.220 0.025 285);
+  --comfort-soft: oklch(0.310 0.025 285);
+  --comfort-muted: oklch(0.290 0.020 285);
+  --comfort-muted-ink: oklch(0.690 0.022 285);
+  --comfort-accent: oklch(0.360 0.045 320);
+  --comfort-border: oklch(0.370 0.026 285);
+  --comfort-sidebar: oklch(0.205 0.018 285);
+  --comfort-danger: oklch(0.660 0.100 25);
+  --comfort-danger-ink: oklch(0.220 0.020 25);
+  --comfort-chart-1: oklch(0.720 0.070 235);
+  --comfort-chart-2: oklch(0.720 0.065 165);
+  --comfort-chart-3: oklch(0.750 0.070 80);
+  --comfort-chart-4: oklch(0.700 0.065 310);
+  --comfort-chart-5: oklch(0.690 0.060 25);
+}
+
+.amethyst {
+  --comfort-bg: oklch(0.235 0.030 300);
+  --comfort-surface: oklch(0.280 0.035 300);
+  --comfort-ink: oklch(0.900 0.022 295);
+  --comfort-primary: oklch(0.740 0.085 300);
+  --comfort-on-primary: oklch(0.220 0.032 300);
+  --comfort-soft: oklch(0.325 0.038 300);
+  --comfort-muted: oklch(0.300 0.030 300);
+  --comfort-muted-ink: oklch(0.700 0.028 295);
+  --comfort-accent: oklch(0.380 0.055 325);
+  --comfort-border: oklch(0.390 0.038 300);
+  --comfort-sidebar: oklch(0.210 0.028 300);
+  --comfort-danger: oklch(0.670 0.095 25);
+  --comfort-danger-ink: oklch(0.230 0.020 25);
+  --comfort-chart-1: oklch(0.720 0.075 300);
+  --comfort-chart-2: oklch(0.740 0.065 345);
+  --comfort-chart-3: oklch(0.710 0.060 175);
+  --comfort-chart-4: oklch(0.760 0.065 80);
+  --comfort-chart-5: oklch(0.700 0.055 245);
+}
+
+.amethystoverloaded {
+  --comfort-bg: oklch(0.200 0.040 300);
+  --comfort-surface: oklch(0.250 0.045 300);
+  --comfort-ink: oklch(0.900 0.028 295);
+  --comfort-primary: oklch(0.690 0.100 300);
+  --comfort-on-primary: oklch(0.190 0.040 300);
+  --comfort-soft: oklch(0.300 0.050 300);
+  --comfort-muted: oklch(0.270 0.040 300);
+  --comfort-muted-ink: oklch(0.680 0.032 295);
+  --comfort-accent: oklch(0.350 0.065 325);
+  --comfort-border: oklch(0.360 0.050 300);
+  --comfort-sidebar: oklch(0.180 0.038 300);
+  --comfort-danger: oklch(0.650 0.100 25);
+  --comfort-danger-ink: oklch(0.200 0.025 25);
+  --comfort-chart-1: oklch(0.680 0.095 300);
+  --comfort-chart-2: oklch(0.720 0.080 325);
+  --comfort-chart-3: oklch(0.660 0.075 270);
+  --comfort-chart-4: oklch(0.750 0.070 350);
+  --comfort-chart-5: oklch(0.650 0.065 235);
+}
+
+.bluenight {
+  --comfort-bg: oklch(0.220 0.028 245);
+  --comfort-surface: oklch(0.265 0.032 240);
+  --comfort-ink: oklch(0.900 0.018 220);
+  --comfort-primary: oklch(0.740 0.065 215);
+  --comfort-on-primary: oklch(0.210 0.030 245);
+  --comfort-soft: oklch(0.310 0.032 240);
+  --comfort-muted: oklch(0.290 0.026 245);
+  --comfort-muted-ink: oklch(0.690 0.026 225);
+  --comfort-accent: oklch(0.360 0.045 190);
+  --comfort-border: oklch(0.370 0.032 240);
+  --comfort-sidebar: oklch(0.200 0.028 245);
+  --comfort-danger: oklch(0.660 0.100 25);
+  --comfort-danger-ink: oklch(0.220 0.020 25);
+  --comfort-chart-1: oklch(0.720 0.065 215);
+  --comfort-chart-2: oklch(0.700 0.060 175);
+  --comfort-chart-3: oklch(0.720 0.060 260);
+  --comfort-chart-4: oklch(0.760 0.060 95);
+  --comfort-chart-5: oklch(0.700 0.055 330);
+}
+
+.amoled {
+  --comfort-bg: oklch(0.145 0.012 285);
+  --comfort-surface: oklch(0.190 0.016 285);
+  --comfort-ink: oklch(0.870 0.014 285);
+  --comfort-primary: oklch(0.700 0.045 285);
+  --comfort-on-primary: oklch(0.150 0.018 285);
+  --comfort-soft: oklch(0.235 0.020 285);
+  --comfort-muted: oklch(0.215 0.016 285);
+  --comfort-muted-ink: oklch(0.620 0.018 285);
+  --comfort-accent: oklch(0.280 0.030 315);
+  --comfort-border: oklch(0.290 0.020 285);
+  --comfort-sidebar: oklch(0.130 0.010 285);
+  --comfort-danger: oklch(0.640 0.090 25);
+  --comfort-danger-ink: oklch(0.180 0.018 25);
+  --comfort-chart-1: oklch(0.700 0.045 285);
+  --comfort-chart-2: oklch(0.690 0.045 210);
+  --comfort-chart-3: oklch(0.720 0.045 145);
+  --comfort-chart-4: oklch(0.680 0.045 60);
+  --comfort-chart-5: oklch(0.670 0.045 340);
+}
+
+.pastel-blue {
+  --comfort-bg: oklch(0.925 0.035 235);
+  --comfort-surface: oklch(0.955 0.022 235);
+  --comfort-ink: oklch(0.300 0.028 250);
+  --comfort-primary: oklch(0.510 0.075 240);
+  --comfort-on-primary: oklch(0.970 0.016 235);
+  --comfort-soft: oklch(0.875 0.045 225);
+  --comfort-muted: oklch(0.895 0.030 235);
+  --comfort-muted-ink: oklch(0.460 0.030 250);
+  --comfort-accent: oklch(0.850 0.045 205);
+  --comfort-border: oklch(0.790 0.038 235);
+  --comfort-sidebar: oklch(0.895 0.040 235);
+  --comfort-danger: oklch(0.580 0.110 25);
+  --comfort-danger-ink: oklch(0.985 0.010 235);
+  --comfort-chart-1: oklch(0.580 0.080 240);
+  --comfort-chart-2: oklch(0.620 0.070 195);
+  --comfort-chart-3: oklch(0.600 0.065 280);
+  --comfort-chart-4: oklch(0.640 0.070 160);
+  --comfort-chart-5: oklch(0.620 0.060 320);
+}
+
+.pastel-orange {
+  --comfort-bg: oklch(0.940 0.040 65);
+  --comfort-surface: oklch(0.965 0.025 65);
+  --comfort-ink: oklch(0.310 0.032 45);
+  --comfort-primary: oklch(0.520 0.085 48);
+  --comfort-on-primary: oklch(0.975 0.016 65);
+  --comfort-soft: oklch(0.890 0.050 60);
+  --comfort-muted: oklch(0.910 0.034 65);
+  --comfort-muted-ink: oklch(0.470 0.034 48);
+  --comfort-accent: oklch(0.860 0.055 80);
+  --comfort-border: oklch(0.810 0.042 65);
+  --comfort-sidebar: oklch(0.910 0.044 65);
+  --comfort-danger: oklch(0.580 0.110 25);
+  --comfort-danger-ink: oklch(0.985 0.012 65);
+  --comfort-chart-1: oklch(0.590 0.090 48);
+  --comfort-chart-2: oklch(0.630 0.080 75);
+  --comfort-chart-3: oklch(0.600 0.075 25);
+  --comfort-chart-4: oklch(0.640 0.070 120);
+  --comfort-chart-5: oklch(0.600 0.065 330);
+}
+
+.pastel-purple {
+  --comfort-bg: oklch(0.930 0.032 300);
+  --comfort-surface: oklch(0.960 0.020 300);
+  --comfort-ink: oklch(0.300 0.030 290);
+  --comfort-primary: oklch(0.520 0.075 295);
+  --comfort-on-primary: oklch(0.970 0.014 300);
+  --comfort-soft: oklch(0.880 0.045 295);
+  --comfort-muted: oklch(0.900 0.030 300);
+  --comfort-muted-ink: oklch(0.460 0.032 290);
+  --comfort-accent: oklch(0.860 0.050 330);
+  --comfort-border: oklch(0.800 0.038 300);
+  --comfort-sidebar: oklch(0.900 0.038 300);
+  --comfort-danger: oklch(0.580 0.110 25);
+  --comfort-danger-ink: oklch(0.985 0.010 300);
+  --comfort-chart-1: oklch(0.580 0.080 295);
+  --comfort-chart-2: oklch(0.610 0.075 330);
+  --comfort-chart-3: oklch(0.590 0.065 260);
+  --comfort-chart-4: oklch(0.630 0.070 20);
+  --comfort-chart-5: oklch(0.620 0.060 190);
+}
+
+.evergreen {
+  --comfort-bg: oklch(0.225 0.028 155);
+  --comfort-surface: oklch(0.270 0.032 155);
+  --comfort-ink: oklch(0.890 0.022 145);
+  --comfort-primary: oklch(0.730 0.080 150);
+  --comfort-on-primary: oklch(0.210 0.032 155);
+  --comfort-soft: oklch(0.315 0.038 155);
+  --comfort-muted: oklch(0.290 0.030 155);
+  --comfort-muted-ink: oklch(0.690 0.030 150);
+  --comfort-accent: oklch(0.360 0.050 165);
+  --comfort-border: oklch(0.370 0.038 155);
+  --comfort-sidebar: oklch(0.205 0.028 155);
+  --comfort-danger: oklch(0.650 0.095 25);
+  --comfort-danger-ink: oklch(0.220 0.022 25);
+  --comfort-chart-1: oklch(0.720 0.075 150);
+  --comfort-chart-2: oklch(0.700 0.065 190);
+  --comfort-chart-3: oklch(0.740 0.070 110);
+  --comfort-chart-4: oklch(0.720 0.065 75);
+  --comfort-chart-5: oklch(0.680 0.055 255);
+}
+
+.rose {
+  --comfort-bg: oklch(0.940 0.035 20);
+  --comfort-surface: oklch(0.967 0.022 20);
+  --comfort-ink: oklch(0.310 0.032 15);
+  --comfort-primary: oklch(0.510 0.080 15);
+  --comfort-on-primary: oklch(0.975 0.014 20);
+  --comfort-soft: oklch(0.890 0.048 15);
+  --comfort-muted: oklch(0.910 0.032 20);
+  --comfort-muted-ink: oklch(0.470 0.034 15);
+  --comfort-accent: oklch(0.865 0.052 355);
+  --comfort-border: oklch(0.810 0.040 15);
+  --comfort-sidebar: oklch(0.910 0.040 18);
+  --comfort-danger: oklch(0.570 0.105 25);
+  --comfort-danger-ink: oklch(0.985 0.010 20);
+  --comfort-chart-1: oklch(0.570 0.085 15);
+  --comfort-chart-2: oklch(0.620 0.075 45);
+  --comfort-chart-3: oklch(0.590 0.075 345);
+  --comfort-chart-4: oklch(0.650 0.070 85);
+  --comfort-chart-5: oklch(0.590 0.060 300);
+}
+
+.parchment {
+  --comfort-bg: oklch(0.925 0.045 85);
+  --comfort-surface: oklch(0.955 0.030 85);
+  --comfort-ink: oklch(0.300 0.032 65);
+  --comfort-primary: oklch(0.490 0.065 60);
+  --comfort-on-primary: oklch(0.965 0.024 85);
+  --comfort-soft: oklch(0.870 0.050 85);
+  --comfort-muted: oklch(0.890 0.040 85);
+  --comfort-muted-ink: oklch(0.450 0.034 65);
+  --comfort-accent: oklch(0.840 0.055 95);
+  --comfort-border: oklch(0.780 0.048 82);
+  --comfort-sidebar: oklch(0.890 0.045 85);
+  --comfort-danger: oklch(0.560 0.100 30);
+  --comfort-danger-ink: oklch(0.975 0.018 85);
+  --comfort-chart-1: oklch(0.550 0.070 60);
+  --comfort-chart-2: oklch(0.600 0.070 105);
+  --comfort-chart-3: oklch(0.570 0.065 35);
+  --comfort-chart-4: oklch(0.620 0.060 145);
+  --comfort-chart-5: oklch(0.540 0.055 285);
+}
+
+.nord {
+  --comfort-bg: oklch(0.255 0.025 255);
+  --comfort-surface: oklch(0.300 0.030 255);
+  --comfort-ink: oklch(0.900 0.018 240);
+  --comfort-primary: oklch(0.760 0.055 220);
+  --comfort-on-primary: oklch(0.240 0.030 255);
+  --comfort-soft: oklch(0.350 0.032 255);
+  --comfort-muted: oklch(0.325 0.028 255);
+  --comfort-muted-ink: oklch(0.700 0.024 240);
+  --comfort-accent: oklch(0.390 0.040 245);
+  --comfort-border: oklch(0.410 0.032 255);
+  --comfort-sidebar: oklch(0.235 0.025 255);
+  --comfort-danger: oklch(0.650 0.090 25);
+  --comfort-danger-ink: oklch(0.240 0.022 25);
+  --comfort-chart-1: oklch(0.740 0.055 220);
+  --comfort-chart-2: oklch(0.730 0.060 145);
+  --comfort-chart-3: oklch(0.760 0.060 90);
+  --comfort-chart-4: oklch(0.700 0.055 330);
+  --comfort-chart-5: oklch(0.700 0.050 260);
+}
+
+.ember {
+  --comfort-bg: oklch(0.225 0.025 45);
+  --comfort-surface: oklch(0.270 0.030 45);
+  --comfort-ink: oklch(0.900 0.022 70);
+  --comfort-primary: oklch(0.740 0.085 65);
+  --comfort-on-primary: oklch(0.210 0.032 45);
+  --comfort-soft: oklch(0.315 0.036 45);
+  --comfort-muted: oklch(0.290 0.030 45);
+  --comfort-muted-ink: oklch(0.690 0.030 65);
+  --comfort-accent: oklch(0.360 0.045 45);
+  --comfort-border: oklch(0.370 0.036 45);
+  --comfort-sidebar: oklch(0.205 0.025 45);
+  --comfort-danger: oklch(0.650 0.100 25);
+  --comfort-danger-ink: oklch(0.220 0.022 25);
+  --comfort-chart-1: oklch(0.720 0.085 65);
+  --comfort-chart-2: oklch(0.690 0.075 35);
+  --comfort-chart-3: oklch(0.750 0.070 95);
+  --comfort-chart-4: oklch(0.680 0.070 15);
+  --comfort-chart-5: oklch(0.690 0.060 145);
+}
+
+:is(:root, .dark, .amethyst, .amethystoverloaded, .bluenight, .amoled,
+  .pastel-blue, .pastel-orange, .pastel-purple, .evergreen, .rose,
+  .parchment, .nord, .ember) {
+  --background: var(--comfort-bg);
+  --foreground: var(--comfort-ink);
+  --card: var(--comfort-surface);
+  --card-foreground: var(--comfort-ink);
+  --popover: var(--comfort-surface);
+  --popover-foreground: var(--comfort-ink);
+  --primary: var(--comfort-primary);
+  --primary-foreground: var(--comfort-on-primary);
+  --secondary: var(--comfort-soft);
+  --secondary-foreground: var(--comfort-ink);
+  --muted: var(--comfort-muted);
+  --muted-foreground: var(--comfort-muted-ink);
+  --accent: var(--comfort-accent);
+  --accent-foreground: var(--comfort-ink);
+  --destructive: var(--comfort-danger);
+  --destructive-foreground: var(--comfort-danger-ink);
+  --border: var(--comfort-border);
+  --input: var(--comfort-border);
+  --ring: var(--comfort-primary);
+  --chart-1: var(--comfort-chart-1);
+  --chart-2: var(--comfort-chart-2);
+  --chart-3: var(--comfort-chart-3);
+  --chart-4: var(--comfort-chart-4);
+  --chart-5: var(--comfort-chart-5);
+  --sidebar: var(--comfort-sidebar);
+  --sidebar-foreground: var(--comfort-ink);
+  --sidebar-primary: var(--comfort-primary);
+  --sidebar-primary-foreground: var(--comfort-on-primary);
+  --sidebar-accent: var(--comfort-accent);
+  --sidebar-accent-foreground: var(--comfort-ink);
+  --sidebar-border: var(--comfort-border);
+  --sidebar-ring: var(--comfort-primary);
+}
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -679,19 +1013,18 @@
   width: 4px;
 }
 
-/* Track */
+/* Theme-aware track and handle avoid a bright stripe in dark themes. */
 ::-webkit-scrollbar-track {
-  background: #fdfdfd;
+  background: var(--background);
 }
 
-/* Handle */
 ::-webkit-scrollbar-thumb {
-  background: #606060;
+  background: color-mix(in oklch, var(--foreground) 28%, transparent);
+  border-radius: 999px;
 }
 
-/* Handle on hover */
 ::-webkit-scrollbar-thumb:hover {
-  background: #373737;
+  background: color-mix(in oklch, var(--foreground) 42%, transparent);
 }
 
 .no-scroll-wheel {

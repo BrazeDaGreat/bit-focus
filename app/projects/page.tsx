@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
-import { FaPlus, FaProjectDiagram } from "react-icons/fa";
+import { FaEdit, FaPlus, FaProjectDiagram } from "react-icons/fa";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -34,6 +34,71 @@ import { useProjects, type Project, type ProjectWithStats } from "@/hooks/usePro
 import { cn, formatNumber, setClipboard } from "@/lib/utils";
 import { FaClipboard } from "react-icons/fa6";
 import getIconFromLink from "@/lib/getIconFromLink";
+
+type SemVerRelease = "major" | "minor" | "patch";
+
+interface ParsedSemVer {
+  major: string;
+  minor: string;
+  patch: string;
+  hasPrerelease: boolean;
+}
+
+const SEMVER_PATTERN =
+  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
+
+function parseSemVer(version: string): ParsedSemVer | null {
+  const match = version.trim().match(SEMVER_PATTERN);
+  if (!match) return null;
+
+  return {
+    major: match[1],
+    minor: match[2],
+    patch: match[3],
+    hasPrerelease: match[4] !== undefined,
+  };
+}
+
+function incrementNumericIdentifier(value: string): string {
+  const digits = value.split("");
+  let carry = 1;
+
+  for (let index = digits.length - 1; index >= 0 && carry; index -= 1) {
+    const nextDigit = Number(digits[index]) + carry;
+    digits[index] = String(nextDigit % 10);
+    carry = nextDigit >= 10 ? 1 : 0;
+  }
+
+  if (carry) digits.unshift("1");
+  return digits.join("");
+}
+
+function incrementSemVer(
+  version: string,
+  release: SemVerRelease
+): string | null {
+  const parsed = parseSemVer(version);
+  if (!parsed) return null;
+
+  let { major, minor, patch } = parsed;
+
+  if (release === "major") {
+    if (minor !== "0" || patch !== "0" || !parsed.hasPrerelease) {
+      major = incrementNumericIdentifier(major);
+    }
+    minor = "0";
+    patch = "0";
+  } else if (release === "minor") {
+    if (patch !== "0" || !parsed.hasPrerelease) {
+      minor = incrementNumericIdentifier(minor);
+    }
+    patch = "0";
+  } else if (!parsed.hasPrerelease) {
+    patch = incrementNumericIdentifier(patch);
+  }
+
+  return `${major}.${minor}.${patch}`;
+}
 
 function CreateProjectDialog(): JSX.Element {
   const [open, setOpen] = useState(false);
@@ -185,6 +250,190 @@ function CopyProjectToText(): JSX.Element {
   );
 }
 
+function ProjectVersionDialog({
+  project,
+}: {
+  project: ProjectWithStats;
+}): JSX.Element {
+  const [open, setOpen] = useState(false);
+  const [version, setVersion] = useState(project.version);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { updateProject } = useProjects();
+
+  const trimmedVersion = version.trim();
+  const isValidVersion = parseSemVer(trimmedVersion) !== null;
+  const versionChanged = trimmedVersion !== project.version;
+  const releases: {
+    release: SemVerRelease;
+    label: string;
+  }[] = [
+    {
+      release: "major",
+      label: "Major",
+    },
+    {
+      release: "minor",
+      label: "Minor",
+    },
+    {
+      release: "patch",
+      label: "Patch",
+    },
+  ];
+
+  const handleOpenChange = (nextOpen: boolean): void => {
+    setOpen(nextOpen);
+    if (nextOpen) setVersion(project.version);
+  };
+
+  const handleSave = async (): Promise<void> => {
+    if (!isValidVersion) {
+      toast.error("Enter a valid semantic version");
+      return;
+    }
+
+    if (project.id === undefined) {
+      toast.error("Failed to identify project");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await updateProject(project.id, { version: trimmedVersion });
+      toast.success(`Version updated to v${trimmedVersion}`);
+      setOpen(false);
+    } catch {
+      toast.error("Failed to update project version");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          className="group/version -ml-1 mb-4 mt-0.5 inline-flex w-fit items-center gap-1 rounded-md px-1 py-0.5 font-mono text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          aria-label={`Edit ${project.title} version, currently ${project.version}`}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            handleOpenChange(true);
+          }}
+        >
+          v{project.version}
+          <FaEdit className="h-2.5 w-2.5 opacity-0 transition-opacity group-hover/version:opacity-100 group-focus-visible/version:opacity-100" />
+        </button>
+      </DialogTrigger>
+      <DialogContent
+        className="sm:max-w-[480px]"
+        onClick={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        <DialogHeader>
+          <DialogTitle>Update project version</DialogTitle>
+          <DialogDescription>
+            Enter a version manually or choose a SemVer increment for{" "}
+            {project.title}.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void handleSave();
+          }}
+        >
+          <div className="space-y-5 py-4">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <Label htmlFor={`project-version-${project.id}`}>Version</Label>
+                <span className="text-xs text-muted-foreground">
+                  Current:{" "}
+                  <span className="font-mono">v{project.version}</span>
+                </span>
+              </div>
+              <Input
+                id={`project-version-${project.id}`}
+                value={version}
+                onChange={(event) => setVersion(event.target.value)}
+                placeholder="1.0.0"
+                className="font-mono"
+                autoComplete="off"
+                spellCheck={false}
+                aria-invalid={!isValidVersion}
+                aria-describedby={`project-version-help-${project.id}`}
+                disabled={isSubmitting}
+              />
+              <p
+                id={`project-version-help-${project.id}`}
+                className={cn(
+                  "text-xs",
+                  isValidVersion
+                    ? "text-muted-foreground"
+                    : "text-destructive"
+                )}
+              >
+                {isValidVersion
+                  ? "Use SemVer without a leading v, for example 2.1.0 or 2.1.0-beta.1."
+                  : "Enter a valid SemVer value in major.minor.patch format."}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Quick increment</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {releases.map(({ release, label }) => {
+                  const nextVersion = incrementSemVer(
+                    trimmedVersion,
+                    release
+                  );
+
+                  return (
+                    <Button
+                      key={release}
+                      type="button"
+                      variant="outline"
+                      className="h-auto min-w-0 flex-col items-center gap-1 px-3 py-2.5 text-center"
+                      onClick={() => {
+                        if (nextVersion) setVersion(nextVersion);
+                      }}
+                      disabled={!nextVersion || isSubmitting}
+                    >
+                      <span>{label}</span>
+                      <span className="w-full truncate font-mono text-xs font-normal text-muted-foreground">
+                        {nextVersion ? `v${nextVersion}` : "—"}
+                      </span>
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={!isValidVersion || !versionChanged || isSubmitting}
+            >
+              {isSubmitting ? "Saving..." : "Save version"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ProjectCard({ project }: { project: ProjectWithStats }): JSX.Element {
   const completedMilestones = project.milestones.filter(
     (m) => m.status === "Closed" || m.status === "Paid"
@@ -223,7 +472,7 @@ function ProjectCard({ project }: { project: ProjectWithStats }): JSX.Element {
 
         {/* Title + version */}
         <h3 className="text-lg font-semibold tracking-tight leading-snug">{project.title}</h3>
-        <p className="text-xs font-mono text-muted-foreground mt-0.5 mb-4">v{project.version}</p>
+        <ProjectVersionDialog project={project} />
 
         {/* Progress */}
         <div className="mb-1.5">

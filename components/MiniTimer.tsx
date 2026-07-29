@@ -57,7 +57,11 @@ function displaySeconds(state: ReturnType<typeof usePomo>["state"]): number {
   return elapsedSeconds;
 }
 
-export default function MiniTimer(): JSX.Element {
+export default function MiniTimer({
+  className,
+}: {
+  className?: string;
+}): JSX.Element {
   const { state, start, pause, reset, setMode } = usePomo();
   const { tag, setTag, removeTag, savedTags } = useTag();
   const router = useRouter();
@@ -83,11 +87,16 @@ export default function MiniTimer(): JSX.Element {
   };
 
   return (
-    <div className="flex items-center h-8 rounded-full border bg-card pl-2.5 pr-1 gap-2">
+    <div
+      className={cn(
+        "flex h-8 items-center gap-1.5 rounded-full border bg-card pl-2 pr-0.5 sm:gap-2 sm:pl-2.5 sm:pr-1",
+        className
+      )}
+    >
       {/* Status dot */}
       <span
         className={cn(
-          "size-2 rounded-full shrink-0",
+          "hidden size-2 shrink-0 rounded-full min-[360px]:block",
           isRunning
             ? "bg-emerald-500 animate-pulse"
             : isPaused
@@ -98,7 +107,7 @@ export default function MiniTimer(): JSX.Element {
       />
 
       {/* Time */}
-      <span className="font-mono text-sm font-semibold tracking-tight tabular-nums min-w-[3.2rem]">
+      <span className="min-w-[3.2rem] flex-1 font-mono text-sm font-semibold tracking-tight tabular-nums lg:flex-none">
         {formatClock(total)}
       </span>
 
