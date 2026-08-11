@@ -1,7 +1,7 @@
-export const VERSION = "v0.20.0=beta";
+export const VERSION = "v0.20.0-beta";
 
 const CHANGELOG = `
-## \`v0.20.0=beta\` (2026-07-30) — QoL Updates Batch 2
+## \`v0.20.0-beta\` (2026-07-30) — QoL Updates Batch 2
 - Added: Project card version numbers are now clickable, with a dedicated dialog for manual SemVer entry or quick major, minor, and patch increments.
 - Improved: Reworked every existing theme into a calmer, ADHD-friendly pastel-inspired palette while keeping all theme names unchanged.
 - Improved: Light themes now use softly tinted paper-like backgrounds, comfortable ink colors, and clearer surface hierarchy instead of stark white and high-contrast neutrals.
