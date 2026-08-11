@@ -1,4 +1,4 @@
-export const VERSION = "v0.20.1 (LTS)";
+export const VERSION = "v0.20.2-beta";
 
 const CHANGELOG = `
 ## \`v0.20.0-beta\` (2026-07-30) — QoL Updates Batch 2
@@ -13,6 +13,8 @@ const CHANGELOG = `
 - Added: Expanded the Ambience Mixer from 8 to 18 sounds with new air conditioner, rain, water, forest, jungle, airplane, and subway soundscapes from the Google Sound Library.
 - Improved: Added suitable icons for every new ambience and reordered the collection so popular focus sounds are easier to find.
 - Added: "Pi Chart" view in Focus Graph, toggleable with the existing bar chart, for a more compact and visually appealing overview of focus time distribution across tags.
+### \`v0.20.2-beta\` (2026-08-12)
+- Added: Global pause/play control in the Ambience Mixer header for pausing or resuming every selected sound at once without changing individual selections or volumes.
 ***
 
 ## \`v0.19.0-beta\` (2026-07-24) — Accounts & Cross-Device Sync

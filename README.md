@@ -1,138 +1,159 @@
-# ⬡ BIT Focus
+# BIT Focus
 
-BIT Focus is a premium, client-side productivity tracking workspace and gamified focus suite built on **Next.js 15**, **React 19**, and **IndexedDB**. Designed for creators, developer-freelancers, and self-starters, it combines tracking, planning, whiteboarding, and gamification with local-first database architecture and context-aware AI.
+Your local-first workspace for focused work, planning, and personal productivity.
 
----
+[Use BIT Focus](https://focus.uziraze.com) | [View changelog](https://focus.uziraze.com/changelog) | [Report an issue](https://github.com/BrazeDaGreat/bit-focus/issues)
 
-## 🚀 Key Features
+BIT Focus combines a focus timer, time tracking, project planning, calendar timeblocking, rewards, notes, whiteboarding, ambient sound, and optional AI in one day-to-day workspace. Core features work without an account, and app data stays in your browser unless you explicitly connect an account or use an integration.
 
-### 1. ⏱️ Advanced Focus Timer
-An interactive workspace timer that keeps you in the zone:
-- **Modes**: Seamlessly switch between **Standard (count up)** and **Pomodoro (count down)** timer methods.
-- **Customization**: Fully adjustable focus and break durations, alert sounds, and transition behaviors.
-- **Picture-in-Picture (PiP)**: Pop out a floating mini-timer window using the custom PiP component (`hooks/usePip.tsx`) to monitor your focus while working in other apps.
-- **Ambient Music Player**: Integrated collapsible YouTube music player directly in the timer stage.
-- **Discord Integration**: Optional webhook connectivity to automatically broadcast focus achievements and session statistics.
-- **Global Mini-Timer**: Collapsible timer in the sidebar keeps track of your focus state across all pages.
+> **Project status:** BIT Focus is under active development. Export a `.bitf.json` backup regularly, especially before upgrading a self-hosted instance.
 
-### 2. 📊 Project, Milestone & Issue Dashboard
-A full-featured multi-tier task hierarchy designed to track deliverables and earnings:
-- **Structure**: Organize work into **Projects** → **Milestones** → **Issues**.
-- **Progress Tracking**: Real-time progress bars calculating milestone completions and open issue counts.
-- **Quick Link Hub**: Attach documentation or repository URLs to projects. Features automatic icon resolution based on hostnames.
-- **Earning Summary Compiler**: Formats project budgets and completed milestones into clipboard-ready text with custom status emojis to track project financials.
+## Use BIT Focus
 
-### 3. 📅 Drag-and-Drop Calendar & Timeblocking
-Plan your days and compare plans against your actual tracked sessions:
-- **Planned vs Actual**: Renders background timeblocks (dashed borders) alongside actual tracked focus sessions (solid color blocks).
-- **Interactive Control**: Drag, drop, and resize planned blocks on the calendar grid to rearrange your schedule.
-- **Drag-to-Create**: Drag on an empty slot to create planned blocks instantly via a coordinates-aware popup.
-- **Zoom Configurator**: Toggle calendar density between **Compact**, **Normal**, and **Expanded** vertical spacing.
-- **Smart Filtering**: Filter focus logs and planned tasks by custom tags.
+The easiest way to get started is the hosted app:
 
-### 4. 🛍️ Gamified Rewards Shop
-Motivate yourself by earning points for focused work and redeeming them:
-- **Local Economy**: Earn focus points (⬡ pts) based on the durations of completed sessions.
-- **Rewards Store**: Define custom reward items with prices, descriptions, categories, and preset icons.
-- **Discount Codes**: Add and toggle active percentage discount codes that dynamically lower redemption prices.
-- **Points Loan System**: Borrow points with the loan feature to redeem rewards early and pay it back automatically during subsequent focus sessions.
+**[Open focus.uziraze.com](https://focus.uziraze.com)**
 
-### 5. 🎨 Excalidraw Whiteboard
-A local sketch and diagramming space:
-- **Fully Embedded**: Excalidraw whiteboard integration directly inside the app shell.
-- **Auto-Saving**: Debounced local database saves (1000ms delay) to keep your diagrams safe.
-- **Multi-Scene Support**: Create, load, rename, and delete scenes stored securely in IndexedDB.
+No installation or account is required. Complete onboarding, choose your tags and theme, then start a focus session. Accounts are optional and are only needed for cross-device sync.
 
-### 6. 🧠 Context-Aware AI Chat Assistant
-A local assistant that knows your productivity metrics:
-- **Model Compatibility**: Support for multiple models from **Google Gemini** and **Groq** (bring your own API keys).
-- **Workspace Context Injection**: Toggle dynamic context loading. The system compiles your name, exact age, accumulated points, recent focus durations (24h, 7d, 14d, 30d), tag breakdowns, and active timer states to feed directly into the model for highly personalized feedback.
-- **Local Logs**: Chat histories are stored completely local using your browser's IndexedDB.
+BIT Focus is designed around a practical daily loop:
 
-### 7. 🎨 Premium Custom Themes
-Adapt your environment to match your mood. Toggle themes from the sidebar popover:
-- **Light & Dark**: Standard light/dark themes.
-- **AMOLED**: True-black design for energy saving.
-- **Blue Night**: A cool, ocean-inspired palette.
-- **Amethyst & Amethyst+**: Deep purple aesthetics.
-- **Pastel Series**: Soft, calming pastel-blue, pastel-orange, and pastel-purple environments.
+1. Plan work with projects, milestones, issues, and calendar timeblocks.
+2. Start a standard or Pomodoro focus session from any page.
+3. Compare planned time with completed sessions and review trends by tag.
+4. Use earned points for self-defined rewards.
+5. Export a local backup or opt into account sync when you need another device.
 
----
+## Features
 
-## 🛠️ Technical Stack
+### Focus and time tracking
 
-- **Framework**: [Next.js 15 (App Router)](https://nextjs.org/) with Turbopack for lightning-fast compilation.
-- **Library**: [React 19](https://react.dev/)
-- **Language**: [TypeScript](https://www.typescriptlang.org/)
-- **Database Layer**: [Dexie.js](https://dexie.org/) (Wrapper for IndexedDB) providing local-first, schema-versioned client-side storage.
-- **State Management**: [Zustand](https://github.com/pmndrs/zustand) for reactive domain stores + React Context for global timer states.
-- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) & [shadcn/ui](https://shadcn.dev/) components built on Radix UI primitives.
-- **Rich Text / Editor**: [TipTap](https://tiptap.dev/)
-- **Charts / Heatmaps**: [Recharts](https://recharts.org/) for productivity graphs and Git-style focus heatmaps.
-- **Calendar**: [React Big Calendar](https://github.com/jquense/react-big-calendar) with drag-and-drop addons.
-- **Canvas**: [@excalidraw/excalidraw](https://excalidraw.com/)
-- **AI Engine**: [Vercel AI SDK](https://sdk.vercel.ai/docs) & [assistant-ui](https://assistant-ui.com/).
+- Standard count-up and configurable Pomodoro timers
+- Global mini timer, document-title timer, and Picture-in-Picture timer
+- Manual session entry for time tracked elsewhere
+- Searchable focus table with filtering, sorting, pagination, bulk editing, deletion, and CSV export
+- Focus charts, tag breakdowns, yearly heatmap, and streak tracking
+- Optional Discord webhook updates and quick messages
 
----
+### Planning and project work
 
-## 🗄️ Database Schema (IndexedDB)
+- Projects with statuses, semantic versions, notes, and quick links
+- Milestones with budgets, deadlines, and payment states
+- Issues with labels, due dates, descriptions, and completion states
+- Day and week calendar views for planned timeblocks and actual focus sessions
+- Drag-to-create, move, resize, edit, and filter timeblocks
 
-The database schema is managed via Dexie.js in `lib/db.ts`. All user configuration, focus logs, projects, drawings, and chat histories remain strictly local to the user's browser.
+### Focus environment
 
-| Table Name | Keys & Indexes | Purpose |
-| :--- | :--- | :--- |
-| `configuration` | `name` | Stores user configuration (name, DOB, webhook URL, preferred currency, updates toggles). |
-| `focus` | `++id, tag, startTime, endTime` | Tracks completed focus sessions. |
-| `timeblocks` | `++id, tag, startTime, endTime` | Tracks calendar planned timeblocks. |
-| `notes` | `++id, title, type, parentId, createdAt, updatedAt` | Manages document and board-style notes. |
-| `projects` | `++id, title, status, createdAt, updatedAt` | Stores project metadata, version history, and quick links. |
-| `milestones` | `++id, projectId, title, status, deadline, createdAt, updatedAt` | Milestones hierarchy under projects including budgets. |
-| `issues` | `++id, milestoneId, title, label, dueDate, status, createdAt, updatedAt` | Individual tasks/issues grouped under milestones. |
-| `rewards` | `++id, title, cost, category, createdAt, updatedAt` | Items in the rewards shop. |
-| `discounts` | `++id, title, percentage, active, createdAt, updatedAt` | Percentage coupons to discount rewards. |
-| `excalidraw_v2` | `id, title, createdAt, updatedAt` | Drawings and canvas scenes. |
-| `ai_chats` | `id, createdAt, updatedAt` | Local AI chat history logs. |
-| `ai_config` | `key` | API configurations and key storage for Groq and Gemini. |
+- Ambience mixer with 18 loopable sounds and per-sound volume controls
+- Global pause and resume for the ambience mix
+- Embedded YouTube player on the Focus page
+- Floating notepad and global keyboard shortcuts
+- Multiple light, dark, AMOLED, pastel, and themed color schemes
+- Feature toggles for hiding tools you do not use
 
----
+### Personal workspace
 
-## ⚙️ Development and Installation
+- Custom rewards, discounts, point loans, and redemptions
+- Multi-scene Excalidraw whiteboard with automatic local saves
+- Context-aware AI chat using your own Groq or Google API key
+- `.bitf.json` export and import for portable backups
+- Optional accounts with two-way sync, conflict resolution, and manual upload/download controls
 
-### Prerequisites
-- Node.js (v18+ recommended)
-- `pnpm` package manager (recommended for this project)
+## Privacy and data ownership
+
+BIT Focus is local-first:
+
+- Focus sessions, projects, rewards, drawings, settings, and other workspace data are stored in IndexedDB and local storage.
+- You can use the core app while signed out.
+- AI API keys are supplied by you and stored locally in your browser.
+- Data only leaves your browser when you choose a networked feature such as AI chat, a Discord webhook, account authentication, or cloud sync.
+- Exported `.bitf.json` backups exclude account session tokens.
+
+Browser storage can be cleared by browser settings, privacy tools, or site-data cleanup. Keep backups if the data matters to you.
+
+## Run locally
+
+### Requirements
+
+- Node.js 18 or newer
+- [pnpm](https://pnpm.io/installation)
 
 ### Setup
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/BrazeDaGreat/bit-focus.git
-   cd bit-focus
-   ```
 
-2. **Install dependencies:**
-   ```bash
-   pnpm install
-   ```
+```bash
+git clone https://github.com/BrazeDaGreat/bit-focus.git
+cd bit-focus
+pnpm install
+pnpm dev
+```
 
-3. **Start the development server (with Turbopack):**
-   ```bash
-   pnpm dev
-   ```
-   Open [http://localhost:3000](http://localhost:3000) in your browser to view the application.
+Open [http://localhost:3000](http://localhost:3000).
 
-4. **Production Build:**
-   ```bash
-   pnpm build
-   pnpm start
-   ```
+Useful commands:
 
-5. **Linting:**
-   ```bash
-   pnpm lint
-   ```
+| Command | Purpose |
+| --- | --- |
+| `pnpm dev` | Start the Turbopack development server |
+| `pnpm build` | Create a production build |
+| `pnpm start` | Serve the production build |
+| `pnpm lint` | Run the configured Next.js lint command |
 
----
+No environment variables are required for local-only use. The AI providers use API keys entered in the app.
 
-## 📄 License
+### Optional account and sync backend
 
-This project is licensed under the MIT License. See the [LICENSE](./LICENSE.md) file for details.
+Accounts and cross-device sync use PocketBase. The app defaults to the public BIT Focus backend. To point a self-hosted frontend at your own compatible PocketBase instance, set:
+
+```bash
+NEXT_PUBLIC_POCKETBASE_URL=https://your-pocketbase.example.com
+```
+
+A custom backend must provide the authentication providers and owner-scoped sync collection expected by the app. Without that backend, local features still work; account and sync features will not.
+
+## Self-hosting
+
+BIT Focus is a standard Next.js application and can be hosted anywhere that supports Next.js 15. For a basic Node.js deployment:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm build
+pnpm start
+```
+
+Use HTTPS in production so browser storage, authentication, clipboard access, notifications, and Picture-in-Picture behavior work reliably. If you do not want to maintain a deployment, use the hosted version at [focus.uziraze.com](https://focus.uziraze.com).
+
+## Contributing
+
+Contributions are welcome. Bug reports, documentation fixes, accessibility improvements, focused UI refinements, and well-scoped feature proposals are useful.
+
+1. Search [existing issues](https://github.com/BrazeDaGreat/bit-focus/issues) before opening a new one.
+2. Fork the repository and create a branch from the current default branch.
+3. Install dependencies with `pnpm install`.
+4. Make a focused change that follows the existing TypeScript, React, Tailwind, and shadcn/ui patterns.
+5. Run `pnpm build` and `pnpm lint` where supported.
+6. Open a pull request explaining the problem, solution, test steps, and any visible UI changes.
+
+For larger features or changes to persistence and sync behavior, open an issue first. Include screenshots for UI changes and note any IndexedDB schema, import/export, or backward-compatibility impact.
+
+Please do not include API keys, authentication tokens, webhook URLs, personal exports, or other private data in issues, commits, or screenshots.
+
+## Architecture
+
+BIT Focus uses:
+
+- [Next.js 15](https://nextjs.org/) with the App Router and Turbopack
+- [React 19](https://react.dev/) and TypeScript
+- [Tailwind CSS 4](https://tailwindcss.com/) with shadcn/ui and Radix primitives
+- [Dexie.js](https://dexie.org/) over IndexedDB for local persistence
+- [Zustand](https://zustand.docs.pmnd.rs/) and React Context for application state
+- [PocketBase](https://pocketbase.io/) for optional authentication and sync
+- [Recharts](https://recharts.org/) and React Big Calendar for analytics and scheduling
+- [Excalidraw](https://excalidraw.com/) and TipTap for workspace tools
+- [Vercel AI SDK](https://ai-sdk.dev/) and assistant-ui for optional AI chat
+
+The main application routes live in `app/`, shared interface components in `components/`, state stores and contexts in `hooks/`, and persistence/integration code in `lib/`.
+
+## License
+
+BIT Focus is available under the [MIT License](./LICENSE.md).

@@ -11,13 +11,15 @@
  */
 
 import { useEffect, useRef, type JSX } from "react";
-import { FaWind } from "react-icons/fa6";
+import { FaPause, FaPlay, FaWind } from "react-icons/fa6";
 import { AMBIENCES } from "@/lib/ambiences";
 import { useAmbience } from "@/hooks/useAmbience";
 import { cn } from "@/lib/utils";
 
 export function AmbienceMixer(): JSX.Element {
   const tracks = useAmbience((s) => s.tracks);
+  const isPaused = useAmbience((s) => s.isPaused);
+  const togglePlayback = useAmbience((s) => s.togglePlayback);
   const toggle = useAmbience((s) => s.toggle);
   const setVolume = useAmbience((s) => s.setVolume);
 
@@ -39,13 +41,13 @@ export function AmbienceMixer(): JSX.Element {
       }
 
       audio.volume = state?.volume ?? 0;
-      if (state?.enabled) {
+      if (state?.enabled && !isPaused) {
         if (audio.paused) audio.play().catch(() => {});
       } else if (!audio.paused) {
         audio.pause();
       }
     }
-  }, [tracks]);
+  }, [tracks, isPaused]);
 
   // Tear down all audio on unmount.
   useEffect(() => {
@@ -73,6 +75,19 @@ export function AmbienceMixer(): JSX.Element {
             {activeCount}
           </span>
         )}
+        <button
+          type="button"
+          onClick={togglePlayback}
+          disabled={activeCount === 0}
+          aria-label={isPaused ? "Play selected ambience sounds" : "Pause selected ambience sounds"}
+          title={isPaused ? "Play all ambience" : "Pause all ambience"}
+          className={cn(
+            "grid size-6 place-items-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-35",
+            activeCount === 0 && "ml-auto"
+          )}
+        >
+          {isPaused ? <FaPlay className="size-2.5" /> : <FaPause className="size-2.5" />}
+        </button>
       </div>
 
       {/* Track rows */}
@@ -113,7 +128,7 @@ export function AmbienceMixer(): JSX.Element {
                 )}
               >
                 <Icon className="size-3.5" />
-                {enabled && (
+                {enabled && !isPaused && (
                   <span className="pointer-events-none absolute -right-0.5 -top-0.5 size-1.5 rounded-full bg-primary motion-safe:animate-pulse" />
                 )}
               </span>
