@@ -120,7 +120,7 @@ type TimeObject =
 export const calculateTime = (
   startTime: Date,
   endTime: Date,
-  mode: "H:M:S" | "M:S" | "S" = "H:M:S"
+  mode: "H:M:S" | "M:S" | "S" = "H:M:S",
 ): TimeObject => {
   const diffInMs = Math.max(endTime.getTime() - startTime.getTime(), 0); // Ensure non-negative
   const totalSeconds = Math.floor(diffInMs / 1000);
@@ -175,7 +175,7 @@ export const calculateTime = (
 export const formatTime = (
   minutes: number,
   seconds: number,
-  mode: number = 0
+  mode: number = 0,
 ): string | undefined => {
   if (mode === 0)
     return `${minutes.toString().padStart(2, "0")}:${seconds
@@ -237,7 +237,7 @@ export const formatTime = (
 export const formatTimeNew = (
   time: TimeObject,
   mode: "H:M:S" | "M:S" | "S" = "H:M:S",
-  style: "digital" | "text" = "digital"
+  style: "digital" | "text" = "digital",
 ): string => {
   const pad = (num: number) => num.toString().padStart(2, "0");
 
@@ -322,7 +322,11 @@ export const durationFromSeconds = (seconds: number): TimeObject =>
  */
 export const formatClock = (totalSeconds: number): string => {
   const s = Math.max(0, Math.floor(totalSeconds));
-  return formatTimeNew(durationFromSeconds(s), s >= 3600 ? "H:M:S" : "M:S", "digital");
+  return formatTimeNew(
+    durationFromSeconds(s),
+    s >= 3600 ? "H:M:S" : "M:S",
+    "digital",
+  );
 };
 
 /**
@@ -365,8 +369,8 @@ export const reduceSessions = (sessions: FocusSession[]): number => {
       (totalSeconds += calculateTime(
         session.startTime,
         session.endTime,
-        "S"
-      ).seconds)
+        "S",
+      ).seconds),
   );
   return totalSeconds;
 };
@@ -411,7 +415,7 @@ export const reduceSessions = (sessions: FocusSession[]): number => {
 export function stringToHexColor(
   str: string,
   alpha?: number,
-  lighten?: number
+  lighten?: number,
 ): [string, boolean] {
   // DJB2 hash function for consistent color generation
   let hash = 5381;
@@ -548,7 +552,7 @@ export function whiteText(hex: string): boolean {
  *
  * @param {SavedTag[]} savedTags - Array of saved tags with custom colors
  * @param {string} tag - Tag name to get color for
- * @param {number} [alpha=1] - Alpha transparency for generated colors
+ * @param {number} [alpha=1] - Alpha opacity for saved and generated colors
  * @returns {[string, boolean]} Tuple of [color_string, use_white_text]
  *
  * @example
@@ -566,7 +570,7 @@ export function whiteText(hex: string): boolean {
  * getTagColor(savedTags, "Exercise")
  * // Returns: ["#8B5CF6", false] (generates new color)
  *
- * // With transparency for new tag
+ * // With transparency for any tag
  * getTagColor(savedTags, "Reading", 0.8)
  * // Returns: ["rgba(139, 92, 246, 0.8)", false]
  * ```
@@ -578,11 +582,27 @@ export function whiteText(hex: string): boolean {
 export function getTagColor(
   savedTags: SavedTag[],
   tag: string,
-  alpha: number = 1
+  alpha: number = 1,
 ): [string, boolean] {
   // Check if tag has a saved custom color
   const exists = savedTags.find((n) => n.t === tag);
   if (exists) {
+    const hex = exists.c.replace("#", "");
+    const normalizedHex =
+      hex.length === 3
+        ? hex
+            .split("")
+            .map((character) => character + character)
+            .join("")
+        : hex;
+
+    if (alpha < 1 && /^[0-9a-fA-F]{6}$/.test(normalizedHex)) {
+      const red = parseInt(normalizedHex.slice(0, 2), 16);
+      const green = parseInt(normalizedHex.slice(2, 4), 16);
+      const blue = parseInt(normalizedHex.slice(4, 6), 16);
+      return [`rgba(${red}, ${green}, ${blue}, ${alpha})`, whiteText(exists.c)];
+    }
+
     return [exists.c, whiteText(exists.c)];
   }
 
@@ -651,7 +671,6 @@ export function getCurrencySymbol(currency: string): string {
   }
 }
 
-
 /**
  * Formats a JavaScript Date object into a string with the format "DDod MMM, YY".
  * Example output: "27th Jun, 25"
@@ -666,16 +685,20 @@ export function getCurrencySymbol(currency: string): string {
  */
 export function formatDate(date: Date): string {
   const day = date.getDate();
-  const month = date.toLocaleString('en-US', { month: 'short' });
+  const month = date.toLocaleString("en-US", { month: "short" });
   const year = date.getFullYear().toString().slice(-2);
 
   const getDaySuffix = (day: number): string => {
-    if (day >= 11 && day <= 13) return 'th';
+    if (day >= 11 && day <= 13) return "th";
     switch (day % 10) {
-      case 1: return 'st';
-      case 2: return 'nd';
-      case 3: return 'rd';
-      default: return 'th';
+      case 1:
+        return "st";
+      case 2:
+        return "nd";
+      case 3:
+        return "rd";
+      default:
+        return "th";
     }
   };
 

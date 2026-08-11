@@ -1,7 +1,7 @@
-export const VERSION = "v0.20.0=beta";
+export const VERSION = "v0.20.1 (LTS)";
 
 const CHANGELOG = `
-## \`v0.20.0=beta\` (2026-07-30) — QoL Updates Batch 2
+## \`v0.20.0-beta\` (2026-07-30) — QoL Updates Batch 2
 - Added: Project card version numbers are now clickable, with a dedicated dialog for manual SemVer entry or quick major, minor, and patch increments.
 - Improved: Reworked every existing theme into a calmer, ADHD-friendly pastel-inspired palette while keeping all theme names unchanged.
 - Improved: Light themes now use softly tinted paper-like backgrounds, comfortable ink colors, and clearer surface hierarchy instead of stark white and high-contrast neutrals.
@@ -9,6 +9,10 @@ const CHANGELOG = `
 - Improved: Theme colors now share a consistent semantic comfort system for backgrounds, surfaces, text, muted states, borders, focus rings, destructive actions, sidebars, and charts.
 - Improved: Theme picker swatches now accurately preview the refreshed palettes.
 - Fixed: Scrollbars now follow the active theme instead of showing harsh hardcoded light and dark colors.
+### \`v0.20.1 (LTS)\` (2026-08-11)
+- Added: Expanded the Ambience Mixer from 8 to 18 sounds with new air conditioner, rain, water, forest, jungle, airplane, and subway soundscapes from the Google Sound Library.
+- Improved: Added suitable icons for every new ambience and reordered the collection so popular focus sounds are easier to find.
+- Added: "Pi Chart" view in Focus Graph, toggleable with the existing bar chart, for a more compact and visually appealing overview of focus time distribution across tags.
 ***
 
 ## \`v0.19.0-beta\` (2026-07-24) — Accounts & Cross-Device Sync

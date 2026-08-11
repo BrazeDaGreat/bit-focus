@@ -27,10 +27,13 @@ import React, { type JSX, useState } from "react";
 import {
   BarChart,
   Bar,
+  Cell,
   XAxis,
   YAxis,
   Tooltip,
   Legend,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
@@ -39,7 +42,7 @@ import isoWeek from "dayjs/plugin/isoWeek";
 import { FocusSession, useFocus } from "@/hooks/useFocus";
 import { formatTime, getTagColor } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { FaChartBar } from "react-icons/fa6";
+import { FaChartBar, FaChartPie } from "react-icons/fa6";
 import {
   Dialog,
   DialogContent,
@@ -236,6 +239,7 @@ const Graph: React.FC = (): JSX.Element => {
   const { resolvedTheme } = useTheme();
   const [offset, setOffset] = useState(0);
   const [productiveDaysOnly, setProductiveDaysOnly] = useState(false);
+  const [chartType, setChartType] = useState<"bar" | "pie">("bar");
   const [view, setView] = useState<
     "day" | "week" | "month" | "30days" | "yearly" | "12months" | "3years"
   >("day");
@@ -297,6 +301,10 @@ const Graph: React.FC = (): JSX.Element => {
     }
   }
   const tags = rawTags.sort((a, b) => tagTotals[b] - tagTotals[a]);
+  const pieData = tags.map((tag) => ({
+    name: tag,
+    value: tagTotals[tag],
+  }));
 
   // Calculate divisor for average
   const totalTime = processedData.reduce((acc, entry) => acc + entry.total, 0);
@@ -341,17 +349,50 @@ const Graph: React.FC = (): JSX.Element => {
   return (
     <div>
       {/* Navigation Controls */}
-      <div className="flex justify-between mb-4">
+      <div className="mb-4 flex items-center justify-between gap-3">
         <Button
           variant={"secondary"}
+          size="icon"
+          aria-label="Previous period"
           onClick={() =>
             setOffset(offset + (view === "yearly" ? 1 : unitToShow))
           }
         >
           <FaArrowLeft />
         </Button>
+        <div
+          className="flex rounded-md border bg-muted/40 p-0.5"
+          role="group"
+          aria-label="Chart type"
+        >
+          <Button
+            type="button"
+            size="sm"
+            variant={chartType === "bar" ? "secondary" : "ghost"}
+            className="h-7 px-2.5"
+            aria-pressed={chartType === "bar"}
+            onClick={() => setChartType("bar")}
+          >
+            <FaChartBar />
+            Bar
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={chartType === "pie" ? "secondary" : "ghost"}
+            className="h-7 px-2.5"
+            aria-pressed={chartType === "pie"}
+            onClick={() => setChartType("pie")}
+          >
+            <FaChartPie />
+            Pie
+          </Button>
+        </div>
+
         <Button
           variant={"secondary"}
+          size="icon"
+          aria-label="Next period"
           onClick={() =>
             setOffset(
               Math.max(0, offset - (view === "yearly" ? 1 : unitToShow))
@@ -362,71 +403,104 @@ const Graph: React.FC = (): JSX.Element => {
         </Button>
       </div>
 
-      {/* Interactive Bar Chart */}
+      {/* Interactive Chart */}
       <ResponsiveContainer width="100%" height={400}>
-        <BarChart data={processedData} stackOffset="sign">
-          <CartesianGrid 
-            strokeDasharray="5" 
-            stroke={resolvedTheme === "dark" ? "#374151" : "#e5e7eb"} 
-            x={48} 
-          />
-          <XAxis
-            dataKey="date"
-            stroke={resolvedTheme === "dark" ? "#9ca3af" : "#8884d8"}
-            tickFormatter={(date) => {
-              // Format X axis ticks differently based on view
-              if (view === "week") return dayjs(date).format("[W]WW, YYYY");
-              if (view === "month" || view === "12months") return dayjs(date).format("MMM YYYY");
-              if (view === "yearly") return dayjs(date).format("MMM");
-              if (view === "3years") return date;
-              return dayjs(date).format("DD MMM");
-            }}
-          />
-          <YAxis
-            label={{
-              value: "Duration",
-              angle: -90,
-              position: "insideLeft",
-            }}
-            tickFormatter={(value) => `${formatTime(value as number, 0, 1)}`}
-          />
-          <Tooltip
-            wrapperStyle={{ outline: "none" }}
-            cursor={{ fill: "transparent" }}
-            formatter={(value, name) => {
-              if (name === "total") return null; // Hide the total as a separate item
-              return [`${formatTime(value as number, 0, 1)}`, name];
-            }}
-            content={({ payload, label }) => {
-              if (!payload || payload.length === 0) return null;
-              const total = payload[0].payload.total; // Get total focus time for the day/week/month
-              return (
-                <div className="bg-popover text-popover-foreground border border-border p-2 shadow rounded">
-                  <p className="font-bold">{label}</p>
-                  <p className="text-muted-foreground">
-                    Total: {formatTime(total, 0, 1)}
-                  </p>
-                  <hr className="border-border my-1" />
-                  {payload.map((entry, index) => (
-                    <p key={index} style={{ color: entry.color }}>
-                      {entry.name}: {formatTime(entry.value as number, 0, 1)}
-                    </p>
-                  ))}
-                </div>
-              );
-            }}
-          />
-          <Legend />
-          {/* Render bars for each tag with appropriate colors */}
-          {tags.map((tag: string) => (
-            <Bar
-              key={String(tag)}
-              dataKey={tag}
-              stackId="a"
-              fill={getTagColor(savedTags, tag, 0.6)[0]}
+        {chartType === "bar" ? (
+          <BarChart data={processedData} stackOffset="sign">
+            <CartesianGrid
+              strokeDasharray="5"
+              stroke={resolvedTheme === "dark" ? "#374151" : "#e5e7eb"}
+              x={48}
             />
-          ))}
-        </BarChart>
+            <XAxis
+              dataKey="date"
+              stroke={resolvedTheme === "dark" ? "#9ca3af" : "#8884d8"}
+              tickFormatter={(date) => {
+                if (view === "week") return dayjs(date).format("[W]WW, YYYY");
+                if (view === "month" || view === "12months")
+                  return dayjs(date).format("MMM YYYY");
+                if (view === "yearly") return dayjs(date).format("MMM");
+                if (view === "3years") return date;
+                return dayjs(date).format("DD MMM");
+              }}
+            />
+            <YAxis
+              label={{
+                value: "Duration",
+                angle: -90,
+                position: "insideLeft",
+              }}
+              tickFormatter={(value) => `${formatTime(value as number, 0, 1)}`}
+            />
+            <Tooltip
+              wrapperStyle={{ outline: "none" }}
+              cursor={{ fill: "transparent" }}
+              content={({ payload, label }) => {
+                if (!payload || payload.length === 0) return null;
+                const total = payload[0].payload.total;
+                return (
+                  <div className="rounded border border-border bg-popover p-2 text-popover-foreground shadow">
+                    <p className="font-bold">{label}</p>
+                    <p className="text-muted-foreground">
+                      Total: {formatTime(total, 0, 1)}
+                    </p>
+                    <hr className="my-1 border-border" />
+                    {payload.map((entry, index) => (
+                      <p key={index} style={{ color: entry.color }}>
+                        {entry.name}: {formatTime(entry.value as number, 0, 1)}
+                      </p>
+                    ))}
+                  </div>
+                );
+              }}
+            />
+            <Legend />
+            {tags.map((tag: string) => (
+              <Bar
+                key={String(tag)}
+                dataKey={tag}
+                stackId="a"
+                fill={getTagColor(savedTags, tag, 0.8)[0]}
+              />
+            ))}
+          </BarChart>
+        ) : (
+          <PieChart>
+            <Pie
+              data={pieData}
+              dataKey="value"
+              nameKey="name"
+              cx="50%"
+              cy="47%"
+              innerRadius="38%"
+              outerRadius="72%"
+              paddingAngle={2}
+              stroke="var(--background)"
+              strokeWidth={2}
+            >
+              {pieData.map((entry) => (
+                <Cell
+                  key={entry.name}
+                  fill={getTagColor(savedTags, entry.name, 0.8)[0]}
+                />
+              ))}
+            </Pie>
+            <Tooltip
+              wrapperStyle={{ outline: "none" }}
+              formatter={(value, name) => [
+                formatTime(value as number, 0, 1),
+                name,
+              ]}
+              contentStyle={{
+                background: "var(--popover)",
+                borderColor: "var(--border)",
+                borderRadius: "var(--radius)",
+                color: "var(--popover-foreground)",
+              }}
+            />
+            <Legend verticalAlign="bottom" />
+          </PieChart>
+        )}
       </ResponsiveContainer>
 
       {/* View Period Selection Buttons */}
@@ -525,7 +599,7 @@ const Graph: React.FC = (): JSX.Element => {
                   (acc, entry) => acc + ((entry[tag] as number) || 0),
                   0
                 );
-                const color = getTagColor(savedTags, tag, 0.6)[0];
+                const color = getTagColor(savedTags, tag, 0.8)[0];
                 return (
                   <tr key={tag} className="flex justify-between w-full px-2">
                     <td
