@@ -1,0 +1,1 @@
+- Commit message must always follow this structure: `v(version) - (Commit Message)`
