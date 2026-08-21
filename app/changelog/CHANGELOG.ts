@@ -1,6 +1,30 @@
-export const VERSION = "v0.20.1 (LTS)";
+export const VERSION = "v0.21.0-beta";
 
 const CHANGELOG = `
+## \`v0.21.0-beta\` (2026-08-21) — Sync, Rebuilt
+- Changed: Sync now works one item at a time instead of shipping your entire database as a single file. Two devices that change different things both keep their changes.
+- Removed: The conflict dialog. There is nothing left for it to ask — a session logged on your laptop and a note written on your phone are no longer a conflict, and you are never asked to sacrifice one version of your data to keep another.
+- Fixed: Data loss when two devices had both made changes. Every item now carries a causal timestamp, and the server refuses any write that would overwrite something newer.
+- Fixed: A running timer no longer blocks syncing. Timer state used to be sent to the cloud on a loop, which reset the upload timer every second and reloaded every other open device every minute.
+- Fixed: Live timer position, phase, and mode now stay on the device they belong to, so a timer running on one device no longer resets a timer running on another.
+- Fixed: Deleting a saved tag, an ambience setting, or a notepad entry now syncs. Deletions were previously invisible to sync and came back on the next download.
+- Fixed: Rewards, discounts, and settings are now counted when deciding whether a device holds data worth keeping. A device holding only those used to be treated as empty and silently overwritten.
+- Fixed: "Delete the cloud copy" now stays deleted instead of re-uploading everything within the minute.
+- Fixed: Signing out and back in no longer triggers a conflict prompt on a device whose data never changed.
+- Fixed: Items are no longer matched by their local row number, which meant different things on different devices and could attach a milestone to the wrong project.
+- Improved: Remote changes now appear in place. The app no longer reloads the page after downloading.
+- Improved: Going offline is shown as offline, not as a failure. Changes are tracked while disconnected and sent when you return.
+- Improved: Failures retry with a backoff instead of getting stuck, and one oversized drawing no longer blocks everything else from syncing.
+- Improved: The account page now shows how many changes are waiting, and reports any item the server would not accept rather than dropping it quietly.
+- Changed: "Upload this device" and "Download from cloud" are replaced by "Re-check everything", which compares both sides and keeps the newer version of each item without deleting anything.
+- Added: Signing in on a new device now checks your account for existing data first and restores it, instead of asking for your name, birthday, currency, and tags a second time. Onboarding disappears on its own once your profile arrives.
+- Added: The account step in onboarding now lists what it actually restored — sessions, projects, tags, settings — rather than claiming a restore happened without checking.
+- Fixed: Onboarding can no longer be completed while a restore is still running, which previously let blank answers overwrite the profile that was arriving.
+- Added: A one-time local backup of everything on this device, taken before the migration and downloadable from the account page.
+- Security: AI provider API keys no longer sync. They stay on the device they were entered on.
+- Added: New \`focus_records\` collection and a rewritten \`lib/sync/\` engine, replacing \`lib/SyncManager.ts\`.
+***
+
 ## \`v0.20.0-beta\` (2026-07-30) — QoL Updates Batch 2
 - Added: Project card version numbers are now clickable, with a dedicated dialog for manual SemVer entry or quick major, minor, and patch increments.
 - Improved: Reworked every existing theme into a calmer, ADHD-friendly pastel-inspired palette while keeping all theme names unchanged.
@@ -13,6 +37,8 @@ const CHANGELOG = `
 - Added: Expanded the Ambience Mixer from 8 to 18 sounds with new air conditioner, rain, water, forest, jungle, airplane, and subway soundscapes from the Google Sound Library.
 - Improved: Added suitable icons for every new ambience and reordered the collection so popular focus sounds are easier to find.
 - Added: "Pi Chart" view in Focus Graph, toggleable with the existing bar chart, for a more compact and visually appealing overview of focus time distribution across tags.
+### \`v0.20.2-beta\` (2026-08-12)
+- Added: Global pause/play control in the Ambience Mixer header for pausing or resuming every selected sound at once without changing individual selections or volumes.
 ***
 
 ## \`v0.19.0-beta\` (2026-07-24) — Accounts & Cross-Device Sync

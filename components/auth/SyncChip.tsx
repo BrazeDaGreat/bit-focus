@@ -23,7 +23,8 @@ import {
   FaArrowsRotate,
   FaCloud,
   FaCloudArrowUp,
-  FaCodeBranch,
+  FaCloudArrowDown,
+  FaPlugCircleXmark,
   FaTriangleExclamation,
 } from "react-icons/fa6";
 
@@ -34,26 +35,30 @@ import {
  */
 export default function SyncChip(): JSX.Element | null {
   const { user } = useAuth();
-  const { status, direction, dirty, syncedAt, syncNow } = useSync();
+  const { status, phase, pending, syncedAt, progress, syncNow } = useSync();
 
   if (!user) return null;
 
   const { Icon, tone, spin } = (() => {
     switch (status) {
-      case "busy":
-        return { Icon: FaArrowsRotate, tone: "text-primary", spin: true };
+      case "syncing":
+        return phase === "pull"
+          ? { Icon: FaCloudArrowDown, tone: "text-primary", spin: false }
+          : { Icon: FaArrowsRotate, tone: "text-primary", spin: true };
       case "error":
         return { Icon: FaTriangleExclamation, tone: "text-destructive", spin: false };
-      case "conflict":
-        return { Icon: FaCodeBranch, tone: "text-destructive", spin: false };
+      // Offline is a normal condition for a local-first app, not a fault. It
+      // gets a plain mark in the muted tone rather than an alarm colour.
+      case "offline":
+        return { Icon: FaPlugCircleXmark, tone: "text-muted-foreground", spin: false };
       default:
-        return dirty
+        return pending > 0
           ? { Icon: FaCloudArrowUp, tone: "text-muted-foreground", spin: false }
           : { Icon: FaCloud, tone: "text-muted-foreground", spin: false };
     }
   })();
 
-  const label = syncStatusLabel(status, direction, dirty, syncedAt);
+  const label = syncStatusLabel({ status, phase, pending, syncedAt, progress });
 
   return (
     <Button
@@ -62,7 +67,7 @@ export default function SyncChip(): JSX.Element | null {
       className="size-8"
       title={`Sync — ${label}`}
       aria-label={`Sync status: ${label}. Press to sync now.`}
-      disabled={status === "busy"}
+      disabled={status === "syncing"}
       onClick={() => syncNow()}
     >
       <Icon

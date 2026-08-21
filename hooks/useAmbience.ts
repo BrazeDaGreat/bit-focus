@@ -20,6 +20,10 @@ export interface AmbienceTrackState {
 interface AmbienceStore {
   /** Map of ambience id → track state. Missing id means off/default. */
   tracks: Record<string, AmbienceTrackState>;
+  /** Pause all selected tracks without changing their enabled state. */
+  isPaused: boolean;
+  /** Toggle playback for all selected tracks. */
+  togglePlayback: () => void;
   /** Toggle a track on/off, seeding a default volume on first enable. */
   toggle: (id: string) => void;
   /** Set a track's volume (0–1). */
@@ -47,6 +51,8 @@ export const useAmbience = create<AmbienceStore>()(
   persist(
     (set, get) => ({
       tracks: {},
+      isPaused: false,
+      togglePlayback: () => set((state) => ({ isPaused: !state.isPaused })),
       toggle: (id) => {
         const current = get().tracks[id];
         const next: AmbienceTrackState = current
@@ -72,6 +78,6 @@ export const useAmbience = create<AmbienceStore>()(
     {
       name: "ambience-storage",
       storage,
-    }
-  )
+    },
+  ),
 );

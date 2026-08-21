@@ -1,34 +1,49 @@
 /**
  * Sync Bridge - Auth to Engine Wiring
  *
- * Headless component that connects the account store to the sync engine and
- * hosts the conflict dialog. Keeping the wiring here means neither store has to
- * import the other, and mounting it once at the app root is the whole setup.
+ * Headless component mounted once at the app root. It connects the account
+ * store to the sync engine and routes "remote data landed" events to the stores
+ * that need reloading.
  *
- * @fileoverview Starts and stops sync as the account connects and disconnects.
+ * It used to also host a conflict dialog. There is no longer anything for one
+ * to ask: merging happens per row, automatically, so two devices that changed
+ * different things both keep their changes and nobody is asked to sacrifice a
+ * version of their own data.
+ *
+ * @fileoverview Starts and stops sync, and refreshes views when data arrives.
  * @author BIT Focus Development Team
  * @since v0.19.0
+ * @updated v0.21.0 - Refresh in place; conflict prompt retired.
  */
 
 "use client";
 
-import { useEffect, type JSX } from "react";
+import { useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useSync } from "@/hooks/useSync";
-import SyncConflictDialog from "./SyncConflictDialog";
+import { onRefresh } from "@/lib/sync/engine";
+import { refreshStores } from "@/lib/sync/refresh";
 
 /**
  * Sync Bridge
  *
- * @returns The conflict dialog, which renders only when one is pending.
+ * Renders nothing. All of its work happens in effects.
  */
-export default function SyncBridge(): JSX.Element {
+export default function SyncBridge(): null {
   const { user, ready, init } = useAuth();
   const { userId, attach, detach } = useSync();
 
   useEffect(() => {
     init();
   }, [init]);
+
+  // Reload only the slices that changed. This is what replaced the full page
+  // reload the previous engine performed after every pull.
+  useEffect(() => {
+    return onRefresh((report) => {
+      void refreshStores(report);
+    });
+  }, []);
 
   useEffect(() => {
     if (!ready) return;
@@ -42,5 +57,5 @@ export default function SyncBridge(): JSX.Element {
     }
   }, [ready, user, userId, attach, detach]);
 
-  return <SyncConflictDialog />;
+  return null;
 }

@@ -36,7 +36,59 @@ import Dexie from "dexie";
 import type { ComponentProps } from "react";
 import type { Excalidraw as ExcalidrawComponent } from "@excalidraw/excalidraw";
 
-export interface TimeBlock {
+/**
+ * Globally Unique Row Identity
+ *
+ * Local primary keys are auto-incrementing numbers, which means two devices
+ * independently mint focus session 7 and neither can tell them apart. Every
+ * syncable row therefore also carries a `uid`: a UUID minted once, on the
+ * device that created the row, and never reused. Sync speaks only in uids.
+ *
+ * Optional on the type because rows created before v0.21.0 predate it; the
+ * database upgrade backfills them, so a row without one exists only inside
+ * that migration.
+ */
+export interface Syncable {
+  /** Stable cross-device identity for this row. */
+  uid?: string;
+}
+
+/**
+ * Per-Row Sync Bookkeeping
+ *
+ * One entry per syncable row, holding the causal stamp of its last known
+ * change and whether that change still needs pushing. Kept beside the domain
+ * tables rather than inside them so sync metadata never leaks into exports,
+ * UI state, or the shape a feature expects to read back.
+ */
+export interface SyncStateRow {
+  /** Registry key of the collection the row belongs to. */
+  col: string;
+  /** The row's stable identity. */
+  uid: string;
+  /** Hybrid logical clock stamp of the row's last known change. */
+  hlc: string;
+  /** 1 when the local version has not been pushed yet. Indexed, so 0/1. */
+  dirty: number;
+  /** 1 when the row has been deleted locally and awaits a tombstone push. */
+  deleted: number;
+}
+
+/** Engine bookkeeping that outlives a reload: pull cursor, seed status. */
+export interface SyncMetaRow {
+  key: string;
+  value: string;
+}
+
+/** A full pre-migration copy of local data, kept as a recovery net. */
+export interface SyncBackupRow {
+  id?: number;
+  createdAt: Date;
+  label: string;
+  payload: string;
+}
+
+export interface TimeBlock extends Syncable {
   id?: number;
   tag: string;
   startTime: Date;
@@ -44,7 +96,7 @@ export interface TimeBlock {
   title?: string;
 }
 
-export interface AIChat {
+export interface AIChat extends Syncable {
   id: string;
   title: string;
   modelId: string;
@@ -91,7 +143,7 @@ export interface QuickLink {
  *
  * Defines the structure of items in the rewards shop
  */
-export interface RewardItem {
+export interface RewardItem extends Syncable {
   id?: number;
   title: string;
   description?: string;
@@ -107,7 +159,7 @@ export interface RewardItem {
  *
  * Defines discount configurations for the rewards system
  */
-export interface SpecialDiscount {
+export interface SpecialDiscount extends Syncable {
   id?: number;
   title: string;
   percentage: number; // 0-100
@@ -121,7 +173,7 @@ export interface SpecialDiscount {
  *
  * Defines the structure of saved Excalidraw drawings
  */
-export interface ExcalidrawScene {
+export interface ExcalidrawScene extends Syncable {
   id?: number | string;
   title: string;
   sceneData: ExcalidrawSceneData | string;
@@ -144,7 +196,7 @@ class BitFocusDB extends Dexie {
    * Configuration Table (Enhanced with Currency)
    */
   configuration: Dexie.Table<
-    { name: string; dob: Date | null; webhook: string; currency: string; sendWebhookUpdates?: boolean; featureToggles?: Record<string, boolean> },
+    { name: string; dob: Date | null; webhook: string; currency: string; sendWebhookUpdates?: boolean; featureToggles?: Record<string, boolean> } & Syncable,
     string
   >;
 
@@ -152,7 +204,7 @@ class BitFocusDB extends Dexie {
    * Focus Sessions Table
    */
   focus: Dexie.Table<
-    { id?: number; tag: string; startTime: Date; endTime: Date },
+    { id?: number; tag: string; startTime: Date; endTime: Date } & Syncable,
     number
   >;
 
@@ -169,7 +221,7 @@ class BitFocusDB extends Dexie {
       boardData?: { category: string; children: number[] }[];
       createdAt: Date;
       updatedAt: Date;
-    },
+    } & Syncable,
     number
   >;
 
@@ -186,7 +238,7 @@ class BitFocusDB extends Dexie {
       quickLinks: QuickLink[];
       createdAt: Date;
       updatedAt: Date;
-    },
+    } & Syncable,
     number
   >;
 
@@ -203,7 +255,7 @@ class BitFocusDB extends Dexie {
       budget: number;
       createdAt: Date;
       updatedAt: Date;
-    },
+    } & Syncable,
     number
   >;
 
@@ -221,7 +273,7 @@ class BitFocusDB extends Dexie {
       description: string;
       createdAt: Date;
       updatedAt: Date;
-    },
+    } & Syncable,
     number
   >;
 
@@ -243,6 +295,23 @@ class BitFocusDB extends Dexie {
   timeblocks: Dexie.Table<TimeBlock, number>;
   aiChats: Dexie.Table<AIChat, string>;
   aiConfig: Dexie.Table<AIConfig, string>;
+
+  /**
+   * Per-Row Sync Bookkeeping Table
+   *
+   * Compound-keyed on `[col+uid]`. Every syncable row that has ever been
+   * touched has an entry here recording when it last changed and whether that
+   * change still owes the server a push. Deleted rows keep their entry as a
+   * tombstone — without one, a delete looks exactly like a row that has not
+   * arrived yet, and the next pull would resurrect it.
+   */
+  syncState: Dexie.Table<SyncStateRow, [string, string]>;
+
+  /** Engine bookkeeping: pull cursor, seed status, last successful sync. */
+  syncMeta: Dexie.Table<SyncMetaRow, string>;
+
+  /** Pre-migration copies of local data, kept as a recovery net. */
+  syncBackup: Dexie.Table<SyncBackupRow, number>;
 
   constructor() {
     super("BitFocusDB");
@@ -411,6 +480,62 @@ class BitFocusDB extends Dexie {
       timeblocks: "++id, tag, startTime, endTime",
     });
 
+    // Database version 12 schema definition (cross-device sync identity)
+    //
+    // Auto-incrementing keys are local facts: device A and device B both mint
+    // focus session 7 for entirely different sessions. Every syncable table
+    // gains a `uid` — unique so the database itself rejects a duplicate rather
+    // than quietly forking a record — plus the three tables the sync engine
+    // needs to track causality, its pull position, and a recovery copy.
+    this.version(12)
+      .stores({
+        configuration: "name, &uid",
+        focus: "++id, tag, startTime, endTime, &uid",
+        notes: "++id, title, type, parentId, createdAt, updatedAt, &uid",
+        projects: "++id, title, status, createdAt, updatedAt, &uid",
+        milestones:
+          "++id, projectId, title, status, deadline, createdAt, updatedAt, &uid",
+        issues:
+          "++id, milestoneId, title, label, dueDate, status, createdAt, updatedAt, &uid",
+        rewards: "++id, title, cost, category, createdAt, updatedAt, &uid",
+        discounts: "++id, title, percentage, active, createdAt, updatedAt, &uid",
+        excalidraw_v2: "id, title, createdAt, updatedAt, &uid",
+        timeblocks: "++id, tag, startTime, endTime, &uid",
+        sync_state: "[col+uid], col, dirty",
+        sync_meta: "key",
+        sync_backup: "++id, createdAt",
+      })
+      .upgrade(async (tx) => {
+        // Mint an identity for every row that predates sync. Done inside the
+        // upgrade transaction so a row can never be observed without one.
+        const mint = () =>
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+
+        const tables = [
+          "configuration",
+          "focus",
+          "notes",
+          "projects",
+          "milestones",
+          "issues",
+          "rewards",
+          "discounts",
+          "excalidraw_v2",
+          "timeblocks",
+        ];
+
+        for (const name of tables) {
+          await tx
+            .table(name)
+            .toCollection()
+            .modify((row: Syncable) => {
+              if (!row.uid) row.uid = mint();
+            });
+        }
+      });
+
     // Table reference assignment
     this.timeblocks = this.table("timeblocks");
     this.configuration = this.table("configuration");
@@ -424,6 +549,9 @@ class BitFocusDB extends Dexie {
     this.excalidraw = this.table("excalidraw_v2");
     this.aiChats = this.table("ai_chats");
     this.aiConfig = this.table("ai_config");
+    this.syncState = this.table("sync_state");
+    this.syncMeta = this.table("sync_meta");
+    this.syncBackup = this.table("sync_backup");
   }
 }
 
