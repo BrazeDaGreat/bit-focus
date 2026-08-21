@@ -30,8 +30,25 @@ export const POCKETBASE_URL =
 /** Unified identity collection, shared with other BrazeApps products. */
 export const USERS_COLLECTION = "users";
 
-/** This app's snapshot collection. One record per user. */
+/**
+ * Legacy snapshot collection. One record per user, holding the entire database
+ * as a single JSON blob.
+ *
+ * Superseded by {@link RECORDS_COLLECTION} in v0.21.0 and read only during the
+ * one-time migration. Whole-database snapshots could not merge — two devices
+ * that both changed anything produced a choice between two versions, and
+ * whichever one lost took real data with it.
+ */
 export const SYNC_COLLECTION = "focus_sync";
+
+/**
+ * This app's per-record sync collection. One row per entity, per user.
+ *
+ * Each record carries its collection, its stable uid, its payload and a hybrid
+ * logical clock stamp. Because the unit of sync is a row rather than the whole
+ * database, two devices editing different things merge instead of colliding.
+ */
+export const RECORDS_COLLECTION = "focus_records";
 
 /**
  * localStorage key the PocketBase SDK uses for its auth store.

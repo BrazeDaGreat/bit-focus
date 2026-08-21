@@ -48,7 +48,9 @@ interface RewardsState {
   takeLoan: (amount: number) => void;
   /** Set points directly (for initialization) */
   setPoints: (points: number) => void;
-  
+  /** Re-read the points balance from browser storage */
+  initializePoints: () => void;
+
   // Shop management
   /** Load all rewards data from database */
   loadRewards: () => Promise<void>;

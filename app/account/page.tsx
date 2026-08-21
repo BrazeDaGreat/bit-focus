@@ -21,8 +21,8 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useSync } from "@/hooks/useSync";
 import { useConfig } from "@/hooks/useConfig";
-import SyncManager from "@/lib/SyncManager";
 import { PROVIDER_LABELS } from "@/lib/pocketbase";
+import { deviceLabel } from "@/lib/sync/engine";
 import AccountAvatar from "@/components/auth/AccountAvatar";
 import SyncRail, {
   formatSyncTime,
@@ -44,8 +44,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
   FaArrowsRotate,
-  FaCloudArrowDown,
-  FaCloudArrowUp,
+  FaDownload,
   FaRightFromBracket,
   FaTriangleExclamation,
 } from "react-icons/fa6";
@@ -147,24 +146,25 @@ export default function AccountPage(): JSX.Element {
   const { user, ready, signOut, deleteAccount } = useAuth();
   const {
     status,
-    direction,
-    dirty,
-    revision,
+    phase,
+    pending,
+    progress,
+    rejected,
     syncedAt,
     lastWriter,
-    auto,
+    paused,
     error,
     syncNow,
-    forcePush,
-    forcePull,
-    setAuto,
+    setPaused,
+    resyncEverything,
     deleteCloudCopy,
+    getBackup,
   } = useSync();
   const { name } = useConfig();
 
-  const [confirm, setConfirm] = useState<
-    "push" | "pull" | "wipe" | "delete" | null
-  >(null);
+  const [confirm, setConfirm] = useState<"resync" | "wipe" | "delete" | null>(
+    null,
+  );
 
   // Keeps the "synced 3 min ago" line honest without a subscription.
   const [, setTick] = useState(0);
@@ -193,7 +193,7 @@ export default function AccountPage(): JSX.Element {
             </p>
           </div>
 
-          <SyncRail status="off" direction={null} dirty={false} />
+          <SyncRail status="off" phase={null} pending={0} />
 
           <ProviderButtons />
         </div>
@@ -203,7 +203,7 @@ export default function AccountPage(): JSX.Element {
 
   // ── Connected ────────────────────────────────────────────────────────────
 
-  const busy = status === "busy";
+  const busy = status === "syncing";
   const provider = PROVIDER_LABELS[user.provider] ?? user.provider ?? "—";
 
   return (
@@ -229,24 +229,23 @@ export default function AccountPage(): JSX.Element {
         <section className="rounded-xl border bg-card p-5 flex flex-col gap-4">
           <SyncRail
             status={status}
-            direction={direction}
-            dirty={dirty}
+            phase={phase}
+            pending={pending}
+            progress={progress}
             className="px-1"
           />
 
           <div className="flex items-baseline justify-between gap-3">
             <span className="text-[11px] uppercase tracking-widest text-muted-foreground truncate">
-              {SyncManager.deviceLabel()}
+              {deviceLabel()}
             </span>
             <span
               className={cn(
                 "text-sm font-medium tracking-tight text-center",
-                status === "error" || status === "conflict"
-                  ? "text-destructive"
-                  : "text-foreground",
+                status === "error" ? "text-destructive" : "text-foreground",
               )}
             >
-              {syncStatusLabel(status, direction, dirty, syncedAt)}
+              {syncStatusLabel({ status, phase, pending, syncedAt, progress })}
             </span>
             <span className="text-[11px] uppercase tracking-widest text-muted-foreground truncate">
               Cloud
@@ -273,35 +272,51 @@ export default function AccountPage(): JSX.Element {
               size="sm"
               variant="outline"
               disabled={busy}
-              onClick={() => setConfirm("push")}
+              onClick={() => setConfirm("resync")}
               className="gap-2"
             >
-              <FaCloudArrowUp className="size-3" />
-              Upload this device
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={busy}
-              onClick={() => setConfirm("pull")}
-              className="gap-2"
-            >
-              <FaCloudArrowDown className="size-3" />
-              Download from cloud
+              <FaArrowsRotate className="size-3" />
+              Re-check everything
             </Button>
           </div>
         </section>
+
+        {/* ── Rows the server would not take ───────────────────────────── */}
+        {rejected.length > 0 && (
+          <section className="flex flex-col gap-2">
+            <SectionTitle>Not syncing</SectionTitle>
+            <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3.5 flex flex-col gap-2">
+              <p className="text-sm">
+                {rejected.length}{" "}
+                {rejected.length === 1 ? "item is" : "items are"} too large to
+                store in the cloud. They stay on this device and everything else
+                syncs normally.
+              </p>
+              <ul className="text-xs text-muted-foreground font-mono flex flex-col gap-0.5">
+                {rejected.slice(0, 5).map((item) => (
+                  <li key={`${item.col}-${item.uid}`}>
+                    {item.col} ·{" "}
+                    {item.kind === "oversized"
+                      ? `${(item.bytes / 1_000_000).toFixed(1)} MB`
+                      : "rejected"}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        )}
 
         {/* ── Ledger ───────────────────────────────────────────────────── */}
         <section className="flex flex-col gap-2">
           <SectionTitle>Sync record</SectionTitle>
           <div className="rounded-xl border bg-card divide-y">
             <Row label="Last sync">{formatSyncTime(syncedAt)}</Row>
-            <Row label="Revision">{revision}</Row>
+            <Row label="Waiting to send">
+              {pending > 0 ? `${pending} ${pending === 1 ? "change" : "changes"}` : "None"}
+            </Row>
             <Row label="Last written by">{lastWriter ?? "—"}</Row>
-            <Row label="This device">{SyncManager.deviceLabel()}</Row>
+            <Row label="This device">{deviceLabel()}</Row>
             <Row label="Signed in with">{provider}</Row>
-            <Row label="Pending changes">{dirty ? "Yes" : "None"}</Row>
           </div>
         </section>
 
@@ -315,10 +330,54 @@ export default function AccountPage(): JSX.Element {
               </Label>
               <span className="text-xs text-muted-foreground">
                 Send changes as you make them and take updates from your other
-                devices.
+                devices. Pausing keeps tracking them — they go out when you
+                resume.
               </span>
             </div>
-            <Switch id="auto-sync" checked={auto} onCheckedChange={setAuto} />
+            <Switch
+              id="auto-sync"
+              checked={!paused}
+              onCheckedChange={(on) => void setPaused(!on)}
+            />
+          </div>
+        </section>
+
+        {/* ── Safety copy ──────────────────────────────────────────────── */}
+        <section className="flex flex-col gap-2">
+          <SectionTitle>Safety copy</SectionTitle>
+          <div className="rounded-xl border bg-card px-4 py-3.5 flex items-center justify-between gap-4">
+            <div className="flex flex-col gap-0.5 min-w-0">
+              <p className="text-sm font-medium">
+                Download the pre-sync backup
+              </p>
+              <p className="text-xs text-muted-foreground">
+                A copy of everything on this device, taken once before sync was
+                rebuilt.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-2 shrink-0"
+              onClick={async () => {
+                const payload = await getBackup();
+                if (!payload) {
+                  toast("No backup was taken on this device.");
+                  return;
+                }
+                const url = URL.createObjectURL(
+                  new Blob([payload], { type: "application/json" }),
+                );
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = `bitfocus-presync-${new Date().toISOString()}.bitf.json`;
+                link.click();
+                URL.revokeObjectURL(url);
+              }}
+            >
+              <FaDownload className="size-3" />
+              Download
+            </Button>
           </div>
         </section>
 
@@ -393,26 +452,14 @@ export default function AccountPage(): JSX.Element {
       {/* ── Confirmations ──────────────────────────────────────────────── */}
 
       <ConfirmDialog
-        open={confirm === "push"}
-        onOpenChange={(o) => setConfirm(o ? "push" : null)}
-        title="Upload this device?"
-        description="The cloud copy is replaced with what is on this device. Your other devices will match it the next time they sync."
-        confirmLabel="Upload"
+        open={confirm === "resync"}
+        onOpenChange={(o) => setConfirm(o ? "resync" : null)}
+        title="Re-check everything?"
+        description="Every item on this device and in the cloud is compared again, and the newer version of each one is kept. Nothing is deleted on either side. This can take a moment if you have a lot of data."
+        confirmLabel="Re-check"
         onConfirm={async () => {
-          await forcePush();
-          toast.success("Uploaded.");
-        }}
-      />
-
-      <ConfirmDialog
-        open={confirm === "pull"}
-        onOpenChange={(o) => setConfirm(o ? "pull" : null)}
-        title="Download from the cloud?"
-        description="This device is replaced with the cloud copy and the app reloads. Anything changed here since the last sync is lost."
-        confirmLabel="Download"
-        destructive
-        onConfirm={async () => {
-          await forcePull();
+          await resyncEverything();
+          toast.success("Everything re-checked.");
         }}
       />
 
@@ -420,7 +467,7 @@ export default function AccountPage(): JSX.Element {
         open={confirm === "wipe"}
         onOpenChange={(o) => setConfirm(o ? "wipe" : null)}
         title="Delete the cloud copy?"
-        description="The server copy is removed. This device keeps all of its data, and the next sync uploads it again."
+        description="The server copy is removed and this device stops syncing. Everything here stays exactly as it is."
         confirmLabel="Delete copy"
         destructive
         onConfirm={async () => {

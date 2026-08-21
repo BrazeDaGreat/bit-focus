@@ -37,6 +37,7 @@ import { useTheme } from "next-themes";
 import { useConfig } from "@/hooks/useConfig";
 import { useTag } from "@/hooks/useTag";
 import { useAuth } from "@/hooks/useAuth";
+import { useSync } from "@/hooks/useSync";
 import ProviderButtons from "@/components/auth/ProviderButtons";
 import AccountAvatar from "@/components/auth/AccountAvatar";
 import { Button } from "@/components/ui/button";
@@ -222,6 +223,9 @@ function FieldLabel({
 export default function Onboarding(): JSX.Element {
   const { setConfig } = useConfig();
   const { addSavedTag } = useTag();
+  // A restore that is still running is about to write a real profile and tags.
+  // Finishing on top of it would overwrite them with whatever was typed here.
+  const { bootstrapping } = useSync();
 
   const [step, setStep] = useState(0);
 
@@ -454,8 +458,12 @@ export default function Onboarding(): JSX.Element {
             </Button>
 
             {isLast ? (
-              <Button onClick={finish} className="gap-2">
-                Enter BIT Focus
+              <Button
+                onClick={finish}
+                disabled={bootstrapping}
+                className="gap-2"
+              >
+                {bootstrapping ? "Restoring your data…" : "Enter BIT Focus"}
                 <FaArrowRight className="size-3.5" />
               </Button>
             ) : (
@@ -502,6 +510,38 @@ function WelcomeStep(): JSX.Element {
   );
 }
 
+/** Plural-aware labels for the collections a restore can bring back. */
+const RESTORED_LABELS: Record<string, [string, string]> = {
+  focus: ["session", "sessions"],
+  projects: ["project", "projects"],
+  milestones: ["milestone", "milestones"],
+  issues: ["issue", "issues"],
+  notes: ["note", "notes"],
+  excalidraw: ["drawing", "drawings"],
+  aiChats: ["chat", "chats"],
+  timeblocks: ["timeblock", "timeblocks"],
+  rewards: ["reward", "rewards"],
+  discounts: ["discount", "discounts"],
+  kv: ["setting", "settings"],
+  configuration: ["profile", "profile"],
+};
+
+/**
+ * Turn restore counts into short human phrases.
+ *
+ * @param counts - Rows applied per collection during the first sync.
+ * @returns Phrases like `412 sessions`, largest first.
+ */
+function summarizeRestored(counts: Record<string, number>): string[] {
+  return Object.entries(counts)
+    .filter(([col, n]) => n > 0 && RESTORED_LABELS[col])
+    .sort((a, b) => b[1] - a[1])
+    .map(([col, n]) => {
+      const [one, many] = RESTORED_LABELS[col];
+      return col === "configuration" ? "your profile" : `${n} ${n === 1 ? one : many}`;
+    });
+}
+
 /**
  * Account Step
  *
@@ -519,8 +559,11 @@ function AccountStep({
   onNameFromAccount: (name: string) => void;
 }): JSX.Element {
   const { user } = useAuth();
+  const { bootstrapping, restored } = useSync();
 
   if (user) {
+    const found = restored ? summarizeRestored(restored) : [];
+
     return (
       <div className="flex flex-col gap-6">
         <p className="text-muted-foreground leading-relaxed">
@@ -541,10 +584,31 @@ function AccountStep({
           <FaCheck className="size-4 text-primary ml-auto shrink-0" />
         </div>
 
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          Had data on another device? It has already been restored if there was
-          any to restore.
-        </p>
+        {/* Report what actually arrived rather than asserting something did. */}
+        {bootstrapping ? (
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Checking this account for existing data…
+          </p>
+        ) : found.length > 0 ? (
+          <div className="flex flex-col gap-2">
+            <p className="text-sm">Restored from your account:</p>
+            <ul className="flex flex-wrap gap-1.5">
+              {found.map((entry) => (
+                <li
+                  key={entry}
+                  className="rounded-md border bg-card px-2 py-1 text-xs font-mono text-muted-foreground"
+                >
+                  {entry}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            This account had nothing stored yet, so the next few steps set it
+            up. Everything you enter syncs from here.
+          </p>
+        )}
       </div>
     );
   }

@@ -44,7 +44,7 @@ export default function AccountPanel({
 }): JSX.Element {
   const router = useRouter();
   const { user, signOut } = useAuth();
-  const { status, direction, dirty, syncedAt, syncNow } = useSync();
+  const { status, phase, pending, syncedAt, progress, syncNow } = useSync();
   const { name } = useConfig();
   const [connectOpen, setConnectOpen] = useState(false);
 
@@ -88,7 +88,7 @@ export default function AccountPanel({
 
   // ── Connected ────────────────────────────────────────────────────────────
 
-  const busy = status === "busy";
+  const busy = status === "syncing";
 
   return (
     <div className="rounded-xl border bg-card p-3.5 flex flex-col gap-3">
@@ -104,18 +104,16 @@ export default function AccountPanel({
         </div>
       </div>
 
-      <SyncRail status={status} direction={direction} dirty={dirty} />
+      <SyncRail status={status} phase={phase} pending={pending} progress={progress} />
 
       <div className="flex items-center justify-between gap-2">
         <span
           className={cn(
             "text-[11px] uppercase tracking-widest",
-            status === "error" || status === "conflict"
-              ? "text-destructive"
-              : "text-muted-foreground",
+            status === "error" ? "text-destructive" : "text-muted-foreground",
           )}
         >
-          {syncStatusLabel(status, direction, dirty, syncedAt)}
+          {syncStatusLabel({ status, phase, pending, syncedAt, progress })}
         </span>
         <Button
           size="sm"
