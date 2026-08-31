@@ -74,6 +74,7 @@ import {
   DEFAULT_MODEL_ID,
   type AIModel,
   type AIProvider,
+  modelProvider,
 } from "@/lib/ai-models";
 import type { AIChat } from "@/lib/db";
 import { type UIMessage as Message, DefaultChatTransport } from "ai";
@@ -447,7 +448,7 @@ export default function AIPage(): JSX.Element {
             initialMessages={activeChatMessages}
             modelId={selectedModelId}
             onModelChange={setSelectedModelId}
-            provider={selectedModel.provider}
+            provider={modelProvider(selectedModel)}
             apiKey={apiKey}
             systemPrompt={systemPrompt}
             disabled={noApiKey}
@@ -656,8 +657,8 @@ function CompactModelSelector({
 }): JSX.Element {
   const grouped = AI_MODELS.reduce(
     (acc, m) => {
-      if (!acc[m.provider]) acc[m.provider] = [];
-      acc[m.provider].push(m);
+      const key = modelProvider(m);
+      (acc[key] ??= []).push(m);
       return acc;
     },
     {} as Record<AIProvider, AIModel[]>
@@ -720,7 +721,7 @@ function EmptyState({
       {noApiKey ? (
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground">
-            Add a {PROVIDER_LABELS[selectedModel?.provider]} API key to start
+            Add a {PROVIDER_LABELS[modelProvider(selectedModel)]} API key to start
             chatting.
           </p>
           <Button onClick={onOpenSettings} size="sm" className="gap-2">
@@ -1161,8 +1162,8 @@ function SettingsDialog({
                   Object.entries(
                     AI_MODELS.reduce(
                       (acc, m) => {
-                        if (!acc[m.provider]) acc[m.provider] = [];
-                        acc[m.provider].push(m);
+                        const key = modelProvider(m);
+                        (acc[key] ??= []).push(m);
                         return acc;
                       },
                       {} as Record<AIProvider, AIModel[]>

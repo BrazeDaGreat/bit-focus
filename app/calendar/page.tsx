@@ -34,6 +34,9 @@ import {
   addDays,
   addWeeks,
   addMonths,
+  subMonths,
+  isSameDay,
+  isSameMonth,
   getDay,
 } from "date-fns";
 import { enUS } from "date-fns/locale/en-US";
@@ -50,7 +53,6 @@ import {
   reduceSessions,
 } from "@/lib/utils";
 import { useTheme } from "next-themes";
-import { isDarkTheme } from "@/lib/ThemeManager";
 import { Toaster } from "@/components/ui/sonner";
 import { EditFocusSessionDialog } from "@/components/EditFocusSessionDialog";
 import {
@@ -64,15 +66,13 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import {
   FaChevronLeft,
   FaChevronRight,
-  FaFilter,
+  FaBars,
   FaTrash,
   FaRegClock,
   FaMagnifyingGlassMinus,
   FaMagnifyingGlass,
   FaMagnifyingGlassPlus,
 } from "react-icons/fa6";
-
-// ── localizer ─────────────────────────────────────────────────────────────────
 
 const localizer = dateFnsLocalizer({
   format,
@@ -85,7 +85,6 @@ const localizer = dateFnsLocalizer({
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const DnDCalendar = withDragAndDrop(Calendar as any);
 
-// Custom layout: timeblocks always full-width underneath, focus events use no-overlap
 const timeblocksFirstLayout: DayLayoutFunction<CalendarEvent> = ({
   events,
   minimumStartDifference,
@@ -95,9 +94,11 @@ const timeblocksFirstLayout: DayLayoutFunction<CalendarEvent> = ({
   const focusEvts = events.filter((e) => !e.isTimeblock);
   const tbEvts = events.filter((e) => e.isTimeblock);
 
-  type StyledEvent = { event: CalendarEvent; style: { top: number; height: number; width: number; xOffset: number } };
+  type StyledEvent = {
+    event: CalendarEvent;
+    style: { top: number; height: number; width: number; xOffset: number };
+  };
 
-  // No-overlap layout for actual focus sessions
   const focusStyled: StyledEvent[] = focusEvts.length
     ? (getStyledEvents({
         events: focusEvts,
@@ -108,20 +109,18 @@ const timeblocksFirstLayout: DayLayoutFunction<CalendarEvent> = ({
       }) as StyledEvent[])
     : [];
 
-  // Full-width background positions for timeblocks
   const tbStyled: StyledEvent[] = tbEvts.map((event) => {
-    const { top, height } = (slotMetrics as { getRange: (s: Date, e: Date) => { top: number; height: number } }).getRange(
+    const { top, height } = (
+      slotMetrics as { getRange: (s: Date, e: Date) => { top: number; height: number } }
+    ).getRange(
       (accessors as { start: (e: CalendarEvent) => Date }).start(event),
       (accessors as { end: (e: CalendarEvent) => Date }).end(event)
     );
     return { event, style: { top, height, width: 100, xOffset: 0 } };
   });
 
-  // Timeblocks first → renders behind focus events (DOM order = paint order)
   return [...tbStyled, ...focusStyled];
 };
-
-// ── types ─────────────────────────────────────────────────────────────────────
 
 interface CalendarEvent {
   id: number;
@@ -137,10 +136,10 @@ interface CalendarEvent {
 type CalView = "day" | "week" | "month";
 type ZoomLevel = "compact" | "normal" | "expanded";
 
-const ZOOM_CONFIG: Record<ZoomLevel, { height: number; step: number; timeslots: number }> = {
-  compact:  { height: 1000, step: 30, timeslots: 2 },
-  normal:   { height: 1600, step: 15, timeslots: 4 },
-  expanded: { height: 2600, step: 15, timeslots: 4 },
+const ZOOM_CONFIG: Record<ZoomLevel, { row: number; step: number; timeslots: number }> = {
+  compact: { row: 34, step: 30, timeslots: 2 },
+  normal: { row: 56, step: 15, timeslots: 4 },
+  expanded: { row: 104, step: 15, timeslots: 4 },
 };
 
 interface PendingSlot {
@@ -159,11 +158,8 @@ interface EditingTb {
   y: number;
 }
 
-// ── helpers ───────────────────────────────────────────────────────────────────
-
 function getPeriodRange(date: Date, view: CalView) {
-  if (view === "day")
-    return { start: startOfDay(date), end: endOfDay(date) };
+  if (view === "day") return { start: startOfDay(date), end: endOfDay(date) };
   if (view === "week")
     return {
       start: startOfWeek(date, { weekStartsOn: 1 }),
@@ -183,9 +179,10 @@ function getPeriodLabel(date: Date, view: CalView): string {
   if (view === "month") return format(date, "MMMM yyyy");
   const s = startOfWeek(date, { weekStartsOn: 1 });
   const e = endOfWeek(date, { weekStartsOn: 1 });
-  if (s.getMonth() === e.getMonth())
-    return `${format(s, "MMM d")} – ${format(e, "d, yyyy")}`;
-  return `${format(s, "MMM d")} – ${format(e, "MMM d, yyyy")}`;
+  if (s.getMonth() === e.getMonth()) return format(s, "MMMM yyyy");
+  if (s.getFullYear() === e.getFullYear())
+    return `${format(s, "MMM")} – ${format(e, "MMM yyyy")}`;
+  return `${format(s, "MMM yyyy")} – ${format(e, "MMM yyyy")}`;
 }
 
 function hexToRgba(hex: string, alpha: number): string {
@@ -199,17 +196,104 @@ function hexToRgba(hex: string, alpha: number): string {
 function colorWithAlpha(color: string, alpha: number): string {
   if (color.startsWith("#") && color.length === 7) return hexToRgba(color, alpha);
   if (color.startsWith("rgba")) return color.replace(/[\d.]+\)$/, `${alpha})`);
-  if (color.startsWith("rgb(")) return color.replace("rgb(", "rgba(").replace(")", `, ${alpha})`);
+  if (color.startsWith("rgb("))
+    return color.replace("rgb(", "rgba(").replace(")", `, ${alpha})`);
   return color;
 }
 
-// ── Calendar Page ─────────────────────────────────────────────────────────────
+function MiniCalendar({
+  value,
+  onPick,
+  activeRange,
+}: {
+  value: Date;
+  onPick: (d: Date) => void;
+  activeRange: { start: Date; end: Date };
+}) {
+  const [month, setMonth] = useState(() => startOfMonth(value));
+  useEffect(() => setMonth(startOfMonth(value)), [value]);
+
+  const days = useMemo(() => {
+    const first = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
+    return Array.from({ length: 42 }, (_, i) => addDays(first, i));
+  }, [month]);
+
+  const today = new Date();
+  const rangeStart = startOfDay(activeRange.start);
+  const rangeEnd = endOfDay(activeRange.end);
+
+  return (
+    <div className="select-none">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-semibold tracking-tight">
+          {format(month, "MMMM yyyy")}
+        </span>
+        <div className="flex items-center gap-0.5">
+          <button
+            onClick={() => setMonth((m) => subMonths(m, 1))}
+            className="size-6 grid place-items-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            aria-label="Previous month"
+          >
+            <FaChevronLeft className="size-2.5" />
+          </button>
+          <button
+            onClick={() => setMonth((m) => addMonths(m, 1))}
+            className="size-6 grid place-items-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            aria-label="Next month"
+          >
+            <FaChevronRight className="size-2.5" />
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-7 gap-y-0.5">
+        {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
+          <span
+            key={i}
+            className="text-[10px] font-medium text-muted-foreground h-6 grid place-items-center"
+          >
+            {d}
+          </span>
+        ))}
+        {days.map((d) => {
+          const inRange = d >= rangeStart && d <= rangeEnd;
+          const isToday = isSameDay(d, today);
+          const isSel = isSameDay(d, value);
+          return (
+            <button
+              key={d.toISOString()}
+              onClick={() => onPick(d)}
+              aria-current={isToday ? "date" : undefined}
+              className={cn(
+                "text-[11px] size-6 mx-auto grid place-items-center rounded-full transition-colors tabular-nums",
+                !isSameMonth(d, month) && "text-muted-foreground/45",
+                inRange && !isSel && "bg-accent",
+                isToday && !isSel && "text-primary font-bold",
+                isSel
+                  ? "bg-primary text-primary-foreground font-semibold"
+                  : "hover:bg-accent/70"
+              )}
+            >
+              {d.getDate()}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export default function CalendarPage(): JSX.Element {
-  const { theme, resolvedTheme } = useTheme();
+  const { theme } = useTheme();
   const { focusSessions, loadFocusSessions, loadingFocusSessions } = useFocus();
   const { savedTags } = useTag();
-  const { timeblocks, loadTimeblocks, addTimeblock, editTimeblock, removeTimeblock } = useTimeblocks();
+  const {
+    timeblocks,
+    loadTimeblocks,
+    addTimeblock,
+    editTimeblock,
+    removeTimeblock,
+  } = useTimeblocks();
   const isMobile = useIsMobile();
 
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -220,15 +304,12 @@ export default function CalendarPage(): JSX.Element {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [showTimeblocks, setShowTimeblocks] = useState(true);
 
-  // Pending slot popup (create)
   const [pendingSlot, setPendingSlot] = useState<PendingSlot | null>(null);
   const [pendingTag, setPendingTag] = useState("");
 
-  // Editing existing timeblock popup
   const [editingTb, setEditingTb] = useState<EditingTb | null>(null);
   const [editTbTag, setEditTbTag] = useState("");
 
-  // Track mouse position for popup placement
   const lastMousePos = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
@@ -244,7 +325,42 @@ export default function CalendarPage(): JSX.Element {
     loadTimeblocks();
   }, [loadFocusSessions, loadTimeblocks]);
 
-  // ── Focus event building (merged + split) ──────────────────────────────────
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (
+        t &&
+        (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)
+      )
+        return;
+      switch (e.key.toLowerCase()) {
+        case "d":
+          setCurrentView("day");
+          break;
+        case "w":
+          setCurrentView("week");
+          break;
+        case "m":
+          setCurrentView("month");
+          break;
+        case "t":
+          setCurrentDate(new Date());
+          break;
+        case "arrowleft":
+          setCurrentDate((d) => navigate(d, currentView, -1));
+          break;
+        case "arrowright":
+          setCurrentDate((d) => navigate(d, currentView, 1));
+          break;
+        default:
+          return;
+      }
+      e.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [currentView]);
 
   const allFocusEvents = useMemo<CalendarEvent[]>(() => {
     if (!focusSessions.length) return [];
@@ -305,14 +421,10 @@ export default function CalendarPage(): JSX.Element {
     return split;
   }, [focusSessions, savedTags]);
 
-  // ── Filtered focus events ──────────────────────────────────────────────────
-
   const focusEvents = useMemo(
     () => allFocusEvents.filter((e) => !hiddenTags.has(e.tag)),
     [allFocusEvents, hiddenTags]
   );
-
-  // ── Timeblock events ───────────────────────────────────────────────────────
 
   const timeblocksCalEvents = useMemo<CalendarEvent[]>(() => {
     if (!showTimeblocks || currentView === "month") return [];
@@ -320,7 +432,7 @@ export default function CalendarPage(): JSX.Element {
       const [solidColor, white] = getTagColor(savedTags, tb.tag);
       return {
         id: tb.id!,
-        title: tb.tag || "Time Block",
+        title: tb.tag || "Time block",
         start: new Date(tb.startTime),
         end: new Date(tb.endTime),
         tag: tb.tag,
@@ -331,14 +443,10 @@ export default function CalendarPage(): JSX.Element {
     });
   }, [timeblocks, savedTags, showTimeblocks, currentView]);
 
-  // ── Combined events ────────────────────────────────────────────────────────
-
   const allCalEvents = useMemo(
     () => [...focusEvents, ...timeblocksCalEvents],
     [focusEvents, timeblocksCalEvents]
   );
-
-  // ── All unique tags from focus sessions ────────────────────────────────────
 
   const allTags = useMemo(() => {
     const map = new Map<string, string>();
@@ -350,10 +458,13 @@ export default function CalendarPage(): JSX.Element {
       .sort((a, b) => a.tag.localeCompare(b.tag));
   }, [allFocusEvents]);
 
-  // ── Period stats ───────────────────────────────────────────────────────────
+  const periodRange = useMemo(
+    () => getPeriodRange(currentDate, currentView),
+    [currentDate, currentView]
+  );
 
   const periodStats = useMemo(() => {
-    const { start, end } = getPeriodRange(currentDate, currentView);
+    const { start, end } = periodRange;
     const inPeriod = focusSessions.filter((s) => {
       const t = new Date(s.startTime).getTime();
       return t >= start.getTime() && t <= end.getTime() && !hiddenTags.has(s.tag);
@@ -366,24 +477,41 @@ export default function CalendarPage(): JSX.Element {
       count,
       avg: count > 0 ? formatTimeNew(durationFromSeconds(avgSec), "H:M:S", "text") : "—",
     };
-  }, [focusSessions, currentDate, currentView, hiddenTags]);
+  }, [focusSessions, periodRange, hiddenTags]);
 
-  // ── Popup position helper ──────────────────────────────────────────────────
+  const tagBreakdown = useMemo(() => {
+    const { start, end } = periodRange;
+    const totals = new Map<string, number>();
+    focusSessions.forEach((s) => {
+      const t = new Date(s.startTime).getTime();
+      if (t < start.getTime() || t > end.getTime()) return;
+      if (hiddenTags.has(s.tag)) return;
+      totals.set(s.tag, (totals.get(s.tag) ?? 0) + reduceSessions([s]));
+    });
+    const max = Math.max(1, ...totals.values());
+    return Array.from(totals.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([tag, sec]) => ({
+        tag,
+        sec,
+        pct: (sec / max) * 100,
+        color: getTagColor(savedTags, tag)[0],
+      }));
+  }, [focusSessions, periodRange, hiddenTags, savedTags]);
 
-  const clampPopupPos = useCallback((rawX: number, rawY: number) => ({
-    x: Math.max(10, Math.min(rawX + 12, window.innerWidth - 275)),
-    y: Math.max(10, Math.min(rawY - 10, window.innerHeight - 310)),
-  }), []);
-
-  // ── DnD handlers ──────────────────────────────────────────────────────────
+  const clampPopupPos = useCallback(
+    (rawX: number, rawY: number) => ({
+      x: Math.max(10, Math.min(rawX + 12, window.innerWidth - 275)),
+      y: Math.max(10, Math.min(rawY - 10, window.innerHeight - 310)),
+    }),
+    []
+  );
 
   const handleEventDrop = useCallback(
     ({ event, start, end }: EventInteractionArgs<CalendarEvent>) => {
       if (!event.isTimeblock) return;
-      editTimeblock(event.id, {
-        startTime: new Date(start),
-        endTime: new Date(end),
-      });
+      editTimeblock(event.id, { startTime: new Date(start), endTime: new Date(end) });
     },
     [editTimeblock]
   );
@@ -391,24 +519,16 @@ export default function CalendarPage(): JSX.Element {
   const handleEventResize = useCallback(
     ({ event, start, end }: EventInteractionArgs<CalendarEvent>) => {
       if (!event.isTimeblock) return;
-      editTimeblock(event.id, {
-        startTime: new Date(start),
-        endTime: new Date(end),
-      });
+      editTimeblock(event.id, { startTime: new Date(start), endTime: new Date(end) });
     },
     [editTimeblock]
   );
-
-  // ── Slot selection (drag-to-create) ───────────────────────────────────────
 
   const handleSelectSlot = useCallback(
     (slot: SlotInfo) => {
       if (currentView === "month") return;
       if (slot.action !== "select") return;
-      const { x, y } = clampPopupPos(
-        lastMousePos.current.x,
-        lastMousePos.current.y
-      );
+      const { x, y } = clampPopupPos(lastMousePos.current.x, lastMousePos.current.y);
       setPendingSlot({ start: slot.start, end: slot.end, x, y });
       setPendingTag("");
     },
@@ -427,17 +547,12 @@ export default function CalendarPage(): JSX.Element {
     [pendingSlot, pendingTag, addTimeblock]
   );
 
-  // ── Event click handler ───────────────────────────────────────────────────
-
   const handleSelectEvent = useCallback(
     (event: CalendarEvent) => {
       if (event.isTimeblock) {
         const tb = timeblocks.find((t) => t.id === event.id);
         if (!tb) return;
-        const { x, y } = clampPopupPos(
-          lastMousePos.current.x,
-          lastMousePos.current.y
-        );
+        const { x, y } = clampPopupPos(lastMousePos.current.x, lastMousePos.current.y);
         setEditingTb({
           id: tb.id!,
           tag: tb.tag,
@@ -458,53 +573,102 @@ export default function CalendarPage(): JSX.Element {
     [timeblocks, focusSessions, clampPopupPos]
   );
 
-  // ── Event style ───────────────────────────────────────────────────────────
-
-  const eventStyleGetter = useCallback(
-    (event: CalendarEvent) => {
-      if (event.isTimeblock) {
-        const solidColor = event.color;
-        const bg = colorWithAlpha(solidColor, 0.18);
-        return {
-          style: {
-            backgroundColor: bg,
-            color: solidColor,
-            borderRadius: "6px",
-            border: `2px dashed ${solidColor}`,
-            opacity: 1,
-            fontWeight: 600,
-            fontSize: "0.7rem",
-            letterSpacing: "0.02em",
-            zIndex: 0,
-          },
-        };
-      }
+  const eventStyleGetter = useCallback((event: CalendarEvent) => {
+    if (event.isTimeblock) {
       return {
         style: {
-          backgroundColor: event.color,
-          color: event.textColor,
+          backgroundColor: colorWithAlpha(event.color, 0.14),
+          color: event.color,
           borderRadius: "6px",
-          border: "none",
-          opacity: 0.9,
-          zIndex: 2,
+          border: `1.5px dashed ${colorWithAlpha(event.color, 0.7)}`,
+          fontWeight: 600,
+          fontSize: "0.7rem",
+          zIndex: 0,
         },
       };
-    },
-    []
-  );
+    }
+    return {
+      style: {
+        backgroundColor: event.color,
+        color: event.textColor,
+        borderRadius: "6px",
+        border: "none",
+        zIndex: 2,
+      },
+    };
+  }, []);
 
   const draggableAccessor = useCallback((e: CalendarEvent) => e.isTimeblock, []);
   const resizableAccessor = useCallback((e: CalendarEvent) => e.isTimeblock, []);
 
-  // ── Theme ─────────────────────────────────────────────────────────────────
+  const DayHeader = useCallback(({ date }: { date: Date }) => {
+    const isToday = isSameDay(date, new Date());
+    return (
+      <button
+        onClick={() => {
+          setCurrentDate(date);
+          setCurrentView("day");
+        }}
+        className="w-full flex flex-col items-center gap-0.5 py-2 group"
+      >
+        <span
+          className={cn(
+            "text-[11px] font-medium uppercase tracking-wider",
+            isToday ? "text-primary" : "text-muted-foreground"
+          )}
+        >
+          {format(date, "EEE")}
+        </span>
+        <span
+          className={cn(
+            "grid place-items-center size-9 rounded-full text-xl tabular-nums transition-colors",
+            isToday
+              ? "bg-primary text-primary-foreground font-medium"
+              : "text-foreground group-hover:bg-accent"
+          )}
+        >
+          {format(date, "d")}
+        </span>
+      </button>
+    );
+  }, []);
 
-  const isDark = isDarkTheme(theme, resolvedTheme);
+  const MonthHeader = useCallback(
+    ({ date }: { date: Date }) => (
+      <span className="block py-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+        {format(date, "EEE")}
+      </span>
+    ),
+    []
+  );
+
+  const calComponents = useMemo(
+    () => ({
+      toolbar: () => null,
+      timeGutterHeader: () => (
+        <div className="h-full flex items-end justify-end pr-2 pb-1.5">
+          <span className="text-[10px] font-mono text-muted-foreground">
+            {format(new Date(), "OOO")}
+          </span>
+        </div>
+      ),
+      week: { header: DayHeader },
+      day: { header: DayHeader },
+      month: { header: MonthHeader },
+    }),
+    [DayHeader, MonthHeader]
+  );
+
+  const scrollToTime = useMemo(() => {
+    const d = new Date();
+    d.setHours(Math.max(0, d.getHours() - 1), 0, 0, 0);
+    return d;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDate, currentView, zoomLevel]);
 
   const periodLabel = getPeriodLabel(currentDate, currentView);
   const statsLabel =
-    currentView === "day" ? "Today" : currentView === "week" ? "This Week" : "This Month";
-
-  // ── Tag toggle ────────────────────────────────────────────────────────────
+    currentView === "day" ? "Today" : currentView === "week" ? "This week" : "This month";
 
   const toggleTag = (tag: string) => {
     setHiddenTags((prev) => {
@@ -515,29 +679,31 @@ export default function CalendarPage(): JSX.Element {
     });
   };
 
-  // ── Filter panel ──────────────────────────────────────────────────────────
+  const SidebarContent = () => (
+    <div className="flex flex-col gap-5">
+      <MiniCalendar value={currentDate} onPick={setCurrentDate} activeRange={periodRange} />
 
-  const FilterPanelContent = () => (
-    <div className="flex flex-col gap-4">
-      {/* Tags */}
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">
-          Tags
+      <div className="border-t pt-4">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+          My tags
         </p>
         {allTags.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No tags yet.</p>
+          <p className="text-xs text-muted-foreground">
+            No tags yet. Finish a focus session to see it here.
+          </p>
         ) : (
-          <div className="flex flex-col gap-0.5">
+          <div className="flex flex-col">
             {allTags.map(({ tag, color }) => {
               const active = !hiddenTags.has(tag);
               return (
                 <button
                   key={tag}
                   onClick={() => toggleTag(tag)}
-                  className="flex items-center gap-2 py-1.5 text-sm cursor-pointer rounded-md px-1 hover:bg-accent/50 transition-colors w-full text-left"
+                  aria-pressed={active}
+                  className="flex items-center gap-2.5 py-1.5 px-1.5 -mx-1.5 rounded-md hover:bg-accent/60 transition-colors w-full text-left"
                 >
                   <span
-                    className="size-3.5 rounded-sm shrink-0 border transition-all"
+                    className="size-3.5 rounded-[4px] shrink-0 border-2 transition-colors"
                     style={{
                       backgroundColor: active ? color : "transparent",
                       borderColor: color,
@@ -545,7 +711,7 @@ export default function CalendarPage(): JSX.Element {
                   />
                   <span
                     className={cn(
-                      "text-sm transition-colors",
+                      "text-[13px] truncate transition-colors",
                       active ? "text-foreground" : "text-muted-foreground line-through"
                     )}
                   >
@@ -558,96 +724,180 @@ export default function CalendarPage(): JSX.Element {
         )}
       </div>
 
-      {/* Timeblocks toggle */}
       {currentView !== "month" && (
-        <div className="border-t pt-3">
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">
-            Timeblocks
+        <div className="border-t pt-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+            Planned
           </p>
           <button
             onClick={() => setShowTimeblocks((v) => !v)}
-            className="flex items-center gap-2 py-1.5 text-sm cursor-pointer rounded-md px-1 hover:bg-accent/50 transition-colors w-full text-left"
+            aria-pressed={showTimeblocks}
+            className="flex items-center gap-2.5 py-1.5 px-1.5 -mx-1.5 rounded-md hover:bg-accent/60 transition-colors w-full text-left"
           >
             <span
               className={cn(
-                "size-3.5 rounded-sm shrink-0 border-2 transition-all",
-                showTimeblocks ? "border-primary" : "border-muted-foreground"
+                "size-3.5 rounded-[4px] shrink-0 border-2 border-dashed transition-colors",
+                showTimeblocks ? "border-primary bg-primary/20" : "border-muted-foreground"
               )}
-              style={{
-                background: showTimeblocks
-                  ? "repeating-linear-gradient(45deg, hsl(var(--primary)) 0px, hsl(var(--primary)) 2px, transparent 2px, transparent 6px)"
-                  : "transparent",
-              }}
             />
-            <span className={cn("text-sm", showTimeblocks ? "text-foreground" : "text-muted-foreground line-through")}>
-              Show planned
+            <span
+              className={cn(
+                "text-[13px]",
+                showTimeblocks ? "text-foreground" : "text-muted-foreground line-through"
+              )}
+            >
+              Time blocks
             </span>
           </button>
-          {showTimeblocks && timeblocksCalEvents.length > 0 && (
-            <p className="text-xs text-muted-foreground mt-1 pl-1">
-              {timeblocksCalEvents.length} block{timeblocksCalEvents.length !== 1 ? "s" : ""}
-            </p>
-          )}
-          {showTimeblocks && (
-            <p className="text-xs text-muted-foreground/70 mt-2 pl-1 leading-snug">
-              Drag empty area to plan time
-            </p>
-          )}
+          <p className="text-[11px] text-muted-foreground/80 mt-1.5 pl-1 leading-snug">
+            {showTimeblocks && timeblocksCalEvents.length > 0
+              ? `${timeblocksCalEvents.length} block${
+                  timeblocksCalEvents.length !== 1 ? "s" : ""
+                } · drag empty space to plan more`
+              : "Drag empty space to plan time"}
+          </p>
         </div>
       )}
 
-      {/* Period stats */}
       <div className="border-t pt-4">
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
           {statsLabel}
         </p>
-        <p className="text-2xl font-mono font-semibold tracking-tight">
+        <p className="text-2xl font-mono font-semibold tracking-tight tabular-nums">
           {periodStats.total}
         </p>
-        <div className="mt-2 flex flex-col gap-1">
-          <p className="text-xs text-muted-foreground">
-            {periodStats.count} session{periodStats.count !== 1 ? "s" : ""}
-          </p>
-          <p className="text-xs text-muted-foreground">Avg: {periodStats.avg}</p>
-        </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          {periodStats.count} session{periodStats.count !== 1 ? "s" : ""} · avg{" "}
+          {periodStats.avg}
+        </p>
+
+        {tagBreakdown.length > 0 && (
+          <div className="mt-3 flex flex-col gap-2">
+            {tagBreakdown.map(({ tag, sec, pct, color }) => (
+              <div key={tag} className="flex flex-col gap-1">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-[11px] truncate">{tag}</span>
+                  <span className="text-[10px] font-mono text-muted-foreground shrink-0">
+                    {formatTimeNew(durationFromSeconds(sec), "H:M:S", "text")}
+                  </span>
+                </div>
+                <div className="h-1 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full"
+                    style={{ width: `${pct}%`, background: color }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
+
+      <p className="border-t pt-3 text-[11px] leading-relaxed text-muted-foreground/70">
+        Shortcuts: <span className="font-mono">D</span> day ·{" "}
+        <span className="font-mono">W</span> week · <span className="font-mono">M</span>{" "}
+        month · <span className="font-mono">T</span> today ·{" "}
+        <span className="font-mono">← →</span> navigate
+      </p>
     </div>
   );
 
-  // ── Render ────────────────────────────────────────────────────────────────
-
   return (
-    <div className="flex flex-col px-6 py-6 max-w-screen-xl mx-auto w-full">
-      {/* Header */}
-      <div className="flex items-center justify-between py-2 mb-4 border-b pb-4 gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
+    <div className="flex flex-col h-[100dvh] w-full overflow-hidden">
+      <header className="flex items-center gap-2 md:gap-3 px-3 md:px-5 h-16 shrink-0 border-b">
+        {isMobile && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" className="size-9 rounded-full">
+                <FaBars className="size-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="start"
+              className="w-64 p-4 max-h-[80vh] overflow-y-auto"
+            >
+              <SidebarContent />
+            </PopoverContent>
+          </Popover>
+        )}
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setCurrentDate(new Date())}
+          className="rounded-full h-9 px-4 text-[13px] font-medium"
+        >
+          Today
+        </Button>
+
+        <div className="flex items-center">
           <button
             onClick={() => setCurrentDate((d) => navigate(d, currentView, -1))}
-            className="size-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            aria-label="Previous"
+            className="size-9 grid place-items-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            aria-label="Previous period"
           >
-            <FaChevronLeft className="size-3" />
+            <FaChevronLeft className="size-3.5" />
           </button>
-          <span className="text-xl font-semibold tracking-tight min-w-40 text-center">
-            {periodLabel}
-          </span>
           <button
             onClick={() => setCurrentDate((d) => navigate(d, currentView, 1))}
-            className="size-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            aria-label="Next"
+            className="size-9 grid place-items-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            aria-label="Next period"
           >
-            <FaChevronRight className="size-3" />
+            <FaChevronRight className="size-3.5" />
           </button>
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="flex items-center bg-muted rounded-full p-1 gap-0.5">
+        <h1 className="text-base md:text-[22px] font-normal tracking-tight truncate">
+          {periodLabel}
+        </h1>
+
+        <div className="ml-auto flex items-center gap-2">
+          {currentView !== "month" && !isMobile && (
+            <div className="flex items-center bg-muted rounded-full p-0.5 gap-0.5">
+              {(
+                [
+                  {
+                    level: "compact" as ZoomLevel,
+                    Icon: FaMagnifyingGlassMinus,
+                    label: "Compact rows",
+                  },
+                  {
+                    level: "normal" as ZoomLevel,
+                    Icon: FaMagnifyingGlass,
+                    label: "Normal rows",
+                  },
+                  {
+                    level: "expanded" as ZoomLevel,
+                    Icon: FaMagnifyingGlassPlus,
+                    label: "Expanded rows",
+                  },
+                ] as const
+              ).map(({ level, Icon, label }) => (
+                <button
+                  key={level}
+                  onClick={() => setZoomLevel(level)}
+                  title={label}
+                  aria-label={label}
+                  className={cn(
+                    "size-8 grid place-items-center rounded-full transition-colors",
+                    zoomLevel === level
+                      ? "bg-background shadow-sm text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <Icon className="size-3" />
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center bg-muted rounded-full p-0.5 gap-0.5">
             {(["day", "week", "month"] as CalView[]).map((v) => (
               <button
                 key={v}
                 onClick={() => setCurrentView(v)}
                 className={cn(
-                  "px-3 py-1.5 text-xs font-medium rounded-full transition-colors capitalize",
+                  "px-3 md:px-3.5 h-8 text-[13px] font-medium rounded-full transition-colors capitalize",
                   currentView === v
                     ? "bg-background shadow-sm text-foreground"
                     : "text-muted-foreground hover:text-foreground"
@@ -657,71 +907,23 @@ export default function CalendarPage(): JSX.Element {
               </button>
             ))}
           </div>
-
-          {/* Zoom selector */}
-          <div className="flex items-center bg-muted rounded-full p-1 gap-0.5">
-            {(
-              [
-                { level: "compact" as ZoomLevel,  Icon: FaMagnifyingGlassMinus, label: "Compact"  },
-                { level: "normal"  as ZoomLevel,  Icon: FaMagnifyingGlass,      label: "Normal"   },
-                { level: "expanded" as ZoomLevel, Icon: FaMagnifyingGlassPlus,  label: "Expanded" },
-              ] as const
-            ).map(({ level, Icon, label }) => (
-              <button
-                key={level}
-                onClick={() => setZoomLevel(level)}
-                title={label}
-                className={cn(
-                  "size-7 flex items-center justify-center rounded-full transition-colors",
-                  zoomLevel === level
-                    ? "bg-background shadow-sm text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <Icon className="size-3" />
-              </button>
-            ))}
-          </div>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setCurrentDate(new Date())}
-            className="rounded-full px-4 text-xs h-8"
-          >
-            Today
-          </Button>
-
-          {isMobile && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="icon" className="size-8 rounded-full">
-                  <FaFilter className="size-3" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-56 p-4">
-                <FilterPanelContent />
-              </PopoverContent>
-            </Popover>
-          )}
         </div>
-      </div>
+      </header>
 
-      {/* Body */}
-      <div className="flex gap-0">
+      <div className="flex flex-1 min-h-0">
         {!isMobile && (
-          <div className="w-48 shrink-0 border-r pr-5 mr-5 sticky top-6 self-start">
-            <FilterPanelContent />
-          </div>
+          <aside className="w-64 shrink-0 border-r px-4 py-4 overflow-y-auto">
+            <SidebarContent />
+          </aside>
         )}
 
-        <div
+        <main
           suppressHydrationWarning
-          className={cn("calendar-container flex-1", isDark && "calendar-dark")}
-          style={{ height: ZOOM_CONFIG[zoomLevel].height }}
+          className="gcal flex-1 min-w-0 p-2 md:p-3"
+          style={{ ["--row-h" as string]: `${ZOOM_CONFIG[zoomLevel].row}px` }}
         >
           {loadingFocusSessions ? (
-            <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+            <div className="grid place-items-center h-full text-muted-foreground text-sm">
               Loading sessions…
             </div>
           ) : (
@@ -736,46 +938,55 @@ export default function CalendarPage(): JSX.Element {
               onNavigate={setCurrentDate}
               onSelectEvent={handleSelectEvent as (event: object) => void}
               onEventDrop={handleEventDrop as (args: EventInteractionArgs<object>) => void}
-              onEventResize={handleEventResize as (args: EventInteractionArgs<object>) => void}
+              onEventResize={
+                handleEventResize as (args: EventInteractionArgs<object>) => void
+              }
               onSelectSlot={handleSelectSlot}
               selectable={currentView !== "month"}
               draggableAccessor={draggableAccessor as (event: object) => boolean}
               resizableAccessor={resizableAccessor as (event: object) => boolean}
               resizable
-              eventPropGetter={eventStyleGetter as (event: object) => { style: React.CSSProperties }}
+              popup
+              eventPropGetter={
+                eventStyleGetter as (event: object) => { style: React.CSSProperties }
+              }
               dayLayoutAlgorithm={timeblocksFirstLayout as DayLayoutFunction<object>}
               step={ZOOM_CONFIG[zoomLevel].step}
               timeslots={ZOOM_CONFIG[zoomLevel].timeslots}
+              scrollToTime={scrollToTime}
+              formats={{
+                timeGutterFormat: (d: Date) => format(d, "h a"),
+                eventTimeRangeFormat: ({ start }: { start: Date }) =>
+                  format(start, "h:mm a"),
+              }}
               tooltipAccessor={(event) => {
                 const ev = event as CalendarEvent;
-                const prefix = ev.isTimeblock ? "⏱ Planned: " : "";
-                return `${prefix}${ev.tag}\n${format(ev.start, "h:mm a")} – ${format(ev.end, "h:mm a")}`;
+                const prefix = ev.isTimeblock ? "Planned · " : "";
+                return `${prefix}${ev.tag}\n${format(ev.start, "h:mm a")} – ${format(
+                  ev.end,
+                  "h:mm a"
+                )}`;
               }}
               getNow={() => new Date()}
               min={startOfDay(new Date())}
               max={endOfDay(new Date())}
-              components={{ toolbar: () => null }}
+              components={calComponents}
             />
           )}
-        </div>
+        </main>
       </div>
 
-      {/* ── Create Timeblock Popup ─────────────────────────────────────────── */}
       {pendingSlot && (
         <>
+          <div className="fixed inset-0 z-40" onClick={() => setPendingSlot(null)} />
           <div
-            className="fixed inset-0 z-40"
-            onClick={() => setPendingSlot(null)}
-          />
-          <div
-            className="fixed z-50 bg-popover border border-border shadow-2xl rounded-xl overflow-hidden w-64"
+            className="fixed z-50 bg-popover border shadow-2xl rounded-xl overflow-hidden w-64"
             style={{ left: pendingSlot.x, top: pendingSlot.y }}
           >
-            {/* Header strip */}
-            <div className="px-4 pt-3.5 pb-2.5 border-b border-border/60 bg-muted/30">
+            <div className="px-4 pt-3.5 pb-2.5 border-b bg-muted/40">
               <div className="flex items-center gap-2">
                 <FaRegClock className="size-3 text-muted-foreground shrink-0" />
-                <p className="text-xs font-semibold text-foreground">Plan Time Block</p>
+                <p className="text-xs font-semibold">Plan time block</p>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5 font-mono">
                 {format(pendingSlot.start, "h:mm a")} → {format(pendingSlot.end, "h:mm a")}
@@ -783,17 +994,16 @@ export default function CalendarPage(): JSX.Element {
             </div>
 
             <div className="p-3 flex flex-col gap-2.5">
-              {/* Quick-pick from existing tags */}
               {allTags.length > 0 && (
                 <div className="flex flex-wrap gap-1">
                   {allTags.slice(0, 10).map(({ tag, color }) => (
                     <button
                       key={tag}
                       onClick={() => handleCreateTimeblock(tag)}
-                      className="px-2.5 py-1 rounded-full text-xs font-semibold transition-all hover:scale-105 active:scale-95"
+                      className="px-2.5 py-1 rounded-full text-xs font-semibold transition-transform hover:scale-105 active:scale-95"
                       style={{
                         backgroundColor: colorWithAlpha(color, 0.15),
-                        color: color,
+                        color,
                         border: `1.5px dashed ${color}`,
                       }}
                     >
@@ -803,7 +1013,6 @@ export default function CalendarPage(): JSX.Element {
                 </div>
               )}
 
-              {/* Custom tag input */}
               <div className="flex gap-1.5">
                 <Input
                   autoFocus
@@ -837,63 +1046,53 @@ export default function CalendarPage(): JSX.Element {
         </>
       )}
 
-      {/* ── Edit Timeblock Popup ───────────────────────────────────────────── */}
       {editingTb && (
         <>
+          <div className="fixed inset-0 z-40" onClick={() => setEditingTb(null)} />
           <div
-            className="fixed inset-0 z-40"
-            onClick={() => setEditingTb(null)}
-          />
-          <div
-            className="fixed z-50 bg-popover border border-border shadow-2xl rounded-xl overflow-hidden w-64"
+            className="fixed z-50 bg-popover border shadow-2xl rounded-xl overflow-hidden w-64"
             style={{ left: editingTb.x, top: editingTb.y }}
           >
-            {/* Header */}
-            <div className="px-4 pt-3.5 pb-2.5 border-b border-border/60 bg-muted/30">
+            <div className="px-4 pt-3.5 pb-2.5 border-b bg-muted/40">
               <div className="flex items-center gap-2">
-                {(() => {
-                  const [solidColor] = getTagColor(savedTags, editingTb.tag);
-                  return (
-                    <span
-                      className="size-2.5 rounded-full shrink-0"
-                      style={{ background: solidColor }}
-                    />
-                  );
-                })()}
-                <p className="text-xs font-semibold text-foreground truncate">
-                  {editingTb.tag}
-                </p>
+                <span
+                  className="size-2.5 rounded-full shrink-0"
+                  style={{ background: getTagColor(savedTags, editingTb.tag)[0] }}
+                />
+                <p className="text-xs font-semibold truncate">{editingTb.tag}</p>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5 font-mono">
-                {format(editingTb.startTime, "h:mm a")} → {format(editingTb.endTime, "h:mm a")}
+                {format(editingTb.startTime, "h:mm a")} →{" "}
+                {format(editingTb.endTime, "h:mm a")}
               </p>
             </div>
 
             <div className="p-3 flex flex-col gap-2.5">
-              {/* Re-assign to different tag */}
               {allTags.length > 0 && (
                 <div className="flex flex-wrap gap-1">
-                  {allTags.filter((t) => t.tag !== editingTb.tag).slice(0, 9).map(({ tag, color }) => (
-                    <button
-                      key={tag}
-                      onClick={() => {
-                        editTimeblock(editingTb.id, { tag });
-                        setEditingTb(null);
-                      }}
-                      className="px-2 py-0.5 rounded-full text-xs font-medium transition-all hover:scale-105"
-                      style={{
-                        backgroundColor: colorWithAlpha(color, 0.12),
-                        color: color,
-                        border: `1.5px dashed ${color}`,
-                      }}
-                    >
-                      {tag}
-                    </button>
-                  ))}
+                  {allTags
+                    .filter((t) => t.tag !== editingTb.tag)
+                    .slice(0, 9)
+                    .map(({ tag, color }) => (
+                      <button
+                        key={tag}
+                        onClick={() => {
+                          editTimeblock(editingTb.id, { tag });
+                          setEditingTb(null);
+                        }}
+                        className="px-2 py-0.5 rounded-full text-xs font-medium transition-transform hover:scale-105"
+                        style={{
+                          backgroundColor: colorWithAlpha(color, 0.12),
+                          color,
+                          border: `1.5px dashed ${color}`,
+                        }}
+                      >
+                        {tag}
+                      </button>
+                    ))}
                 </div>
               )}
 
-              {/* Rename to custom tag */}
               <div className="flex gap-1.5">
                 <Input
                   value={editTbTag}
@@ -923,7 +1122,6 @@ export default function CalendarPage(): JSX.Element {
                 </Button>
               </div>
 
-              {/* Delete */}
               <button
                 onClick={() => {
                   removeTimeblock(editingTb.id);
@@ -946,7 +1144,6 @@ export default function CalendarPage(): JSX.Element {
         </>
       )}
 
-      {/* Edit Session Dialog */}
       <EditFocusSessionDialog
         session={selectedSession}
         open={isEditDialogOpen}
@@ -955,142 +1152,216 @@ export default function CalendarPage(): JSX.Element {
 
       <Toaster theme={(theme ?? "system") as "system" | "light" | "dark"} />
 
-      {/* ── CSS overrides ─────────────────────────────────────────────────── */}
-      <div className="hidden">
-        <style jsx global>{`
-        .calendar-container .rbc-calendar {
-          font-family: inherit;
+      <style jsx global>{`
+        .gcal {
           height: 100%;
         }
-        .calendar-container .rbc-toolbar {
+        .gcal .rbc-calendar {
+          font-family: inherit;
+          height: 100%;
+          background: transparent;
+        }
+        .gcal .rbc-toolbar,
+        .gcal .rbc-allday-cell {
           display: none;
         }
-        .calendar-container .rbc-time-gutter {
-          font-size: 0.7rem;
-          font-family: var(--font-geist-mono, monospace);
-          color: hsl(var(--muted-foreground));
-        }
-        .calendar-container .rbc-label {
-          padding: 0 0.5rem;
-        }
-        .calendar-container .rbc-header {
-          padding: 0.4rem 0.25rem;
-          font-size: 0.65rem;
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          color: hsl(var(--muted-foreground));
-          border-bottom: 1px solid hsl(var(--border));
-        }
-        .calendar-container .rbc-time-content {
-          overflow-y: hidden !important;
-        }
-        .calendar-container .rbc-timeslot-group {
-          border-bottom: 1px solid hsl(var(--border) / 0.6);
-          min-height: 40px;
-        }
-        .calendar-container .rbc-time-slot {
-          border-top: 1px solid hsl(var(--border) / 0.12);
-        }
-        .calendar-container .rbc-day-slot .rbc-time-slot {
-          border-top: 1px solid hsl(var(--border) / 0.12);
-        }
-        .calendar-container .rbc-time-content {
-          border-top: 1px solid hsl(var(--border));
-        }
-        .calendar-container .rbc-time-header-content {
-          border-left: 1px solid hsl(var(--border) / 0.3);
-        }
-        .calendar-container .rbc-events-container {
-          border-left: 1px solid hsl(var(--border));
-        }
-        .calendar-container .rbc-day-bg {
-          border-left: 1px solid hsl(var(--border) / 0.3);
-        }
-        .calendar-container .rbc-time-view,
-        .calendar-container .rbc-month-view {
-          border: 1px solid hsl(var(--border));
-          border-radius: 0.5rem;
+        .gcal .rbc-time-view,
+        .gcal .rbc-month-view {
+          border: 1px solid var(--border);
+          border-radius: 12px;
           overflow: hidden;
+          background: var(--card);
         }
-        .calendar-container .rbc-month-row {
-          border-bottom: 1px solid hsl(var(--border));
+        .gcal .rbc-time-header {
+          border-bottom: 1px solid var(--border);
+          background: var(--card);
         }
-        .calendar-container .rbc-today {
-          background: hsl(var(--accent) / 0.2);
+        .gcal .rbc-time-header.rbc-overflowing,
+        .gcal .rbc-time-header-gutter,
+        .gcal .rbc-time-header-content {
+          border-right: 0;
+          border-left: 0;
         }
-        .calendar-container .rbc-off-range-bg {
-          background: hsl(var(--muted) / 0.3);
+        .gcal .rbc-header {
+          border-bottom: 0;
+          border-left: 1px solid var(--border);
+          padding: 0;
+          font-weight: 400;
+          overflow: visible;
         }
-        .calendar-container .rbc-current-time-indicator {
-          display: none;
+        .gcal .rbc-header:first-child {
+          border-left: 0;
         }
-        .calendar-container .rbc-event {
-          padding: 2px 6px;
+        .gcal .rbc-time-content {
+          border-top: 0;
+          overflow-y: auto;
+          scrollbar-width: thin;
+        }
+        .gcal .rbc-time-content > .rbc-day-slot,
+        .gcal .rbc-time-content > .rbc-time-gutter + * {
+          border-left: 1px solid var(--border);
+        }
+        .gcal .rbc-timeslot-group {
+          min-height: var(--row-h, 56px);
+          border-bottom: 1px solid var(--border);
+        }
+        .gcal .rbc-day-slot .rbc-time-slot {
+          border-top: 0;
+        }
+        .gcal .rbc-time-gutter {
+          font-size: 0.68rem;
+          font-family: var(--font-geist-mono, monospace);
+          color: var(--muted-foreground);
+          background: var(--card);
+        }
+        .gcal .rbc-time-gutter .rbc-timeslot-group {
+          border-bottom: 0;
+          text-align: right;
+        }
+        .gcal .rbc-time-gutter .rbc-label {
+          display: inline-block;
+          padding: 0 0.6rem 0 0.5rem;
+          transform: translateY(-0.55em);
+          background: var(--card);
+          white-space: nowrap;
+        }
+        .gcal .rbc-time-gutter .rbc-timeslot-group:first-child .rbc-label {
+          visibility: hidden;
+        }
+        .gcal .rbc-today {
+          background: color-mix(in oklab, var(--primary) 6%, transparent);
+        }
+        .gcal .rbc-off-range-bg {
+          background: color-mix(in oklab, var(--muted) 55%, transparent);
+        }
+        .gcal .rbc-current-time-indicator {
+          background: #ea4335;
+          height: 2px;
+          z-index: 5;
+        }
+        .gcal .rbc-current-time-indicator::before {
+          content: "";
+          position: absolute;
+          left: -5px;
+          top: -4px;
+          width: 10px;
+          height: 10px;
+          border-radius: 9999px;
+          background: #ea4335;
+        }
+        .gcal .rbc-event {
+          padding: 2px 7px;
           font-size: 0.75rem;
           font-weight: 500;
+          line-height: 1.25;
           border-radius: 6px !important;
-          border: none !important;
+          border: none;
           outline: none !important;
           box-shadow: none !important;
+          transition: box-shadow 0.12s ease;
         }
-        .calendar-container .rbc-event:focus {
-          outline: none;
+        .gcal .rbc-event:hover {
+          box-shadow: 0 1px 8px rgb(0 0 0 / 0.3) !important;
         }
-        .calendar-container .rbc-event-label {
-          font-size: 0.65rem;
+        .gcal .rbc-event:focus-visible,
+        .gcal .rbc-selected {
+          outline: 2px solid var(--ring) !important;
+          outline-offset: 1px;
+        }
+        .gcal .rbc-event-label {
+          font-size: 0.64rem;
           font-family: var(--font-geist-mono, monospace);
           opacity: 0.85;
         }
-        .calendar-container .rbc-selected {
-          outline: 2px solid hsl(var(--primary)) !important;
-          outline-offset: 1px;
+        .gcal .rbc-slot-selecting,
+        .gcal .rbc-slot-selection {
+          background: color-mix(in oklab, var(--primary) 14%, transparent);
+          border: 1px dashed color-mix(in oklab, var(--primary) 55%, transparent);
+          border-radius: 6px;
+          color: var(--foreground);
+          font-size: 0.68rem;
         }
-        .calendar-container .rbc-show-more {
-          color: hsl(var(--primary));
-          font-size: 0.7rem;
+        .gcal .rbc-month-row {
+          border-top: 1px solid var(--border);
+        }
+        .gcal .rbc-month-row:first-child {
+          border-top: 0;
+        }
+        .gcal .rbc-month-header .rbc-header {
+          text-align: center;
+        }
+        .gcal .rbc-day-bg + .rbc-day-bg {
+          border-left: 1px solid var(--border);
+        }
+        .gcal .rbc-date-cell {
+          padding: 5px 6px 2px;
+          text-align: center;
+          font-size: 0.72rem;
+          font-variant-numeric: tabular-nums;
+        }
+        .gcal .rbc-date-cell.rbc-now > .rbc-button-link {
+          display: inline-grid;
+          place-items: center;
+          min-width: 22px;
+          height: 22px;
+          border-radius: 9999px;
+          background: var(--primary);
+          color: var(--primary-foreground);
           font-weight: 600;
         }
-        /* Timeblock events: allow dashed border to show through */
-        .calendar-container .rbc-event[style*="dashed"] {
-          border: inherit !important;
-          box-shadow: none !important;
-          outline: none !important;
+        .gcal .rbc-off-range .rbc-button-link {
+          color: var(--muted-foreground);
+          opacity: 0.55;
         }
-        /* Timeblock z-index: behind focus events */
-        .calendar-container .rbc-event[style*="z-index: 0"],
-        .calendar-container .rbc-event[style*="zIndex: 0"] {
-          z-index: 0 !important;
+        .gcal .rbc-show-more {
+          color: var(--muted-foreground);
+          font-size: 0.68rem;
+          font-weight: 600;
+          background: transparent;
+          padding-left: 6px;
         }
-        /* DnD drag ghost */
-        .calendar-container .rbc-addons-dnd-drag-preview {
-          opacity: 0.65;
+        .gcal .rbc-show-more:hover {
+          color: var(--foreground);
         }
-        /* Resize handle styling */
-        .calendar-container .rbc-addons-dnd-resize-ns-anchor {
-          opacity: 0.7;
+        .gcal .rbc-overlay {
+          background: var(--popover);
+          color: var(--popover-foreground);
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          box-shadow: 0 12px 32px rgb(0 0 0 / 0.24);
+          padding: 8px;
         }
-        /* Dark theme */
-        .calendar-dark .rbc-time-view,
-        .calendar-dark .rbc-month-view {
-          background: hsl(var(--card));
+        .gcal .rbc-overlay-header {
+          border-bottom: 1px solid var(--border);
+          font-size: 0.75rem;
+          font-weight: 600;
+          padding: 2px 4px 8px;
+          margin-bottom: 6px;
         }
-        .calendar-dark .rbc-header {
-          background: hsl(var(--muted) / 0.3);
+        .gcal .rbc-addons-dnd-drag-preview {
+          opacity: 0.6;
         }
-        .calendar-dark .rbc-time-gutter {
-          background: hsl(var(--card));
+        .gcal .rbc-addons-dnd .rbc-addons-dnd-resize-ns-icon {
+          border-color: currentColor;
+          opacity: 0.5;
         }
-        .calendar-dark .rbc-day-slot .rbc-events-container {
-          margin-right: 0;
+        .gcal .rbc-time-content::-webkit-scrollbar {
+          width: 8px;
         }
-        /* Slot selection highlight */
-        .calendar-container .rbc-slot-selecting {
-          background: hsl(var(--primary) / 0.08);
-          border: 1px dashed hsl(var(--primary) / 0.4);
+        .gcal .rbc-time-content::-webkit-scrollbar-thumb {
+          background: color-mix(in oklab, var(--muted-foreground) 35%, transparent);
+          border-radius: 9999px;
+        }
+        .gcal .rbc-time-content::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .gcal *,
+          .gcal *::before {
+            transition: none !important;
+          }
         }
       `}</style>
-      </div>
     </div>
   );
 }

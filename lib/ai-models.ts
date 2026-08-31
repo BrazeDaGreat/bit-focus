@@ -81,6 +81,10 @@ export const FALLBACK_MODELS: AIModel[] = [
 
 export const AI_MODELS: AIModel[] = FALLBACK_MODELS;
 
+export function modelProvider(model?: AIModel): AIProvider {
+  return (model?.provider as AIProvider | undefined) ?? "openai-compatible";
+}
+
 export const PROVIDER_LABELS: Record<string, string> = {
   groq: "Groq",
   google: "Google",

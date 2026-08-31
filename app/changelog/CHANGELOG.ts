@@ -1,4 +1,4 @@
-export const VERSION = "v0.21.0-beta";
+export const VERSION = "v0.21.1 (LTS)";
 
 const CHANGELOG = `
 ## \`v0.21.0-beta\` (2026-08-21) — Sync, Rebuilt
@@ -23,6 +23,20 @@ const CHANGELOG = `
 - Added: A one-time local backup of everything on this device, taken before the migration and downloadable from the account page.
 - Security: AI provider API keys no longer sync. They stay on the device they were entered on.
 - Added: New \`focus_records\` collection and a rewritten \`lib/sync/\` engine, replacing \`lib/SyncManager.ts\`.
+### \`v0.21.1 (LTS)\` (2026-08-31) — Calendar, Rebuilt
+- Changed: The Calendar page has been rebuilt from the ground up to read like a real calendar — a fixed toolbar, a persistent side panel, and a grid that scrolls on its own instead of stretching the whole page.
+- Fixed: Every line on the calendar — the hour rules, the day dividers, the grid outline — was drawn in a hardcoded grey that ignored your theme. All of it now follows the active theme, so the grid finally looks right on Dark, AMOLED, Amethyst, Nord, and the rest.
+- Added: A mini month calendar in the side panel. It highlights the period you are looking at, marks today, and jumps the grid to any date you click.
+- Added: The current time is now marked with a red line across today's column, so you can see where you are in the day at a glance.
+- Added: The calendar opens scrolled to an hour before now instead of at midnight.
+- Added: Day headers now show the weekday above the date, with today circled. Click a header to open that day.
+- Added: Keyboard shortcuts on the Calendar — \`D\`, \`W\`, \`M\` to switch views, \`T\` for today, and arrow keys to move between periods.
+- Added: A per-tag breakdown in the side panel showing where your time went across the period you are viewing.
+- Improved: Hour labels now sit on their hour line and read as \`9 AM\`, matching how the grid is actually divided.
+- Improved: The zoom control now changes how tall each hour is rather than how tall the page is, so switching between compact and expanded no longer moves everything off-screen.
+- Improved: Month view now opens a proper popover when a day holds more events than fit, instead of clipping them.
+- Improved: The period title reads \`August 2026\` in week view instead of a date range.
+- Improved: The side panel collapses into a menu on mobile, and the calendar keeps a visible focus outline for keyboard use.
 ***
 
 ## \`v0.20.0-beta\` (2026-07-30) — QoL Updates Batch 2

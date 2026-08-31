@@ -53,7 +53,7 @@ export async function POST(req: Request) {
           id: m.id || m.name || "",
           name: m.name || m.id || "",
         }))
-        .filter((m) => Boolean(m.id));
+        .filter((m: { id: string; name: string }) => Boolean(m.id));
     } else if (Array.isArray(data?.models)) {
       modelList = data.models
         .filter((m: unknown) => m && typeof m === "object")
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
           id: m.id || m.model || m.name || "",
           name: m.name || m.model || m.id || "",
         }))
-        .filter((m) => Boolean(m.id));
+        .filter((m: { id: string; name: string }) => Boolean(m.id));
     } else if (Array.isArray(data)) {
       modelList = data
         .map((m: unknown) => {
