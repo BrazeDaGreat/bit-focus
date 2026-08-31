@@ -1,3 +1,4 @@
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createGroq } from "@ai-sdk/groq";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { streamText, convertToModelMessages } from "ai";
@@ -10,37 +11,57 @@ export async function POST(req: Request) {
   const body = (await req.json()) as {
     messages: UIMessage[];
     modelId: string;
-    apiKey: string;
-    provider: AIProvider;
+    apiKey?: string;
+    baseUrl?: string;
+    provider?: AIProvider;
     systemPrompt?: string;
   };
 
-  const { messages, modelId, apiKey, provider, systemPrompt } = body;
-  console.log("Received request with body:", {
-    apiKey,
-    messages,
+  const { messages, modelId, apiKey, baseUrl, provider, systemPrompt } = body;
+  console.log("Received chat request:", {
+    baseUrl,
     modelId,
     provider,
-    systemPrompt,
+    systemPrompt: systemPrompt ? "Present" : "None",
+    messagesCount: messages?.length,
   });
 
-  if (!apiKey) {
-    console.log("API key is missing");
-    return new Response("API key required", { status: 400 });
-  }
+  const effectiveKey = apiKey?.trim() || "";
+  const trimmedUrl = baseUrl?.trim();
 
   try {
     let model;
 
-    if (provider === "groq") {
-      const groq = createGroq({ apiKey });
+    if (trimmedUrl) {
+      const cleanBaseUrl = trimmedUrl.replace(/\/+$/, "");
+      const openaiCompatible = createOpenAICompatible({
+        name: "openai-compatible",
+        baseURL: cleanBaseUrl,
+        apiKey: effectiveKey || "none",
+        headers: effectiveKey ? { Authorization: `Bearer ${effectiveKey}` } : {},
+      });
+      model = openaiCompatible(modelId);
+    } else if (provider === "groq") {
+      if (!effectiveKey) {
+        return new Response("API key required for Groq", { status: 400 });
+      }
+      const groq = createGroq({ apiKey: effectiveKey });
       model = groq(modelId);
     } else if (provider === "google") {
-      const google = createGoogleGenerativeAI({ apiKey });
+      if (!effectiveKey) {
+        return new Response("API key required for Google", { status: 400 });
+      }
+      const google = createGoogleGenerativeAI({ apiKey: effectiveKey });
       model = google(modelId);
     } else {
-      console.log("Unknown provider:", provider);
-      return new Response("Unknown provider", { status: 400 });
+      // Fallback default endpoint (Groq / OpenAI compatible)
+      const openaiCompatible = createOpenAICompatible({
+        name: "openai-compatible",
+        baseURL: "https://api.groq.com/openai/v1",
+        apiKey: effectiveKey || "none",
+        headers: effectiveKey ? { Authorization: `Bearer ${effectiveKey}` } : {},
+      });
+      model = openaiCompatible(modelId);
     }
 
     const coreMessages = await convertToModelMessages(messages);

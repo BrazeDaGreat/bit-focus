@@ -108,8 +108,10 @@ export interface AIChat extends Syncable {
 
 export interface AIConfig {
   key: string;
-  groqApiKey: string;
-  googleApiKey: string;
+  baseUrl?: string;
+  apiKey?: string;
+  groqApiKey?: string;
+  googleApiKey?: string;
   customContextEnabled: boolean;
   customPrompt: string;
   defaultModelId: string;
