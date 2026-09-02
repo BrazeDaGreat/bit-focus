@@ -497,6 +497,9 @@ const Graph: React.FC = (): JSX.Element => {
                 borderRadius: "var(--radius)",
                 color: "var(--popover-foreground)",
               }}
+              itemStyle={{
+                color: "var(--popover-foreground)",
+              }}
             />
             <Legend verticalAlign="bottom" />
           </PieChart>

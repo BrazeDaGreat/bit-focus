@@ -37,6 +37,7 @@ const CHANGELOG = `
 - Improved: Month view now opens a proper popover when a day holds more events than fit, instead of clipping them.
 - Improved: The period title reads \`August 2026\` in week view instead of a date range.
 - Improved: The side panel collapses into a menu on mobile, and the calendar keeps a visible focus outline for keyboard use.
+- Fixed: Hover tooltip text in the Focus History pie chart now follows the active theme instead of always appearing in black.
 ***
 
 ## \`v0.20.0-beta\` (2026-07-30) — QoL Updates Batch 2
