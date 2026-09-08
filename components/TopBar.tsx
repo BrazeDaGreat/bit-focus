@@ -96,25 +96,27 @@ export default function TopBar(): JSX.Element {
 
   return (
     <>
-      <header className="grid min-h-14 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 border-b px-3 py-2 sm:px-4 lg:h-14 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:gap-x-3 lg:py-0">
+      <header className="sticky top-0 z-20 grid min-h-14 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 border-b border-border/60 bg-background/80 px-3 py-2 backdrop-blur-md sm:px-4 lg:h-14 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:gap-x-3 lg:py-0">
         {/* Left: sidebar trigger + page title */}
-        <div className="col-start-1 row-start-1 flex min-w-0 items-center gap-2 sm:gap-3">
-          <SidebarTrigger className="size-8" />
-          <h1 className="truncate text-base font-semibold tracking-tight sm:text-lg">
+        <div className="col-start-1 row-start-1 flex min-w-0 items-center gap-2 sm:gap-2.5">
+          <SidebarTrigger className="size-8 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground" />
+          <h1 className="truncate text-base font-semibold tracking-tight sm:text-[17px]">
             {pageTitle}
           </h1>
         </div>
 
         {/* Mobile gets a dedicated command row; desktop folds it back inline. */}
-        <div className="col-span-2 row-start-2 flex min-w-0 items-center gap-1 lg:col-span-1 lg:col-start-2 lg:row-start-1">
+        <div className="col-span-2 row-start-2 flex min-w-0 items-center gap-1.5 lg:col-span-1 lg:col-start-2 lg:row-start-1">
           {/* Mini timer — start/pause a session from anywhere */}
           <MiniTimer className="min-w-0 flex-1 lg:flex-none" />
-          <div className="mx-1 hidden h-5 w-px bg-border sm:block" />
 
-          <SyncChip />
-          <QuickMessageDialog />
-          <FloatingNotepad />
-          <BITFdata />
+          {/* Utility tray: one soft well so four tools read as one group */}
+          <div className="flex items-center gap-0.5 rounded-xl bg-muted/60 p-1 [&>button]:h-8 [&>button]:rounded-lg [&>button]:border-0 [&>button]:bg-transparent [&>button]:shadow-none [&>button:hover]:bg-background">
+            <SyncChip />
+            <QuickMessageDialog />
+            <FloatingNotepad />
+            <BITFdata />
+          </div>
         </div>
 
         {/* Points stay glanceable beside the title on mobile. */}
@@ -123,31 +125,38 @@ export default function TopBar(): JSX.Element {
             <DropdownMenuTrigger asChild>
               <Button
                 size="sm"
-                variant="outline"
+                variant="ghost"
+                title="Reward points"
                 className={cn(
-                  rewardPoints < 0 && "text-red-500 border-red-500/40"
+                  "h-9 rounded-full bg-muted/60 px-3.5 font-mono text-sm tabular-nums hover:bg-muted",
+                  rewardPoints < 0 && "bg-red-500/10 text-red-500 hover:bg-red-500/15"
                 )}
               >
-                <FaCoins className="mr-2" />
+                <FaCoins
+                  className={cn(
+                    "mr-2 size-3.5",
+                    rewardPoints < 0 ? "text-red-500" : "text-primary"
+                  )}
+                />
                 {(rewardPoints / 100).toFixed(2)}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel>Manage Points</DropdownMenuLabel>
+            <DropdownMenuContent align="end" className="w-52 rounded-xl">
+              <DropdownMenuLabel>Manage points</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => setThrowAwayDialogOpen(true)}
-                className="gap-2"
+                className="gap-2 rounded-lg"
               >
                 <FaTrash className="size-3.5" />
-                Throw Away Points
+                Throw away points
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => setLoanDialogOpen(true)}
-                className="gap-2"
+                className="gap-2 rounded-lg"
               >
                 <FaHandHoldingDollar className="size-3.5" />
-                Take a Loan
+                Take a loan
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

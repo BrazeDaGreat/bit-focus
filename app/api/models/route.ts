@@ -20,10 +20,36 @@ export async function POST(req: Request) {
       headers["Authorization"] = `Bearer ${apiKey.trim()}`;
     }
 
-    const response = await fetch(modelsUrl, {
+    let response = await fetch(modelsUrl, {
       method: "GET",
       headers,
     });
+
+    // Fallback resolution for endpoints where /models gave 404
+    if (response.status === 404) {
+      if (!rawUrl.endsWith("/v1")) {
+        try {
+          const v1Response = await fetch(`${rawUrl}/v1/models`, {
+            method: "GET",
+            headers,
+          });
+          if (v1Response.ok) {
+            response = v1Response;
+          }
+        } catch {}
+      }
+      if (response.status === 404) {
+        try {
+          const tagsResponse = await fetch(`${rawUrl}/api/tags`, {
+            method: "GET",
+            headers,
+          });
+          if (tagsResponse.ok) {
+            response = tagsResponse;
+          }
+        } catch {}
+      }
+    }
 
     if (!response.ok) {
       const errText = await response.text();

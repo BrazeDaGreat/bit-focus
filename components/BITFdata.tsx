@@ -11,7 +11,7 @@ import {
 import { Button } from "./ui/button";
 import { FaFileCsv, FaFileExport, FaFileImport, FaUpload, FaTriangleExclamation } from "react-icons/fa6";
 import { useConfig } from "@/hooks/useConfig";
-import { VERSION } from "@/app/changelog/CHANGELOG";
+import { VERSION } from "@/app//changelog/CHANGELOG";
 import axios from "axios";
 
 /**

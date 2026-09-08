@@ -104,6 +104,10 @@ export interface AIChat extends Syncable {
   messages: string;
   createdAt: Date;
   updatedAt: Date;
+  /** Pinned chats sort above the rest in the history rail. */
+  pinned?: boolean;
+  /** JSON array of {@link ContextSourceId} attached to this conversation. */
+  contextSources?: string;
 }
 
 export interface AIConfig {

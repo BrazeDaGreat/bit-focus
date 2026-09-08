@@ -117,3 +117,14 @@ export function isLocalEndpoint(url?: string): boolean {
     return false;
   }
 }
+
+/**
+ * Match a base URL to a known preset, or return undefined if custom
+ */
+export function findPresetForUrl(url?: string): EndpointPreset | undefined {
+  if (!url) return undefined;
+  const clean = url.trim().replace(/\/+$/, "").toLowerCase();
+  return ENDPOINT_PRESETS.find(
+    (p) => p.baseUrl && p.baseUrl.replace(/\/+$/, "").toLowerCase() === clean
+  );
+}

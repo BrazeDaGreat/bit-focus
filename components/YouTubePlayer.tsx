@@ -19,12 +19,11 @@
 
 import { useState, useEffect, useCallback, useRef, type JSX } from "react";
 import YouTube, { type YouTubeProps, type YouTubePlayer as YTPlayer } from "react-youtube";
-import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FaYoutube, FaPlay, FaPause, FaVolumeMute, FaVolumeUp, FaTimes } from "react-icons/fa";
+import { FaChevronDown, FaChevronUp, FaXmark } from "react-icons/fa6";
 import { cn } from "@/lib/utils";
-import { useIsMobile } from "@/hooks/useIsMobile";
 import { SOUND_EVENTS } from "@/lib/sound";
 
 /**
@@ -91,14 +90,18 @@ function extractVideoId(input: string): string | null {
  * @component
  * @returns {JSX.Element} YouTube player card interface
  */
-export default function YouTubePlayer(): JSX.Element {
+export default function YouTubePlayer({
+  onClose,
+}: {
+  /** Optional close handler; renders a dismiss control when provided. */
+  onClose?: () => void;
+} = {}): JSX.Element {
   const [videoUrl, setVideoUrl] = useState("");
   const [videoId, setVideoId] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [player, setPlayer] = useState<YTPlayer | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(true);
-  const isMobile = useIsMobile();
   
   // Track if video was playing before notification sound interrupted
   const wasPlayingBeforeSound = useRef(false);
@@ -213,7 +216,7 @@ export default function YouTubePlayer(): JSX.Element {
    * YouTube player options
    */
   const opts: YouTubeProps["opts"] = {
-    height: "180",
+    height: "144",
     width: "100%",
     playerVars: {
       autoplay: 0,
@@ -223,30 +226,92 @@ export default function YouTubePlayer(): JSX.Element {
   };
 
   return (
-    <Card className={cn("min-w-96", isMobile && "w-full")}>
-      <CardTitle className="px-6 flex items-center justify-between">
-        <div className="flex gap-2 text-sm items-center opacity-70">
-          <FaYoutube className="text-red-500" />
-          <span>Background Music</span>
-        </div>
-        {videoId && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            onClick={handleClearVideo}
+    <div className="flex flex-col gap-2 rounded-2xl border bg-card p-2 shadow-xs">
+      {videoId ? (
+        <div
+          className={cn(
+            "flex items-center gap-3",
+            isCollapsed ? "flex-row" : "flex-col sm:flex-row sm:items-start"
+          )}
+        >
+          {/* The player itself. Kept small: this is background sound, not video. */}
+          <div
+            className={cn(
+              "overflow-hidden rounded-xl bg-black/80 transition-all",
+              isCollapsed ? "h-0 w-0 opacity-0" : "w-full sm:w-64"
+            )}
           >
-            <FaTimes className="w-3 h-3" />
-          </Button>
-        )}
-      </CardTitle>
+            <YouTube
+              videoId={videoId}
+              opts={opts}
+              onReady={onPlayerReady}
+              onStateChange={onStateChange}
+              className="w-full"
+            />
+          </div>
 
-      <CardDescription className="px-6 pb-4 flex flex-col gap-3">
-        {/* URL Input */}
-        <div className="flex gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5">
+            <button
+              onClick={togglePlayPause}
+              className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-opacity hover:opacity-90"
+              title={isPlaying ? "Pause music" : "Play music"}
+              aria-label={isPlaying ? "Pause music" : "Play music"}
+            >
+              {isPlaying ? (
+                <FaPause className="size-3" />
+              ) : (
+                <FaPlay className="size-3 translate-x-px" />
+              )}
+            </button>
+
+            <div className="flex min-w-0 flex-1 items-center gap-2 px-1">
+              <FaYoutube className="size-3.5 shrink-0 text-red-500" />
+              <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                {isPlaying ? "Playing" : "Paused"} · {videoId}
+              </span>
+            </div>
+
+            <BarIconButton
+              onClick={toggleMute}
+              title={isMuted ? "Unmute" : "Mute"}
+            >
+              {isMuted ? (
+                <FaVolumeMute className="size-3.5" />
+              ) : (
+                <FaVolumeUp className="size-3.5" />
+              )}
+            </BarIconButton>
+
+            <BarIconButton
+              onClick={() => setIsCollapsed((v) => !v)}
+              title={isCollapsed ? "Show video" : "Hide video"}
+            >
+              {isCollapsed ? (
+                <FaChevronDown className="size-3" />
+              ) : (
+                <FaChevronUp className="size-3" />
+              )}
+            </BarIconButton>
+
+            <BarIconButton onClick={handleClearVideo} title="Remove this video">
+              <FaTimes className="size-3" />
+            </BarIconButton>
+
+            {onClose && (
+              <BarIconButton onClick={onClose} title="Close music">
+                <FaXmark className="size-3.5" />
+              </BarIconButton>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/60">
+            <FaYoutube className="size-3.5 text-red-500" />
+          </span>
           <Input
             type="text"
-            placeholder="Paste YouTube URL or video ID..."
+            placeholder="Paste a YouTube link for background sound"
             value={videoUrl}
             onChange={(e) => setVideoUrl(e.target.value)}
             onKeyDown={(e) => {
@@ -254,48 +319,45 @@ export default function YouTubePlayer(): JSX.Element {
                 handleLoadVideo();
               }
             }}
-            className="flex-1 text-sm"
+            className="h-9 flex-1 rounded-lg border-0 bg-muted/60 text-sm shadow-none focus-visible:bg-muted"
           />
-          <Button size="sm" onClick={handleLoadVideo} disabled={!videoUrl.trim()}>
+          <Button
+            size="sm"
+            className="h-9 shrink-0 rounded-lg"
+            onClick={handleLoadVideo}
+            disabled={!videoUrl.trim()}
+          >
             Load
           </Button>
+          {onClose && (
+            <BarIconButton onClick={onClose} title="Close music">
+              <FaXmark className="size-3.5" />
+            </BarIconButton>
+          )}
         </div>
+      )}
+    </div>
+  );
+}
 
-        {/* Video Player */}
-        {videoId && (
-          <div className={cn("flex flex-col gap-2", isCollapsed && "hidden")}>
-            <div className="rounded-lg overflow-hidden bg-black/20">
-              <YouTube
-                videoId={videoId}
-                opts={opts}
-                onReady={onPlayerReady}
-                onStateChange={onStateChange}
-                className="w-full"
-              />
-            </div>
-
-            {/* Controls */}
-            <div className="flex items-center justify-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={togglePlayPause}
-                className="flex-1"
-              >
-                {isPlaying ? <FaPause className="mr-2" /> : <FaPlay className="mr-2" />}
-                {isPlaying ? "Pause" : "Play"}
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={toggleMute}
-              >
-                {isMuted ? <FaVolumeMute /> : <FaVolumeUp />}
-              </Button>
-            </div>
-          </div>
-        )}
-      </CardDescription>
-    </Card>
+/** Quiet icon button used across the music bar. */
+function BarIconButton({
+  onClick,
+  title,
+  children,
+}: {
+  onClick: () => void;
+  title: string;
+  children: JSX.Element;
+}): JSX.Element {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      aria-label={title}
+      className="flex size-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+    >
+      {children}
+    </button>
   );
 }

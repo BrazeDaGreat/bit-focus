@@ -1,24 +1,34 @@
 "use client";
 
+/**
+ * AI Chat
+ *
+ * Two panes: conversation history on the left, the thread on the right.
+ *
+ * The model can reach your data two ways. **Tools** let it ask for what it needs
+ * mid-answer — totals, sessions, projects — which keeps prompts small and stops
+ * it inventing numbers. **Context** attaches chosen blocks up front, per chat,
+ * with the token cost shown before you send. Anything that writes (starting the
+ * timer, creating an issue, sending a webhook) is proposed as a card you approve
+ * or dismiss; nothing changes on its own.
+ *
+ * Every tool runs in this browser. Keys and endpoint live in IndexedDB and are
+ * sent to the API route per request, never stored server-side.
+ */
+
 import {
   useState,
   useEffect,
   useCallback,
   useRef,
-  type JSX,
   useMemo,
+  type JSX,
+  type ReactNode,
 } from "react";
 import { useChat } from "@ai-sdk/react";
-import { AssistantRuntimeProvider } from "@assistant-ui/react";
-import { useAISDKRuntime } from "@assistant-ui/react-ai-sdk";
-import {
-  ThreadPrimitive,
-  MessagePrimitive,
-  ComposerPrimitive,
-} from "@assistant-ui/react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { subDays, format } from "date-fns";
+import dayjs from "dayjs";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -30,215 +40,149 @@ import {
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetHeader,
   SheetTitle,
+  SheetDescription,
 } from "@/components/ui/sheet";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Toaster } from "@/components/ui/sonner";
 import {
   Plus,
   Trash2,
   Settings,
   MessageSquare,
   Send,
-  StopCircle,
+  Square,
   Sparkles,
   AlertCircle,
   Eye,
   EyeOff,
   Bot,
-  Info,
+  Check,
+  Copy,
+  Pin,
+  PinOff,
+  Pencil,
+  RefreshCw,
+  Search,
+  Database,
+  Loader2,
+  ChevronDown,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAIChat } from "@/hooks/useAIChat";
-import { useFocus, type FocusSession } from "@/hooks/useFocus";
+import { useAITools } from "@/hooks/useAITools";
+import { useFocus } from "@/hooks/useFocus";
 import { useConfig } from "@/hooks/useConfig";
 import { useRewards } from "@/hooks/useRewards";
+import { useProjects } from "@/hooks/useProjects";
 import { usePomo } from "@/hooks/PomoContext";
+import { useTheme } from "next-themes";
 import {
-  AI_MODELS,
-  PROVIDER_LABELS,
+  DEFAULT_BASE_URL,
   DEFAULT_MODEL_ID,
-  type AIModel,
-  type AIProvider,
-  modelProvider,
+  ENDPOINT_PRESETS,
+  findPresetForUrl,
+  isLocalEndpoint,
 } from "@/lib/ai-models";
+import {
+  CONTEXT_SOURCES,
+  buildContext,
+  buildContextBlock,
+  estimateTokens,
+  type ContextInput,
+  type ContextSourceId,
+} from "@/lib/ai-context";
+import {
+  DECLINED_RESULT,
+  TOOL_LABELS,
+  describeToolCall,
+  needsConfirmation,
+} from "@/lib/ai-tools";
 import type { AIChat } from "@/lib/db";
 import { type UIMessage as Message, DefaultChatTransport } from "ai";
 import { toast } from "sonner";
 
-// ── Focus context builder ──────────────────────────────────────────────────
+/** Openers wired to real data, shown on an empty thread. */
+const QUICK_PROMPTS = [
+  {
+    label: "Review my week",
+    prompt:
+      "Review my last 7 days of focus. What stands out, and what should I change next week?",
+  },
+  {
+    label: "Where did my time go?",
+    prompt:
+      "Break down where my focus time went by tag over the last 30 days, and tell me what that says about my priorities.",
+  },
+  {
+    label: "Plan tomorrow",
+    prompt:
+      "Look at my open issues and due dates, then draft a realistic plan for tomorrow.",
+  },
+  {
+    label: "Am I slipping?",
+    prompt:
+      "Compare my last 7 days against the 7 before that. Am I trending up or down, and why might that be?",
+  },
+];
 
-interface TimerContextData {
-  mode: string;
-  isRunning: boolean;
-  phase: string;
-  elapsedSeconds: number;
-  pomodoroSettings: { focusDuration: number; breakDuration: number };
-  currentTag: string;
-}
+const DEFAULT_CONTEXT: ContextSourceId[] = ["profile", "timer"];
 
-function sessionHours(s: FocusSession): number {
-  return (new Date(s.endTime).getTime() - new Date(s.startTime).getTime()) / (1000 * 60 * 60);
-}
+/**
+ * How many times one user message may be continued automatically after tool
+ * results. Six steps happen server-side within a single response; this caps the
+ * client-side rounds on top of that, so a model that keeps asking for the same
+ * data eventually has to answer instead.
+ */
+const MAX_AUTO_CONTINUE = 4;
 
-function sumHoursInPeriod(sessions: FocusSession[], days: number): number {
-  const cutoff = subDays(new Date(), days);
-  return sessions
-    .filter((s) => new Date(s.startTime) >= cutoff)
-    .reduce((acc, s) => acc + sessionHours(s), 0);
-}
-
-function buildFocusContext(
-  sessions: FocusSession[],
-  rewardPoints: number,
-  name: string,
-  dob: Date | null,
-  timer: TimerContextData
-): string {
-  const now = new Date();
-
-  // Age from dob
-  let age = NaN;
-  if (dob) {
-    const ageMs = now.getTime() - new Date(dob).getTime();
-    age = Math.floor(ageMs / (1000 * 60 * 60 * 24 * 365.25));
-  }
-
-  // Aggregated totals
-  const h24 = sumHoursInPeriod(sessions, 1);
-  const h7 = sumHoursInPeriod(sessions, 7);
-  const h14 = sumHoursInPeriod(sessions, 14);
-  const h30 = sumHoursInPeriod(sessions, 30);
-
-  // Last 14 days breakdown by date and tag
-  const cutoff14 = subDays(now, 14);
-  const recent14 = sessions.filter((s) => new Date(s.startTime) >= cutoff14);
-  const byDate: Record<string, Record<string, number>> = {};
-  for (const s of recent14) {
-    const date = format(new Date(s.startTime), "MMM d");
-    if (!byDate[date]) byDate[date] = {};
-    byDate[date][s.tag] = (byDate[date][s.tag] || 0) + sessionHours(s);
-  }
-  const dailyLines = Object.entries(byDate).map(([date, tags]) => {
-    const tagLines = Object.entries(tags)
-      .map(([tag, hours]) => `    ${tag}: ${hours.toFixed(1)}h`)
-      .join("\n");
-    return `  ${date}:\n${tagLines}`;
-  });
-
-  // Timer state
-  const timerMode = timer.mode === "pomodoro" ? "Pomodoro" : "Standard";
-  const timerStatus = timer.isRunning ? "Running" : "Paused/Stopped";
-  let timerDetail = "";
-  if (timer.mode === "pomodoro") {
-    const totalSecs = (timer.phase === "focus"
-      ? timer.pomodoroSettings.focusDuration
-      : timer.pomodoroSettings.breakDuration) * 60;
-    const remaining = Math.max(0, totalSecs - timer.elapsedSeconds);
-    const rm = Math.floor(remaining / 60);
-    const rs = remaining % 60;
-    timerDetail = `Phase: ${timer.phase}, Remaining: ${rm}m ${rs}s`;
-  } else {
-    const em = Math.floor(timer.elapsedSeconds / 60);
-    const es = timer.elapsedSeconds % 60;
-    timerDetail = `Elapsed: ${em}m ${es}s`;
-  }
-
-  const parts: string[] = [];
-  parts.push(`=== User Profile ===`);
-  parts.push(`Name: ${(name && name !== "NULL") ? name : "Unknown"}`);
-  parts.push(`Age: ${(name && name !== "NULL" && !isNaN(age) && age >= 0 && age <= 120) ? `${age} years old` : "Unknown"}`);
-  parts.push(`Accumulated Focus Points: ${rewardPoints}`);
-
-  parts.push(`\n=== Focus Summary ===`);
-  parts.push(`Last 24h:  ${h24.toFixed(1)}h`);
-  parts.push(`Last 7d:   ${h7.toFixed(1)}h`);
-  parts.push(`Last 14d:  ${h14.toFixed(1)}h`);
-  parts.push(`Last 30d:  ${h30.toFixed(1)}h`);
-
-  if (dailyLines.length > 0) {
-    parts.push(`\n=== Last 14 Days (Tag Breakdown) ===`);
-    parts.push(dailyLines.join("\n"));
-  } else {
-    parts.push(`\nNo focus sessions in the last 14 days.`);
-  }
-
-  parts.push(`\n=== Current Timer State ===`);
-  parts.push(`Mode: ${timerMode} (${timerStatus})`);
-  parts.push(timerDetail);
-  if (timer.currentTag) parts.push(`Currently focusing on: ${timer.currentTag}`);
-
-  return parts.join("\n");
-}
-
-function estimateTokens(text: string): string {
-  if (!text) return "~0 tokens";
-
-  // Match groups of words, numbers, newlines, symbols, and spaces
-  const parts = text.match(/([a-zA-Z]+)|([0-9]+)|(\r?\n)|([^\w\s]+)|([ \t]+)/g) || [];
-
-  let tokenCount = 0;
-  for (const part of parts) {
-    if (/[a-zA-Z]+/.test(part)) {
-      tokenCount += Math.ceil(part.length / 4);
-    } else if (/[0-9]+/.test(part)) {
-      tokenCount += Math.ceil(part.length / 3);
-    } else if (/\r?\n/.test(part)) {
-      tokenCount += 1;
-    } else if (/[ \t]+/.test(part)) {
-      if (part.length === 1) {
-        tokenCount += 0.25;
-      } else {
-        tokenCount += Math.ceil(part.length / 4);
-      }
-    } else {
-      tokenCount += part.length;
-    }
-  }
-
-  const count = Math.round(tokenCount);
-  if (count >= 1000) return `~${(count / 1000).toFixed(1)}k tokens`;
-  return `~${count} tokens`;
-}
-
-// ── Main Page ──────────────────────────────────────────────────────────────
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AIPage(): JSX.Element {
+  const { theme } = useTheme();
   const {
     chats,
     aiConfig,
+    models,
     loading,
     loadChats,
     loadAIConfig,
     createChat,
     deleteChat,
     loadMessages,
-    saveAIConfig,
+    toggleChatPinned,
+    updateChatTitle,
+    setChatContextSources,
   } = useAIChat();
   const { focusSessions, loadFocusSessions } = useFocus();
   const { name, dob, loadConfig } = useConfig();
   const { rewardPoints, loadRewards } = useRewards();
+  const { projects, milestones, issues, loadProjects } = useProjects();
   const { state: timerState } = usePomo();
 
   const [activeChat, setActiveChat] = useState<AIChat | null>(null);
-  const [activeChatMessages, setActiveChatMessages] = useState<Message[]>([]);
-  const [selectedModelId, setSelectedModelId] = useState<string>(DEFAULT_MODEL_ID);
+  const [activeMessages, setActiveMessages] = useState<Message[]>([]);
+  const [modelId, setModelId] = useState(DEFAULT_MODEL_ID);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [mobileChatsOpen, setMobileChatsOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
 
   useEffect(() => {
@@ -247,162 +191,127 @@ export default function AIPage(): JSX.Element {
     loadFocusSessions();
     loadConfig();
     loadRewards();
-  }, [loadChats, loadAIConfig, loadFocusSessions, loadConfig, loadRewards]);
+    loadProjects();
+  }, [
+    loadChats,
+    loadAIConfig,
+    loadFocusSessions,
+    loadConfig,
+    loadRewards,
+    loadProjects,
+  ]);
 
   useEffect(() => {
-    if (aiConfig?.defaultModelId) {
-      setSelectedModelId(aiConfig.defaultModelId);
-    }
+    if (aiConfig?.defaultModelId) setModelId(aiConfig.defaultModelId);
   }, [aiConfig?.defaultModelId]);
 
-  const handleSelectChat = useCallback(
+  const baseUrl = aiConfig?.baseUrl || DEFAULT_BASE_URL;
+  const apiKey =
+    aiConfig?.apiKey || aiConfig?.groqApiKey || aiConfig?.googleApiKey || "";
+  const configured = Boolean(baseUrl && (apiKey || isLocalEndpoint(baseUrl)));
+
+  const contextInput: ContextInput = useMemo(
+    () => ({
+      name,
+      dob,
+      rewardPoints,
+      focusSessions,
+      projects,
+      milestones,
+      issues,
+      timer: {
+        mode: timerState.mode,
+        phase: timerState.phase,
+        isRunning: timerState.isRunning,
+        elapsedSeconds: timerState.elapsedSeconds,
+        currentTag: timerState.data?.tag || "",
+      },
+    }),
+    [
+      name,
+      dob,
+      rewardPoints,
+      focusSessions,
+      projects,
+      milestones,
+      issues,
+      timerState,
+    ]
+  );
+
+  const openChat = useCallback(
     async (chat: AIChat) => {
       setLoadingMessages(true);
       const msgs = await loadMessages(chat.id);
-      setActiveChatMessages(msgs);
+      setActiveMessages(msgs);
       setActiveChat(chat);
-      setSelectedModelId(chat.modelId || DEFAULT_MODEL_ID);
+      setModelId(chat.modelId || DEFAULT_MODEL_ID);
       setLoadingMessages(false);
+      setHistoryOpen(false);
     },
     [loadMessages]
   );
 
-  const handleNewChat = useCallback(async () => {
-    const model =
-      AI_MODELS.find((m) => m.id === selectedModelId) ||
-      AI_MODELS[AI_MODELS.length - 1];
-    const chat = await createChat(model.id, model.provider);
-    setActiveChatMessages([]);
+  const startChat = useCallback(async () => {
+    const chat = await createChat(modelId);
+    setActiveMessages([]);
     setActiveChat(chat);
-  }, [createChat, selectedModelId]);
+    setHistoryOpen(false);
+  }, [createChat, modelId]);
 
-  const handleSelectMobileChat = useCallback(
-    async (chat: AIChat) => {
-      setMobileChatsOpen(false);
-      await handleSelectChat(chat);
-    },
-    [handleSelectChat]
-  );
-
-  const handleNewMobileChat = useCallback(async () => {
-    setMobileChatsOpen(false);
-    await handleNewChat();
-  }, [handleNewChat]);
-
-  const handleDeleteChat = useCallback(
-    async (chatId: string, e: React.MouseEvent) => {
-      e.stopPropagation();
+  const removeChat = useCallback(
+    async (chatId: string) => {
       await deleteChat(chatId);
       if (activeChat?.id === chatId) {
         setActiveChat(null);
-        setActiveChatMessages([]);
+        setActiveMessages([]);
       }
       toast.success("Chat deleted");
     },
     [deleteChat, activeChat]
   );
 
-  const selectedModel =
-    AI_MODELS.find((m) => m.id === selectedModelId) ||
-    AI_MODELS[AI_MODELS.length - 1];
-
-  const apiKey =
-    selectedModel?.provider === "groq"
-      ? aiConfig?.groqApiKey || ""
-      : aiConfig?.googleApiKey || "";
-  console.log("API Key", apiKey)
-
-  const hasCustomPrompt = !!aiConfig?.customPrompt;
-
-  const timerContextData: TimerContextData = {
-    mode: timerState.mode,
-    isRunning: timerState.isRunning,
-    phase: timerState.phase,
-    elapsedSeconds: timerState.elapsedSeconds,
-    pomodoroSettings: timerState.pomodoroSettings,
-    currentTag: timerState.data?.tag || "",
-  };
-
-  const focusContextStr = buildFocusContext(focusSessions, rewardPoints, name, dob, timerContextData);
-  const systemPrompt = aiConfig?.customContextEnabled
-    ? `${aiConfig.customPrompt ? aiConfig.customPrompt + "\n\n" : ""}${focusContextStr}`
-    : hasCustomPrompt
-      ? aiConfig.customPrompt
-      : undefined;
-
-  const contextTokenLabel = aiConfig?.customContextEnabled
-    ? estimateTokens((aiConfig.customPrompt ? aiConfig.customPrompt + "\n\n" : "") + focusContextStr)
-    : null;
-
-  const noApiKey = !apiKey;
-
-  const handleToggleContext = useCallback(async () => {
-    if (!aiConfig) return;
-    await saveAIConfig({ ...aiConfig, customContextEnabled: !aiConfig.customContextEnabled });
-  }, [aiConfig, saveAIConfig]);
+  const history = (
+    <History
+      chats={chats}
+      loading={loading}
+      activeId={activeChat?.id}
+      onSelect={openChat}
+      onDelete={removeChat}
+      onNew={startChat}
+      onTogglePin={toggleChatPinned}
+      onRename={updateChatTitle}
+      onOpenSettings={() => {
+        setHistoryOpen(false);
+        setSettingsOpen(true);
+      }}
+    />
+  );
 
   return (
-    <div className="flex min-h-0 flex-1 overflow-hidden bg-background">
-      {/* ── Left panel: chat list ── */}
-      <aside className="hidden w-60 shrink-0 border-r bg-sidebar/50 lg:flex lg:flex-col">
-        <ChatHistoryContents
-          chats={chats}
-          loading={loading}
-          activeChatId={activeChat?.id}
-          onSelectChat={handleSelectChat}
-          onDeleteChat={handleDeleteChat}
-          onNewChat={handleNewChat}
-          onOpenSettings={() => setSettingsOpen(true)}
-        />
+    <div className="flex min-h-0 flex-1 overflow-hidden">
+      {/* ── History rail ── */}
+      <aside className="hidden w-64 shrink-0 border-r bg-sidebar/40 lg:flex lg:flex-col">
+        {history}
       </aside>
 
-      {/* Mobile: conversations become an on-demand pocket index. */}
-      <Sheet open={mobileChatsOpen} onOpenChange={setMobileChatsOpen}>
-        <SheetContent
-          side="left"
-          className="w-[min(20rem,88vw)] gap-0 bg-sidebar p-0"
-        >
-          <SheetHeader className="flex-row items-center justify-between gap-2 border-b px-3 py-2.5 pr-12 text-left">
-            <div className="min-w-0">
-              <SheetTitle className="text-sm">Conversations</SheetTitle>
-              <SheetDescription className="text-xs">
-                {chats.length} {chats.length === 1 ? "chat" : "chats"}
-              </SheetDescription>
-            </div>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="size-7 rounded-md"
-              onClick={handleNewMobileChat}
-              aria-label="New chat"
-            >
-              <Plus className="size-3.5" />
-            </Button>
+      <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
+        <SheetContent side="left" className="w-[min(20rem,88vw)] gap-0 bg-sidebar p-0">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Conversations</SheetTitle>
+            <SheetDescription>Your saved AI chats</SheetDescription>
           </SheetHeader>
-          <ChatHistoryContents
-            chats={chats}
-            loading={loading}
-            activeChatId={activeChat?.id}
-            onSelectChat={handleSelectMobileChat}
-            onDeleteChat={handleDeleteChat}
-            onNewChat={handleNewMobileChat}
-            onOpenSettings={() => {
-              setMobileChatsOpen(false);
-              setSettingsOpen(true);
-            }}
-            showHeader={false}
-          />
+          {history}
         </SheetContent>
       </Sheet>
 
-      {/* ── Right panel: chat area ── */}
+      {/* ── Thread ── */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex h-11 shrink-0 items-center gap-1 border-b bg-background/95 px-2 backdrop-blur-sm lg:hidden">
+        <div className="flex h-12 shrink-0 items-center gap-1 border-b px-2 lg:hidden">
           <Button
             variant="ghost"
-            className="h-8 min-w-0 flex-1 justify-start gap-2 px-2"
-            onClick={() => setMobileChatsOpen(true)}
-            aria-label="Open conversations"
+            className="h-9 min-w-0 flex-1 justify-start gap-2 rounded-lg px-2"
+            onClick={() => setHistoryOpen(true)}
           >
             <MessageSquare className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="truncate text-xs font-medium">
@@ -412,628 +321,1225 @@ export default function AIPage(): JSX.Element {
           <Button
             variant="ghost"
             size="icon"
-            className="size-8"
-            onClick={handleNewChat}
+            className="size-9 rounded-lg"
+            onClick={startChat}
             aria-label="New chat"
-            title="New chat"
           >
             <Plus className="size-4" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
-            className="size-8"
+            className="size-9 rounded-lg"
             onClick={() => setSettingsOpen(true)}
             aria-label="AI settings"
-            title="AI settings"
           >
             <Settings className="size-4" />
           </Button>
         </div>
 
-        {/* Content */}
         {!activeChat ? (
-          <EmptyState
-            onNewChat={handleNewChat}
-            noApiKey={noApiKey}
+          <EmptyThread
+            configured={configured}
+            onNew={startChat}
             onOpenSettings={() => setSettingsOpen(true)}
-            selectedModel={selectedModel}
           />
         ) : loadingMessages ? (
-          <ChatLoadingSkeleton />
+          <ThreadSkeleton />
         ) : (
-          <ChatThread
+          <Thread
             key={activeChat.id}
-            chatId={activeChat.id}
-            initialMessages={activeChatMessages}
-            modelId={selectedModelId}
-            onModelChange={setSelectedModelId}
-            provider={modelProvider(selectedModel)}
+            chat={activeChat}
+            initialMessages={activeMessages}
+            modelId={modelId}
+            onModelChange={setModelId}
+            models={models}
+            baseUrl={baseUrl}
             apiKey={apiKey}
-            systemPrompt={systemPrompt}
-            disabled={noApiKey}
-            customContextEnabled={!!aiConfig?.customContextEnabled}
-            onToggleContext={handleToggleContext}
-            contextTokenLabel={contextTokenLabel}
+            configured={configured}
+            customPrompt={aiConfig?.customPrompt || ""}
+            contextInput={contextInput}
+            onSaveContext={setChatContextSources}
+            onOpenSettings={() => setSettingsOpen(true)}
           />
         )}
       </div>
 
-      {/* Settings dialog */}
       <SettingsDialog
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
-        focusSessions={focusSessions}
+        contextInput={contextInput}
       />
+
+      <Toaster theme={(theme ?? "system") as "system" | "light" | "dark"} />
     </div>
   );
 }
 
-interface ChatHistoryContentsProps {
-  chats: AIChat[];
-  loading: boolean;
-  activeChatId?: string;
-  onSelectChat: (chat: AIChat) => void;
-  onDeleteChat: (chatId: string, event: React.MouseEvent) => void;
-  onNewChat: () => void;
-  onOpenSettings: () => void;
-  showHeader?: boolean;
-}
+// ── History rail ──────────────────────────────────────────────────────────────
 
-function ChatHistoryContents({
+function History({
   chats,
   loading,
-  activeChatId,
-  onSelectChat,
-  onDeleteChat,
-  onNewChat,
+  activeId,
+  onSelect,
+  onDelete,
+  onNew,
+  onTogglePin,
+  onRename,
   onOpenSettings,
-  showHeader = true,
-}: ChatHistoryContentsProps): JSX.Element {
+}: {
+  chats: AIChat[];
+  loading: boolean;
+  activeId?: string;
+  onSelect: (chat: AIChat) => void;
+  onDelete: (id: string) => void;
+  onNew: () => void;
+  onTogglePin: (id: string) => void;
+  onRename: (id: string, title: string) => void;
+  onOpenSettings: () => void;
+}): JSX.Element {
+  const [query, setQuery] = useState("");
+
+  const groups = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    const matching = term
+      ? chats.filter((c) => c.title.toLowerCase().includes(term))
+      : chats;
+
+    const pinned = matching.filter((c) => c.pinned);
+    const rest = matching.filter((c) => !c.pinned);
+
+    const bucket = (chat: AIChat) => {
+      const at = dayjs(chat.updatedAt);
+      if (at.isSame(dayjs(), "day")) return "Today";
+      if (at.isSame(dayjs().subtract(1, "day"), "day")) return "Yesterday";
+      if (at.isAfter(dayjs().subtract(7, "day"))) return "This week";
+      if (at.isAfter(dayjs().subtract(30, "day"))) return "This month";
+      return "Older";
+    };
+
+    const buckets = new Map<string, AIChat[]>();
+    for (const chat of rest) {
+      const key = bucket(chat);
+      buckets.set(key, [...(buckets.get(key) ?? []), chat]);
+    }
+
+    const ordered: { label: string; chats: AIChat[] }[] = [];
+    if (pinned.length) ordered.push({ label: "Pinned", chats: pinned });
+    for (const label of ["Today", "Yesterday", "This week", "This month", "Older"]) {
+      const list = buckets.get(label);
+      if (list?.length) ordered.push({ label, chats: list });
+    }
+    return ordered;
+  }, [chats, query]);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {showHeader && (
-        <div className="flex items-center justify-between border-b px-3 py-2.5">
-          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Chats
-          </span>
-          <Button
-            size="icon"
-            variant="ghost"
-            className="size-6 rounded-md"
-            onClick={onNewChat}
-            title="New chat"
-          >
-            <Plus className="size-3.5" />
-          </Button>
+      <div className="flex flex-col gap-2 p-3">
+        <Button onClick={onNew} className="h-9 w-full gap-2 rounded-lg text-sm">
+          <Plus className="size-3.5" />
+          New chat
+        </Button>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search chats"
+            className="h-9 rounded-lg border-0 bg-muted/60 pl-8 text-xs shadow-none"
+          />
         </div>
-      )}
+      </div>
 
-      <div className="flex-1 overflow-y-auto">
-        <div className="space-y-0.5 p-1.5">
-          {loading ? (
-            <SidebarSkeleton />
-          ) : chats.length === 0 ? (
-            <p className="px-4 py-8 text-center text-xs leading-relaxed text-muted-foreground/60">
-              No conversations yet.
-              <br />
-              Press + to start one.
-            </p>
-          ) : (
-            chats.map((chat) => (
-              <div
-                key={chat.id}
-                className={cn(
-                  "group flex min-w-0 items-center rounded-md text-xs transition-colors",
-                  activeChatId === chat.id
-                    ? "rounded-l-none border-l-2 border-primary bg-accent text-foreground"
-                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                )}
-              >
-                <button
-                  onClick={() => onSelectChat(chat)}
-                  className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left"
-                >
-                  <MessageSquare className="size-3 shrink-0 opacity-50" />
-                  <span className={cn("min-w-0 flex-1 truncate", activeChatId === chat.id && "font-medium")}>
-                    {chat.title}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={(event) => onDeleteChat(chat.id, event)}
-                  className="mr-1 shrink-0 rounded p-1.5 opacity-60 transition-opacity hover:bg-destructive/20 hover:text-destructive md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
-                  aria-label={`Delete ${chat.title}`}
-                >
-                  <Trash2 className="size-3" />
-                </button>
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+        {loading ? (
+          <div className="flex flex-col gap-1.5 px-1">
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} className="h-9 w-full rounded-lg" />
+            ))}
+          </div>
+        ) : groups.length === 0 ? (
+          <p className="px-2 py-6 text-center text-xs text-muted-foreground">
+            {query ? "No chats match that." : "No conversations yet."}
+          </p>
+        ) : (
+          groups.map((group) => (
+            <div key={group.label} className="mb-3">
+              <p className="px-2 py-1 text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground/70">
+                {group.label}
+              </p>
+              <div className="flex flex-col gap-0.5">
+                {group.chats.map((chat) => (
+                  <ChatRow
+                    key={chat.id}
+                    chat={chat}
+                    active={chat.id === activeId}
+                    onSelect={() => onSelect(chat)}
+                    onDelete={() => onDelete(chat.id)}
+                    onTogglePin={() => onTogglePin(chat.id)}
+                    onRename={(title) => onRename(chat.id, title)}
+                  />
+                ))}
               </div>
-            ))
-          )}
-        </div>
+            </div>
+          ))
+        )}
       </div>
 
       <div className="border-t p-2">
         <button
           onClick={onOpenSettings}
-          className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-xs text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+          className="flex h-9 w-full items-center gap-2 rounded-lg px-2.5 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
         >
           <Settings className="size-3.5" />
-          API Keys & Settings
+          Endpoint & settings
         </button>
       </div>
     </div>
   );
 }
 
-// ── Skeletons ──────────────────────────────────────────────────────────────
+function ChatRow({
+  chat,
+  active,
+  onSelect,
+  onDelete,
+  onTogglePin,
+  onRename,
+}: {
+  chat: AIChat;
+  active: boolean;
+  onSelect: () => void;
+  onDelete: () => void;
+  onTogglePin: () => void;
+  onRename: (title: string) => void;
+}): JSX.Element {
+  const [renaming, setRenaming] = useState(false);
+  const [draft, setDraft] = useState(chat.title);
 
-function SidebarSkeleton(): JSX.Element {
-  const widths = ["w-3/4", "w-1/2", "w-5/6", "w-2/3", "w-4/5"];
+  if (renaming) {
+    return (
+      <Input
+        autoFocus
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          if (draft.trim()) onRename(draft.trim());
+          setRenaming(false);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            if (draft.trim()) onRename(draft.trim());
+            setRenaming(false);
+          }
+          if (e.key === "Escape") {
+            setDraft(chat.title);
+            setRenaming(false);
+          }
+        }}
+        className="h-9 rounded-lg text-xs"
+      />
+    );
+  }
+
   return (
-    <div className="p-1 space-y-0.5">
-      {widths.map((w, i) => (
+    <div
+      className={cn(
+        "group flex h-9 shrink-0 items-center gap-1 rounded-lg px-2.5 transition-colors",
+        active ? "bg-primary/12" : "hover:bg-muted/60"
+      )}
+    >
+      <button
+        onClick={onSelect}
+        className="min-w-0 flex-1 truncate text-left text-xs"
+        title={chat.title}
+      >
+        {chat.pinned && (
+          <Pin className="mr-1.5 inline size-2.5 text-primary" />
+        )}
+        {chat.title}
+      </button>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+            aria-label="Chat actions"
+          >
+            <ChevronDown className="size-3" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="rounded-xl">
+          <DropdownMenuItem onClick={onTogglePin} className="gap-2 rounded-lg text-xs">
+            {chat.pinned ? (
+              <>
+                <PinOff className="size-3" /> Unpin
+              </>
+            ) : (
+              <>
+                <Pin className="size-3" /> Pin
+              </>
+            )}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => {
+              setDraft(chat.title);
+              setRenaming(true);
+            }}
+            className="gap-2 rounded-lg text-xs"
+          >
+            <Pencil className="size-3" /> Rename
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={onDelete}
+            className="gap-2 rounded-lg text-xs text-destructive focus:text-destructive"
+          >
+            <Trash2 className="size-3" /> Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
+// ── Empty and loading states ──────────────────────────────────────────────────
+
+function EmptyThread({
+  configured,
+  onNew,
+  onOpenSettings,
+}: {
+  configured: boolean;
+  onNew: () => void;
+  onOpenSettings: () => void;
+}): JSX.Element {
+  return (
+    <div className="flex flex-1 items-center justify-center p-6">
+      <div className="w-full max-w-md rounded-2xl border bg-card p-6 text-center shadow-xs">
+        <div className="mx-auto grid size-11 place-items-center rounded-xl bg-primary/12">
+          <Sparkles className="size-5 text-primary" />
+        </div>
+        <h2 className="mt-4 text-base font-semibold tracking-tight">
+          {configured ? "Ask about your focus" : "Connect an endpoint"}
+        </h2>
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          {configured
+            ? "The assistant can read your sessions, projects, and timer, and can act on them with your approval."
+            : "Add any OpenAI-compatible endpoint and key — Groq, OpenAI, OpenRouter, or your own Ollama."}
+        </p>
+        <Button
+          onClick={configured ? onNew : onOpenSettings}
+          className="mt-5 h-10 gap-2 rounded-xl"
+        >
+          {configured ? (
+            <>
+              <Plus className="size-3.5" /> New chat
+            </>
+          ) : (
+            <>
+              <Settings className="size-3.5" /> Open settings
+            </>
+          )}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ThreadSkeleton(): JSX.Element {
+  return (
+    <div className="mx-auto w-full max-w-3xl flex-1 space-y-6 p-6">
+      <Skeleton className="ml-auto h-16 w-2/3 rounded-2xl" />
+      <Skeleton className="h-28 w-full rounded-2xl" />
+      <Skeleton className="ml-auto h-12 w-1/2 rounded-2xl" />
+    </div>
+  );
+}
+
+// ── Thread ────────────────────────────────────────────────────────────────────
+
+interface PendingCall {
+  toolCallId: string;
+  toolName: string;
+  input: unknown;
+}
+
+function Thread({
+  chat,
+  initialMessages,
+  modelId,
+  onModelChange,
+  models,
+  baseUrl,
+  apiKey,
+  configured,
+  customPrompt,
+  contextInput,
+  onSaveContext,
+  onOpenSettings,
+}: {
+  chat: AIChat;
+  initialMessages: Message[];
+  modelId: string;
+  onModelChange: (id: string) => void;
+  models: { id: string; name: string }[];
+  baseUrl: string;
+  apiKey: string;
+  configured: boolean;
+  customPrompt: string;
+  contextInput: ContextInput;
+  onSaveContext: (id: string, sources: ContextSourceId[]) => void;
+  onOpenSettings: () => void;
+}): JSX.Element {
+  const { saveMessages, generateChatTitle, chats } = useAIChat();
+  const runTool = useAITools();
+
+  const [sources, setSources] = useState<ContextSourceId[]>(() => {
+    try {
+      const parsed = chat.contextSources ? JSON.parse(chat.contextSources) : null;
+      return Array.isArray(parsed) ? parsed : DEFAULT_CONTEXT;
+    } catch {
+      return DEFAULT_CONTEXT;
+    }
+  });
+  const [input, setInput] = useState("");
+  const [pending, setPending] = useState<PendingCall[]>([]);
+  const [editing, setEditing] = useState<{ id: string; text: string } | null>(
+    null
+  );
+
+  // Auto-continuation has to remember what it already resumed from. The SDK's
+  // stock predicate answers "does the last assistant message have finished tool
+  // calls", which stays true if a resubmit comes back without adding a message —
+  // and then fires again, and again. Tracking the message id makes each one
+  // resumable exactly once, and the counter stops a model that loops on tools.
+  const autoContinueRef = useRef<{ messageId: string | null; count: number }>({
+    messageId: null,
+    count: 0,
+  });
+
+  const shouldAutoContinue = useCallback(
+    ({ messages: current }: { messages: Message[] }) => {
+      const last = current[current.length - 1];
+      if (!last || last.role !== "assistant") return false;
+
+      const toolParts = (last.parts ?? []).filter((part) =>
+        part.type.startsWith("tool-")
+      ) as { state?: string }[];
+      if (toolParts.length === 0) return false;
+
+      const settled = toolParts.every(
+        (part) =>
+          part.state === "output-available" || part.state === "output-error"
+      );
+      if (!settled) return false;
+
+      const tracker = autoContinueRef.current;
+      if (tracker.messageId === last.id) return false;
+      if (tracker.count >= MAX_AUTO_CONTINUE) return false;
+
+      autoContinueRef.current = {
+        messageId: last.id,
+        count: tracker.count + 1,
+      };
+      return true;
+    },
+    []
+  );
+
+  const systemPrompt = useMemo(() => {
+    const context = buildContext(sources, contextInput);
+    return [customPrompt, context].filter(Boolean).join("\n\n") || undefined;
+  }, [customPrompt, sources, contextInput]);
+
+  // The transport reads the latest values on each send without rebuilding.
+  const bodyRef = useRef({ modelId, apiKey, baseUrl, systemPrompt });
+  useEffect(() => {
+    bodyRef.current = { modelId, apiKey, baseUrl, systemPrompt };
+  }, [modelId, apiKey, baseUrl, systemPrompt]);
+
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport({
+        api: "/api/chat",
+        body: () => bodyRef.current,
+      }),
+    []
+  );
+
+  const { messages, sendMessage, status, stop, regenerate, addToolResult, setMessages } =
+    useChat({
+      id: chat.id,
+      messages: initialMessages,
+      transport,
+      // A client-side tool result is only half a turn: once every call in the
+      // last assistant message has an output, the thread goes back to the model
+      // so it can answer with what the tools returned.
+      sendAutomaticallyWhen: shouldAutoContinue,
+      onError: (err) => toast.error(`AI error: ${err.message}`),
+      onToolCall: async ({ toolCall }) => {
+        // Writes wait for a person. Reads run straight away.
+        if (needsConfirmation(toolCall.toolName)) {
+          setPending((current) =>
+            current.some((c) => c.toolCallId === toolCall.toolCallId)
+              ? current
+              : [
+                  ...current,
+                  {
+                    toolCallId: toolCall.toolCallId,
+                    toolName: toolCall.toolName,
+                    input: toolCall.input,
+                  },
+                ]
+          );
+          return;
+        }
+        try {
+          const output = await runTool(toolCall.toolName, toolCall.input);
+          addToolResult({
+            tool: toolCall.toolName,
+            toolCallId: toolCall.toolCallId,
+            output,
+          });
+        } catch (err) {
+          addToolResult({
+            tool: toolCall.toolName,
+            toolCallId: toolCall.toolCallId,
+            state: "output-error",
+            errorText: err instanceof Error ? err.message : String(err),
+          });
+        }
+      },
+    });
+
+  const busy = status === "submitted" || status === "streaming";
+
+  // Debounced persistence to IndexedDB.
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      if (messages.length > 0) saveMessages(chat.id, messages);
+    }, 600);
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, [messages, chat.id, saveMessages]);
+
+  // Name the conversation once the first exchange lands.
+  const titledRef = useRef(false);
+  useEffect(() => {
+    if (titledRef.current || busy) return;
+    const current = chats.find((c) => c.id === chat.id);
+    if (!current || current.title !== "New Chat") {
+      titledRef.current = true;
+      return;
+    }
+    const firstUser = messages.find((m) => m.role === "user");
+    const firstReply = messages.find((m) => m.role === "assistant");
+    if (!firstUser || !firstReply) return;
+    titledRef.current = true;
+    generateChatTitle(
+      chat.id,
+      `User: ${messageText(firstUser)}\n\nAssistant: ${messageText(firstReply).slice(
+        0,
+        600
+      )}`
+    );
+  }, [messages, busy, chat.id, chats, generateChatTitle]);
+
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    scrollRef.current?.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: "smooth",
+    });
+  }, [messages.length, busy]);
+
+  const submit = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed || !configured) return;
+      autoContinueRef.current = { messageId: null, count: 0 };
+      sendMessage({ text: trimmed });
+      setInput("");
+    },
+    [sendMessage, configured]
+  );
+
+  const resolvePending = useCallback(
+    async (call: PendingCall, approved: boolean) => {
+      setPending((current) =>
+        current.filter((c) => c.toolCallId !== call.toolCallId)
+      );
+      autoContinueRef.current = { messageId: null, count: 0 };
+      if (!approved) {
+        addToolResult({
+          tool: call.toolName,
+          toolCallId: call.toolCallId,
+          output: DECLINED_RESULT,
+        });
+        return;
+      }
+      try {
+        const output = await runTool(call.toolName, call.input);
+        addToolResult({
+          tool: call.toolName,
+          toolCallId: call.toolCallId,
+          output,
+        });
+      } catch (err) {
+        addToolResult({
+          tool: call.toolName,
+          toolCallId: call.toolCallId,
+          state: "output-error",
+          errorText: err instanceof Error ? err.message : String(err),
+        });
+      }
+    },
+    [addToolResult, runTool]
+  );
+
+  /** Rewrite a past message and re-run the conversation from that point. */
+  const resend = useCallback(
+    (messageId: string, text: string) => {
+      const index = messages.findIndex((m) => m.id === messageId);
+      if (index === -1) return;
+      setMessages(messages.slice(0, index));
+      setEditing(null);
+      autoContinueRef.current = { messageId: null, count: 0 };
+      sendMessage({ text });
+    },
+    [messages, setMessages, sendMessage]
+  );
+
+  const contextTokens = useMemo(
+    () => estimateTokens(buildContext(sources, contextInput)),
+    [sources, contextInput]
+  );
+
+  const updateSources = useCallback(
+    (next: ContextSourceId[]) => {
+      setSources(next);
+      onSaveContext(chat.id, next);
+    },
+    [chat.id, onSaveContext]
+  );
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6">
+          {messages.length === 0 && (
+            <div className="flex flex-col items-center gap-4 py-10 text-center">
+              <p className="text-sm text-muted-foreground">
+                Ask anything, or start with one of these.
+              </p>
+              <div className="flex flex-wrap justify-center gap-1.5">
+                {QUICK_PROMPTS.map((quick) => (
+                  <button
+                    key={quick.label}
+                    onClick={() => submit(quick.prompt)}
+                    disabled={!configured}
+                    className="rounded-lg bg-muted/60 px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+                  >
+                    {quick.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {messages.map((message, index) =>
+            message.role === "user" ? (
+              <UserMessage
+                key={message.id}
+                message={message}
+                editing={editing?.id === message.id}
+                draft={editing?.text ?? ""}
+                onDraftChange={(text) =>
+                  setEditing({ id: message.id, text })
+                }
+                onStartEdit={() =>
+                  setEditing({ id: message.id, text: messageText(message) })
+                }
+                onCancelEdit={() => setEditing(null)}
+                onResend={(text) => resend(message.id, text)}
+              />
+            ) : (
+              <AssistantMessage
+                key={message.id}
+                message={message}
+                modelId={modelId}
+                pending={pending}
+                onResolve={resolvePending}
+                canRegenerate={!busy && index === messages.length - 1}
+                onRegenerate={() => {
+                  autoContinueRef.current = { messageId: null, count: 0 };
+                  regenerate();
+                }}
+              />
+            )
+          )}
+
+          {status === "submitted" && (
+            <div className="flex gap-3">
+              <AssistantAvatar />
+              <ThinkingDots />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Composer ── */}
+      <div className="shrink-0 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
+        <div className="mx-auto max-w-3xl">
+          {!configured ? (
+            <button
+              onClick={onOpenSettings}
+              className="flex w-full items-center gap-2.5 rounded-2xl border bg-muted/40 px-4 py-3.5 text-left text-sm transition-colors hover:bg-muted/60"
+            >
+              <AlertCircle className="size-4 shrink-0 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">
+                Add an endpoint and key in settings to start chatting.
+              </span>
+            </button>
+          ) : (
+            <div className="overflow-hidden rounded-2xl border bg-card shadow-xs focus-within:border-primary/40">
+              <Textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    submit(input);
+                  }
+                }}
+                placeholder="Ask about your focus, or tell it what to do…"
+                className="max-h-48 min-h-[52px] resize-none border-0 bg-transparent px-4 py-3.5 text-sm shadow-none focus-visible:ring-0"
+                rows={2}
+              />
+              <div className="flex items-center gap-1 border-t px-2 py-2">
+                <ContextPicker
+                  sources={sources}
+                  onChange={updateSources}
+                  tokens={contextTokens}
+                  contextInput={contextInput}
+                />
+                <ModelPicker
+                  models={models}
+                  value={modelId}
+                  onChange={onModelChange}
+                />
+                <div className="ml-auto">
+                  {busy ? (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={stop}
+                      className="size-9 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      title="Stop generating"
+                      aria-label="Stop generating"
+                    >
+                      <Square className="size-3.5" />
+                    </Button>
+                  ) : (
+                    <Button
+                      size="icon"
+                      onClick={() => submit(input)}
+                      disabled={!input.trim()}
+                      className="size-9 rounded-lg"
+                      title="Send message"
+                      aria-label="Send message"
+                    >
+                      <Send className="size-3.5" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Messages ──────────────────────────────────────────────────────────────────
+
+/** Flatten a message's text parts. */
+function messageText(message: Message): string {
+  return (message.parts ?? [])
+    .filter((p): p is { type: "text"; text: string } => p.type === "text")
+    .map((p) => p.text)
+    .join("\n")
+    .trim();
+}
+
+function AssistantAvatar(): JSX.Element {
+  return (
+    <div className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-primary/12">
+      <Bot className="size-3.5 text-primary" />
+    </div>
+  );
+}
+
+function UserMessage({
+  message,
+  editing,
+  draft,
+  onDraftChange,
+  onStartEdit,
+  onCancelEdit,
+  onResend,
+}: {
+  message: Message;
+  editing: boolean;
+  draft: string;
+  onDraftChange: (text: string) => void;
+  onStartEdit: () => void;
+  onCancelEdit: () => void;
+  onResend: (text: string) => void;
+}): JSX.Element {
+  const text = messageText(message);
+
+  if (editing) {
+    return (
+      <div className="flex flex-col gap-2 rounded-2xl border bg-card p-3">
+        <Textarea
+          autoFocus
+          value={draft}
+          onChange={(e) => onDraftChange(e.target.value)}
+          className="min-h-20 resize-none rounded-xl text-sm"
+        />
+        <div className="flex justify-end gap-1.5">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onCancelEdit}
+            className="h-8 rounded-lg text-xs"
+          >
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => draft.trim() && onResend(draft.trim())}
+            className="h-8 rounded-lg text-xs"
+          >
+            Send again
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="group flex flex-col items-end gap-1">
+      <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-primary/12 px-4 py-2.5 text-sm">
+        {text}
+      </div>
+      <div className="flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+        <CopyButton text={text} />
+        <MessageAction onClick={onStartEdit} label="Edit and resend">
+          <Pencil className="size-3" />
+        </MessageAction>
+      </div>
+    </div>
+  );
+}
+
+function AssistantMessage({
+  message,
+  modelId,
+  pending,
+  onResolve,
+  canRegenerate,
+  onRegenerate,
+}: {
+  message: Message;
+  modelId: string;
+  pending: PendingCall[];
+  onResolve: (call: PendingCall, approved: boolean) => void;
+  canRegenerate: boolean;
+  onRegenerate: () => void;
+}): JSX.Element {
+  const text = messageText(message);
+
+  return (
+    <div className="group flex gap-3">
+      <AssistantAvatar />
+      <div className="min-w-0 flex-1">
+        {/* Tool activity, in the order the model ran it */}
+        <div className="mb-2 flex flex-col gap-1.5 empty:mb-0">
+          {(message.parts ?? []).map((part, index) => {
+            if (!part.type.startsWith("tool-")) return null;
+            const toolPart = part as {
+              type: string;
+              toolCallId: string;
+              state?: string;
+              input?: unknown;
+            };
+            const toolName = toolPart.type.slice(5);
+            const waiting = pending.find(
+              (p) => p.toolCallId === toolPart.toolCallId
+            );
+
+            if (waiting) {
+              return (
+                <ConfirmCard
+                  key={toolPart.toolCallId ?? index}
+                  call={waiting}
+                  onResolve={onResolve}
+                />
+              );
+            }
+
+            return (
+              <ToolChip
+                key={toolPart.toolCallId ?? index}
+                name={toolName}
+                done={toolPart.state === "output-available"}
+                failed={toolPart.state === "output-error"}
+              />
+            );
+          })}
+        </div>
+
+        {text && <MarkdownText text={text} />}
+
+        <div className="mt-1.5 flex items-center gap-1.5 opacity-0 transition-opacity group-hover:opacity-100">
+          <CopyButton text={text} />
+          {canRegenerate && (
+            <MessageAction onClick={onRegenerate} label="Regenerate reply">
+              <RefreshCw className="size-3" />
+            </MessageAction>
+          )}
+          <span className="ml-1 font-mono text-[10px] text-muted-foreground/60">
+            {modelId}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MessageAction({
+  onClick,
+  label,
+  children,
+}: {
+  onClick: () => void;
+  label: string;
+  children: ReactNode;
+}): JSX.Element {
+  return (
+    <button
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+    >
+      {children}
+    </button>
+  );
+}
+
+function CopyButton({ text }: { text: string }): JSX.Element {
+  const [copied, setCopied] = useState(false);
+  return (
+    <MessageAction
+      label={copied ? "Copied" : "Copy"}
+      onClick={() => {
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+    >
+      {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+    </MessageAction>
+  );
+}
+
+function ToolChip({
+  name,
+  done,
+  failed,
+}: {
+  name: string;
+  done: boolean;
+  failed: boolean;
+}): JSX.Element {
+  return (
+    <span
+      className={cn(
+        "inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px]",
+        failed
+          ? "bg-destructive/12 text-destructive"
+          : "bg-muted/60 text-muted-foreground"
+      )}
+    >
+      {failed ? (
+        <X className="size-2.5" />
+      ) : done ? (
+        <Database className="size-2.5" />
+      ) : (
+        <Loader2 className="size-2.5 animate-spin" />
+      )}
+      {TOOL_LABELS[name] ?? name}
+    </span>
+  );
+}
+
+function ConfirmCard({
+  call,
+  onResolve,
+}: {
+  call: PendingCall;
+  onResolve: (call: PendingCall, approved: boolean) => void;
+}): JSX.Element {
+  return (
+    <div className="rounded-xl border border-primary/30 bg-primary/[0.06] p-3">
+      <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-primary">
+        Needs your approval
+      </p>
+      <p className="mt-1.5 whitespace-pre-wrap text-sm">
+        {describeToolCall(call.toolName, call.input)}
+      </p>
+      <div className="mt-3 flex gap-1.5">
+        <Button
+          size="sm"
+          onClick={() => onResolve(call, true)}
+          className="h-8 rounded-lg text-xs"
+        >
+          Approve
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => onResolve(call, false)}
+          className="h-8 rounded-lg text-xs"
+        >
+          Dismiss
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ThinkingDots(): JSX.Element {
+  return (
+    <div className="mt-2 flex h-4 items-center gap-1">
+      {[0, 1, 2].map((i) => (
         <div
           key={i}
-          className="flex items-center gap-2 px-2.5 py-2 rounded-md mx-0.5"
-          style={{ animationDelay: `${i * 60}ms` }}
-        >
-          <div className="size-3 rounded-sm bg-muted-foreground/15 animate-pulse shrink-0" />
-          <div
-            className={`h-2.5 rounded-full bg-muted-foreground/15 animate-pulse ${w}`}
-            style={{ animationDelay: `${i * 60}ms` }}
-          />
-        </div>
+          className="size-1.5 rounded-full bg-primary/40 motion-safe:animate-bounce"
+          style={{ animationDelay: `${i * 150}ms`, animationDuration: "0.8s" }}
+        />
       ))}
     </div>
   );
 }
 
-function ChatLoadingSkeleton(): JSX.Element {
-  const messages = [
-    { role: "user", lines: ["w-48", "w-36"] },
-    { role: "assistant", lines: ["w-64", "w-52", "w-40"] },
-    { role: "user", lines: ["w-32"] },
-    { role: "assistant", lines: ["w-56", "w-44", "w-60", "w-28"] },
-  ] as const;
+// ── Composer controls ─────────────────────────────────────────────────────────
+
+function ContextPicker({
+  sources,
+  onChange,
+  tokens,
+  contextInput,
+}: {
+  sources: ContextSourceId[];
+  onChange: (next: ContextSourceId[]) => void;
+  tokens: number;
+  contextInput: ContextInput;
+}): JSX.Element {
+  const toggle = (id: ContextSourceId) =>
+    onChange(
+      sources.includes(id) ? sources.filter((s) => s !== id) : [...sources, id]
+    );
 
   return (
-    <div className="flex-1 overflow-hidden">
-      <div className="mx-auto max-w-3xl space-y-5 px-3 py-4 sm:space-y-6 sm:px-4 sm:py-6">
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-            style={{ animation: `fadeIn 0.4s ease both`, animationDelay: `${i * 80}ms` }}
-          >
-            {msg.role === "assistant" && (
-              <div className="size-7 rounded-full bg-muted/50 animate-pulse shrink-0 mt-0.5" />
-            )}
-            <div className={`space-y-2 ${msg.role === "user" ? "items-end" : "items-start"} flex flex-col`}>
-              <div
-                className={`max-w-full rounded-2xl px-3 py-2.5 space-y-2 animate-pulse sm:px-4 sm:py-3 ${
-                  msg.role === "user"
-                    ? "bg-primary/[0.06] border border-primary/[0.10] rounded-tr-sm"
-                    : "bg-muted/40 rounded-tl-sm"
-                }`}
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          className={cn(
+            "flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors",
+            sources.length
+              ? "bg-primary/12 text-primary hover:bg-primary/20"
+              : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+          )}
+          title="Choose what data is attached"
+        >
+          <Sparkles className="size-3" />
+          Context
+          {sources.length > 0 && (
+            <span className="font-mono font-normal opacity-70">
+              ~{tokens}t
+            </span>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-72 rounded-xl p-2">
+        <p className="px-1.5 py-1 text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
+          Attached to this chat
+        </p>
+        <div className="flex flex-col gap-0.5">
+          {CONTEXT_SOURCES.map((source) => {
+            const active = sources.includes(source.id);
+            const block = buildContextBlock(source.id, contextInput);
+            const cost = block ? estimateTokens(block) : 0;
+            return (
+              <button
+                key={source.id}
+                onClick={() => toggle(source.id)}
+                disabled={!block}
+                className={cn(
+                  "flex shrink-0 items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors disabled:opacity-40",
+                  active ? "bg-primary/12" : "hover:bg-muted/60"
+                )}
               >
-                {msg.lines.map((w, j) => (
-                  <div
-                    key={j}
-                    className={`h-2.5 rounded-full bg-muted-foreground/20 ${w}`}
-                    style={{ animationDelay: `${i * 80 + j * 40}ms` }}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-        ))}
-        {/* active pulse dot at end */}
-        <div className="flex justify-start gap-3">
-          <div className="size-7 rounded-full bg-muted/50 animate-pulse shrink-0 mt-0.5" />
-          <div className="flex items-center gap-1 mt-2">
-            {[0, 1, 2].map((i) => (
-              <div
-                key={i}
-                className="size-1.5 rounded-full bg-primary/30 animate-bounce"
-                style={{ animationDelay: `${i * 150}ms`, animationDuration: "0.8s" }}
-              />
-            ))}
-          </div>
+                <span
+                  className={cn(
+                    "grid size-4 shrink-0 place-items-center rounded border",
+                    active
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border"
+                  )}
+                >
+                  {active && <Check className="size-2.5" />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs font-medium">
+                    {source.label}
+                  </span>
+                  <span className="block text-[11px] text-muted-foreground">
+                    {block ? source.description : "Nothing recorded yet"}
+                  </span>
+                </span>
+                {block && (
+                  <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+                    ~{cost}t
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
-      </div>
-      <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }`}</style>
-    </div>
+        <p className="mt-1.5 border-t px-1.5 pt-2 text-[11px] leading-relaxed text-muted-foreground">
+          Anything not attached can still be fetched by the assistant with a tool
+          when it needs it.
+        </p>
+      </PopoverContent>
+    </Popover>
   );
 }
 
-
-function CompactModelSelector({
+function ModelPicker({
+  models,
   value,
   onChange,
 }: {
+  models: { id: string; name: string }[];
   value: string;
-  onChange: (v: string) => void;
+  onChange: (id: string) => void;
 }): JSX.Element {
-  const grouped = AI_MODELS.reduce(
-    (acc, m) => {
-      const key = modelProvider(m);
-      (acc[key] ??= []).push(m);
-      return acc;
-    },
-    {} as Record<AIProvider, AIModel[]>
-  );
-  const selectedName = AI_MODELS.find((m) => m.id === value)?.name ?? value;
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+
+  const filtered = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    return term
+      ? models.filter(
+          (m) =>
+            m.id.toLowerCase().includes(term) ||
+            m.name.toLowerCase().includes(term)
+        )
+      : models;
+  }, [models, query]);
 
   return (
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="h-7 gap-1 text-xs border-0 bg-transparent hover:bg-muted px-2.5 rounded-lg focus:ring-0 focus:ring-offset-0 w-auto min-w-0 text-muted-foreground hover:text-foreground transition-colors">
-        <span className="max-w-[76px] truncate min-[380px]:max-w-[100px] sm:max-w-[120px]">
-          {selectedName}
-        </span>
-      </SelectTrigger>
-      <SelectContent className="text-xs">
-        {(Object.entries(grouped) as [AIProvider, AIModel[]][]).map(
-          ([provider, models]) => (
-            <SelectGroup key={provider}>
-              <SelectLabel className="text-xs text-muted-foreground/70 uppercase tracking-wide">
-                {PROVIDER_LABELS[provider]}
-              </SelectLabel>
-              {models.map((m) => (
-                <SelectItem key={m.id} value={m.id} className="text-xs">
-                  {m.name}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          )
-        )}
-      </SelectContent>
-    </Select>
-  );
-}
-
-// ── Empty state ────────────────────────────────────────────────────────────
-
-function EmptyState({
-  onNewChat,
-  noApiKey,
-  onOpenSettings,
-  selectedModel,
-}: {
-  onNewChat: () => void;
-  noApiKey: boolean;
-  onOpenSettings: () => void;
-  selectedModel: AIModel;
-}): JSX.Element {
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-5 px-5 py-8 text-center sm:px-8">
-      <div className="size-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-        <Bot className="size-7 text-primary/70" />
-      </div>
-      <div className="space-y-1.5 max-w-sm">
-        <h2 className="text-base font-semibold text-foreground">BIT Focus AI</h2>
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          Bring your own API key. Your data stays local — all chats saved in
-          your browser.
-        </p>
-      </div>
-
-      {noApiKey ? (
-        <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">
-            Add a {PROVIDER_LABELS[modelProvider(selectedModel)]} API key to start
-            chatting.
-          </p>
-          <Button onClick={onOpenSettings} size="sm" className="gap-2">
-            <Settings className="size-3.5" />
-            Add API Key
-          </Button>
-        </div>
-      ) : (
-        <Button onClick={onNewChat} size="sm" className="gap-2">
-          <Plus className="size-3.5" />
-          New Conversation
-        </Button>
-      )}
-    </div>
-  );
-}
-
-// ── Chat thread ────────────────────────────────────────────────────────────
-
-interface ChatThreadProps {
-  chatId: string;
-  initialMessages: Message[];
-  modelId: string;
-  onModelChange: (v: string) => void;
-  provider: AIProvider;
-  apiKey: string;
-  systemPrompt?: string;
-  disabled?: boolean;
-  customContextEnabled: boolean;
-  onToggleContext: () => void;
-  contextTokenLabel: string | null;
-}
-
-function ChatThread({
-  chatId,
-  initialMessages,
-  modelId,
-  onModelChange,
-  provider,
-  apiKey,
-  systemPrompt,
-  disabled,
-  customContextEnabled,
-  onToggleContext,
-  contextTokenLabel,
-}: ChatThreadProps): JSX.Element {
-  const { saveMessages, updateChatTitle, chats } = useAIChat();
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const titleUpdatedRef = useRef(false);
-
-  console.warn("ChatThread props", { chatId, modelId, provider, systemPrompt, disabled, apiKey });
-  const bodyRef = useRef({ modelId, apiKey, provider, systemPrompt });
-  useEffect(() => {
-    bodyRef.current = { modelId, apiKey, provider, systemPrompt };
-  }, [modelId, apiKey, provider, systemPrompt]);
-
-  const transport = useMemo(() => {
-    return new DefaultChatTransport({
-      api: "/api/chat",
-      body: () => bodyRef.current, // Resolvable<object> strictly evaluated, must be sync
-    });
-  }, []);
-
-  const chat = useChat({
-    id: chatId,
-    messages: initialMessages,
-    transport,
-    onError: (err) => {
-      toast.error(`AI error: ${err.message}`);
-    },
-  });
-
-  const runtime = useAISDKRuntime(chat);
-
-  // Debounced save to IndexedDB
-  useEffect(() => {
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => {
-      if (chat.messages.length > 0) {
-        saveMessages(chatId, chat.messages);
-      }
-    }, 600);
-    return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    };
-  }, [chat.messages, chatId, saveMessages]);
-
-  // Update title from first user message
-  useEffect(() => {
-    if (titleUpdatedRef.current) return;
-    const current = chats.find((c) => c.id === chatId);
-    if (!current || current.title !== "New Chat") {
-      titleUpdatedRef.current = true;
-      return;
-    }
-    const firstUser = chat.messages.find((m) => m.role === "user");
-    if (firstUser) {
-      const textPart = firstUser.parts?.find((p) => p.type === "text") as { type: "text", text: string } | undefined;
-      const rawContent = textPart?.text || "";
-      const title = rawContent.slice(0, 60) || "New Chat";
-      updateChatTitle(chatId, title);
-      titleUpdatedRef.current = true;
-    }
-  }, [chat.messages, chatId, chats, updateChatTitle]);
-
-  return (
-    <AssistantRuntimeProvider runtime={runtime}>
-      <ThreadUI
-        disabled={disabled}
-        modelId={modelId}
-        onModelChange={onModelChange}
-        customContextEnabled={customContextEnabled}
-        onToggleContext={onToggleContext}
-        contextTokenLabel={contextTokenLabel}
-      />
-    </AssistantRuntimeProvider>
-  );
-}
-
-// ── Thread UI (assistant-ui primitives) ───────────────────────────────────
-
-interface ThreadUIProps {
-  disabled?: boolean;
-  modelId: string;
-  onModelChange: (v: string) => void;
-  customContextEnabled: boolean;
-  onToggleContext: () => void;
-  contextTokenLabel: string | null;
-}
-
-function ThreadUI({ disabled, modelId, onModelChange, customContextEnabled, onToggleContext, contextTokenLabel }: ThreadUIProps): JSX.Element {
-  return (
-    <ThreadPrimitive.Root className="flex h-full min-h-0 flex-col overflow-hidden">
-      <ThreadPrimitive.Viewport className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-3xl px-3 py-4 sm:px-4 sm:py-6">
-          <ThreadPrimitive.Empty>
-            <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 text-center sm:min-h-96">
-              <Sparkles className="size-8 text-muted-foreground/40" />
-              <p className="text-sm text-muted-foreground">
-                Type a message to begin.
-              </p>
-            </div>
-          </ThreadPrimitive.Empty>
-
-          <ThreadPrimitive.Messages
-            components={{
-              UserMessage: UserMessage,
-              AssistantMessage: AssistantMessage,
-            }}
-          />
-          <ThreadPrimitive.If running>
-            <div className="flex justify-start mb-6">
-              <div className="flex min-w-0 max-w-full gap-2 sm:max-w-[85%] sm:gap-3">
-                <div className="size-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 mt-0.5">
-                  <Bot className="size-3.5 text-primary/70" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <ThinkingDots />
-                </div>
-              </div>
-            </div>
-          </ThreadPrimitive.If>
-        </div>
-      </ThreadPrimitive.Viewport>
-
-      {/* Composer */}
-      <div className="p-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4 sm:pb-5">
-        <div className="max-w-3xl mx-auto">
-          {disabled ? (
-            <div className="flex items-center gap-2.5 rounded-2xl border border-border/60 bg-muted/20 px-3 py-3 text-sm text-muted-foreground sm:px-4 sm:py-3.5">
-              <AlertCircle className="size-4 shrink-0" />
-              <span className="text-xs">Add an API key in settings to start chatting.</span>
-            </div>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className="flex h-9 min-w-0 items-center gap-1.5 rounded-lg px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+          title="Model for this chat"
+        >
+          <span className="max-w-40 truncate font-mono">{value}</span>
+          <ChevronDown className="size-2.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-72 rounded-xl p-2">
+        <Input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search models"
+          className="mb-1.5 h-8 rounded-lg text-xs"
+        />
+        <div className="flex max-h-64 flex-col gap-0.5 overflow-y-auto">
+          {filtered.length === 0 ? (
+            <p className="px-2 py-3 text-center text-xs text-muted-foreground">
+              No models match. Fetch the list in settings.
+            </p>
           ) : (
-            <ComposerPrimitive.Root className="rounded-2xl border border-border/60 bg-card/40 backdrop-blur-sm shadow-sm overflow-hidden focus-within:border-border focus-within:bg-card/80 transition-all duration-200">
-              {/* Input area */}
-              <ComposerPrimitive.Input
-                className="block min-h-[48px] max-h-48 w-full resize-none bg-transparent px-3 pt-3 pb-2 text-sm leading-relaxed outline-none placeholder:text-muted-foreground/50 sm:min-h-[52px] sm:px-4 sm:pt-3.5"
-                placeholder="Message AI…"
-                rows={2}
-              />
-              {/* Bottom toolbar */}
-              <div className="flex items-center gap-1.5 border-t border-border/30 px-2 py-2 sm:gap-2 sm:px-3">
-                {/* Context toggle pill */}
-                <button
-                  type="button"
-                  onClick={onToggleContext}
-                  className={cn(
-                    "flex min-w-0 items-center gap-1.5 rounded-lg border px-2 py-1 text-xs font-medium transition-all duration-150 sm:px-2.5",
-                    customContextEnabled
-                      ? "bg-primary/10 text-primary border-primary/25 hover:bg-primary/15"
-                      : "text-muted-foreground border-transparent hover:bg-muted hover:text-foreground"
-                  )}
-                  title="Toggle focus context"
-                >
-                  <Sparkles className="size-3" />
-                  Context
-                  {customContextEnabled && contextTokenLabel && (
-                    <span className="hidden font-normal opacity-70 sm:inline">{contextTokenLabel}</span>
-                  )}
-                </button>
-
-                <div className="ml-auto flex items-center gap-1">
-                  {/* Inline model selector */}
-                  <CompactModelSelector value={modelId} onChange={onModelChange} />
-
-                  {/* Stop */}
-                  <ComposerPrimitive.Cancel asChild>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="size-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg"
-                    >
-                      <StopCircle className="size-3.5" />
-                    </Button>
-                  </ComposerPrimitive.Cancel>
-
-                  {/* Send */}
-                  <ComposerPrimitive.Send asChild>
-                    <Button size="icon" className="size-7 rounded-lg">
-                      <Send className="size-3.5" />
-                    </Button>
-                  </ComposerPrimitive.Send>
-                </div>
-              </div>
-            </ComposerPrimitive.Root>
+            filtered.map((model) => (
+              <button
+                key={model.id}
+                onClick={() => {
+                  onChange(model.id);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "shrink-0 truncate rounded-lg px-2 py-2 text-left font-mono text-xs leading-5 transition-colors",
+                  model.id === value
+                    ? "bg-primary/12 text-foreground"
+                    : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                )}
+              >
+                {model.id}
+              </button>
+            ))
           )}
         </div>
-      </div>
-    </ThreadPrimitive.Root>
+      </PopoverContent>
+    </Popover>
   );
 }
 
-// ── Message components ─────────────────────────────────────────────────────
-
-function UserMessage(): JSX.Element {
-  return (
-    <MessagePrimitive.Root className="group mb-5 flex justify-end sm:mb-6">
-      <div className="min-w-0 max-w-[88%] sm:max-w-[70%]">
-        <div className="rounded-2xl rounded-tr-sm border border-primary/[0.12] bg-primary/[0.08] px-3 py-2.5 text-sm leading-relaxed [overflow-wrap:anywhere] sm:px-4 sm:py-3">
-          <MessagePrimitive.Content />
-        </div>
-      </div>
-    </MessagePrimitive.Root>
-  );
-}
-
-function AssistantMessage(): JSX.Element {
-  return (
-    <MessagePrimitive.Root className="group mb-5 flex justify-start sm:mb-6">
-      <div className="flex min-w-0 max-w-full gap-2 sm:max-w-[85%] sm:gap-3">
-        <div className="size-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 mt-0.5">
-          <Bot className="size-3.5 text-primary/70" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="prose-message text-sm leading-relaxed [overflow-wrap:anywhere]">
-            <MessagePrimitive.Content
-              components={{ Text: MarkdownText }}
-            />
-          </div>
-        </div>
-      </div>
-    </MessagePrimitive.Root>
-  );
-}
+// ── Markdown ──────────────────────────────────────────────────────────────────
 
 function MarkdownText({ text }: { text: string }): JSX.Element {
   return (
     <div
       className={cn(
-        "prose prose-sm dark:prose-invert max-w-none text-foreground/75 prose-p:text-foreground/75 prose-li:text-foreground/75",
-        // spacing
+        "prose prose-sm dark:prose-invert max-w-none text-foreground/80 prose-p:text-foreground/80 prose-li:text-foreground/80",
         "[&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
         "prose-p:leading-relaxed prose-p:my-2",
         "prose-li:my-0.5 prose-ul:my-2 prose-ol:my-2",
-        // headings
         "prose-headings:font-semibold prose-headings:text-foreground prose-headings:mt-4 prose-headings:mb-1.5",
-        // links
         "prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-a:font-normal",
-        // strong / em
         "prose-strong:font-semibold prose-strong:text-foreground",
-        // blockquote
         "prose-blockquote:border-l-2 prose-blockquote:border-primary/30 prose-blockquote:text-muted-foreground prose-blockquote:not-italic prose-blockquote:pl-3",
-        // inline code
-        "prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-[0.8em] prose-code:font-mono prose-code:text-foreground",
         "prose-code:before:content-none prose-code:after:content-none",
-        // code block
-        "prose-pre:bg-muted/60 prose-pre:border prose-pre:border-border/60 prose-pre:rounded-lg prose-pre:text-xs",
-        "prose-pre:overflow-x-auto",
-        // table
         "prose-table:text-xs prose-th:font-semibold prose-th:text-foreground",
         "prose-table:block prose-table:max-w-full prose-table:overflow-x-auto",
         "prose-thead:border-b prose-thead:border-border",
         "prose-tr:border-b prose-tr:border-border/50",
         "prose-td:py-1.5 prose-th:py-1.5",
-        // hr
-        "prose-hr:border-border/50",
+        "prose-hr:border-border/50"
       )}
     >
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          // Prevent wrapping lone inline elements in <p> when already in a block
-          // Override pre+code to avoid double-nested font scaling
           pre: ({ children }) => (
-            <pre className="bg-muted/60 border border-border/60 rounded-lg p-3 text-xs overflow-x-auto my-3 font-mono leading-relaxed">
+            <pre className="my-3 overflow-x-auto rounded-xl border bg-muted/60 p-3 font-mono text-xs leading-relaxed">
               {children}
             </pre>
           ),
           code: ({ className, children, ...props }) => {
-            const isBlock = !!className;
-            if (isBlock) {
+            if (className) {
               return (
                 <code className={cn("text-foreground/90", className)} {...props}>
                   {children}
@@ -1041,12 +1547,14 @@ function MarkdownText({ text }: { text: string }): JSX.Element {
               );
             }
             return (
-              <code className="bg-muted px-1.5 py-0.5 rounded text-[0.8em] font-mono text-foreground" {...props}>
+              <code
+                className="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.8em] text-foreground"
+                {...props}
+              >
                 {children}
               </code>
             );
           },
-          // Task list checkboxes
           input: ({ checked }) => (
             <input
               type="checkbox"
@@ -1063,156 +1571,171 @@ function MarkdownText({ text }: { text: string }): JSX.Element {
   );
 }
 
-function ThinkingDots(): JSX.Element {
-  return (
-    <div className="flex items-center gap-1 mt-2 h-4">
-      {[0, 1, 2].map((i) => (
-        <div
-          key={i}
-          className="size-1.5 rounded-full bg-primary/40 animate-bounce"
-          style={{ animationDelay: `${i * 150}ms`, animationDuration: "0.8s" }}
-        />
-      ))}
-    </div>
-  );
-}
-
-// ── Settings Dialog ────────────────────────────────────────────────────────
+// ── Settings ──────────────────────────────────────────────────────────────────
 
 function SettingsDialog({
   open,
   onClose,
-  focusSessions,
+  contextInput,
 }: {
   open: boolean;
   onClose: () => void;
-  focusSessions: FocusSession[];
+  contextInput: ContextInput;
 }): JSX.Element {
-  const { aiConfig, saveAIConfig } = useAIChat();
-  const { name: configName, dob: configDob } = useConfig();
-  const { rewardPoints: configPoints } = useRewards();
-  const { state: configTimerState } = usePomo();
-  const [groqKey, setGroqKey] = useState("");
-  const [googleKey, setGoogleKey] = useState("");
-  const [showGroq, setShowGroq] = useState(false);
-  const [showGoogle, setShowGoogle] = useState(false);
-  const [customContextEnabled, setCustomContextEnabled] = useState(false);
-  const [customPrompt, setCustomPrompt] = useState("");
+  const {
+    aiConfig,
+    saveAIConfig,
+    models,
+    fetchModels,
+    fetchingModels,
+    modelFetchError,
+  } = useAIChat();
+
+  const [baseUrl, setBaseUrl] = useState(DEFAULT_BASE_URL);
+  const [apiKey, setApiKey] = useState("");
+  const [showKey, setShowKey] = useState(false);
   const [defaultModelId, setDefaultModelId] = useState(DEFAULT_MODEL_ID);
+  const [customPrompt, setCustomPrompt] = useState("");
+  const [contextEnabled, setContextEnabled] = useState(false);
+  const [modelQuery, setModelQuery] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (aiConfig && open) {
-      setGroqKey(aiConfig.groqApiKey || "");
-      setGoogleKey(aiConfig.googleApiKey || "");
-      setCustomContextEnabled(aiConfig.customContextEnabled || false);
-      setCustomPrompt(aiConfig.customPrompt || "");
-      setDefaultModelId(aiConfig.defaultModelId || DEFAULT_MODEL_ID);
-    }
+    if (!open || !aiConfig) return;
+    setBaseUrl(aiConfig.baseUrl || DEFAULT_BASE_URL);
+    setApiKey(
+      aiConfig.apiKey || aiConfig.groqApiKey || aiConfig.googleApiKey || ""
+    );
+    setDefaultModelId(aiConfig.defaultModelId || DEFAULT_MODEL_ID);
+    setCustomPrompt(aiConfig.customPrompt || "");
+    setContextEnabled(aiConfig.customContextEnabled || false);
   }, [aiConfig, open]);
+
+  const preset = findPresetForUrl(baseUrl);
+  const keyOptional = isLocalEndpoint(baseUrl);
+
+  const applyPreset = (id: string) => {
+    const found = ENDPOINT_PRESETS.find((p) => p.id === id);
+    if (!found) return;
+    setBaseUrl(found.baseUrl);
+    if (found.defaultModel) setDefaultModelId(found.defaultModel);
+  };
+
+  const handleFetch = async () => {
+    const list = await fetchModels(baseUrl, apiKey);
+    if (list.length > 0) {
+      toast.success(`Found ${list.length} models`);
+      if (!list.some((m) => m.id === defaultModelId)) {
+        setDefaultModelId(list[0].id);
+      }
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
     try {
       await saveAIConfig({
-        groqApiKey: groqKey,
-        googleApiKey: googleKey,
-        customContextEnabled,
-        customPrompt,
+        baseUrl: baseUrl.trim(),
+        apiKey: apiKey.trim(),
         defaultModelId,
+        customPrompt,
+        customContextEnabled: contextEnabled,
       });
       toast.success("Settings saved");
       onClose();
     } catch {
-      toast.error("Failed to save settings");
+      toast.error("Could not save settings");
     } finally {
       setSaving(false);
     }
   };
 
-  const focusPreview = buildFocusContext(focusSessions, configPoints, configName, configDob, {
-    mode: configTimerState.mode,
-    isRunning: configTimerState.isRunning,
-    phase: configTimerState.phase,
-    elapsedSeconds: configTimerState.elapsedSeconds,
-    pomodoroSettings: configTimerState.pomodoroSettings,
-    currentTag: configTimerState.data?.tag || "",
-  });
+  const filteredModels = useMemo(() => {
+    const term = modelQuery.trim().toLowerCase();
+    return term
+      ? models.filter((m) => m.id.toLowerCase().includes(term))
+      : models;
+  }, [models, modelQuery]);
+
+  const contextPreview = useMemo(
+    () => buildContext(DEFAULT_CONTEXT, contextInput),
+    [contextInput]
+  );
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-h-[calc(100dvh-1rem)] max-w-[calc(100%-1rem)] gap-3 overflow-y-auto p-4 sm:max-h-[90vh] sm:max-w-lg sm:gap-4 sm:p-6">
-        <DialogHeader>
-          <DialogTitle className="text-base">AI Settings</DialogTitle>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] gap-0 overflow-y-auto rounded-2xl p-0 sm:max-w-lg">
+        <DialogHeader className="border-b px-5 py-4">
+          <DialogTitle className="text-base">AI settings</DialogTitle>
           <DialogDescription className="text-xs">
-            Keys stored locally in your browser (IndexedDB). Never sent to our servers.
+            Any OpenAI-compatible endpoint. Keys stay in this browser and are sent
+            only with your own requests.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-5 pt-1">
-          {/* Default model */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium">Default Model</Label>
-            <Select value={defaultModelId} onValueChange={setDefaultModelId}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(
-                  Object.entries(
-                    AI_MODELS.reduce(
-                      (acc, m) => {
-                        const key = modelProvider(m);
-                        (acc[key] ??= []).push(m);
-                        return acc;
-                      },
-                      {} as Record<AIProvider, AIModel[]>
-                    )
-                  ) as [AIProvider, AIModel[]][]
-                ).map(([provider, models]) => (
-                  <SelectGroup key={provider}>
-                    <SelectLabel className="text-xs text-muted-foreground/70 uppercase tracking-wide">
-                      {PROVIDER_LABELS[provider]}
-                    </SelectLabel>
-                    {models.map((m) => (
-                      <SelectItem key={m.id} value={m.id} className="text-xs">
-                        {m.name}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="flex flex-col gap-5 p-5">
+          {/* ── Endpoint ── */}
+          <section className="flex flex-col gap-2.5">
+            <Label className="text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
+              Endpoint
+            </Label>
 
-          <Separator />
+            <div className="flex flex-wrap gap-1.5">
+              {ENDPOINT_PRESETS.map((option) => (
+                <button
+                  key={option.id}
+                  onClick={() => applyPreset(option.id)}
+                  title={option.description}
+                  className={cn(
+                    "rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors",
+                    preset?.id === option.id
+                      ? "bg-primary/12 text-primary"
+                      : "bg-muted/60 text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
 
-          {/* API Keys */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-semibold text-foreground/80 uppercase tracking-wide">
-              API Keys
-            </h3>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="base-url" className="text-xs">
+                Base URL
+              </Label>
+              <Input
+                id="base-url"
+                value={baseUrl}
+                onChange={(e) => setBaseUrl(e.target.value)}
+                placeholder="https://api.example.com/v1"
+                className="h-9 rounded-lg font-mono text-xs"
+              />
+            </div>
 
-            {/* Groq */}
-            <div className="space-y-1.5">
-              <Label htmlFor="groq-key" className="text-xs">
-                Groq API Key
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="api-key" className="text-xs">
+                API key
+                {keyOptional && (
+                  <span className="ml-1 font-normal text-muted-foreground">
+                    (optional for local endpoints)
+                  </span>
+                )}
               </Label>
               <div className="relative">
                 <Input
-                  id="groq-key"
-                  type={showGroq ? "text" : "password"}
-                  value={groqKey}
-                  onChange={(e) => setGroqKey(e.target.value)}
-                  placeholder="gsk_…"
-                  className="h-8 text-xs pr-9 font-mono"
+                  id="api-key"
+                  type={showKey ? "text" : "password"}
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder={preset?.placeholderKey ?? "sk-…"}
+                  className="h-9 rounded-lg pr-9 font-mono text-xs"
                 />
                 <button
                   type="button"
-                  onClick={() => setShowGroq((v) => !v)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => setShowKey((v) => !v)}
+                  aria-label={showKey ? "Hide API key" : "Show API key"}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  {showGroq ? (
+                  {showKey ? (
                     <EyeOff className="size-3.5" />
                   ) : (
                     <Eye className="size-3.5" />
@@ -1220,91 +1743,128 @@ function SettingsDialog({
                 </button>
               </div>
             </div>
+          </section>
 
-            {/* Google */}
-            <div className="space-y-1.5">
-              <Label htmlFor="google-key" className="text-xs">
-                Google AI API Key
+          {/* ── Models ── */}
+          <section className="flex flex-col gap-2.5 rounded-xl bg-muted/40 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="text-xs font-medium">Models</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {models.length} available
+                  {modelFetchError ? " · last fetch failed" : ""}
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleFetch}
+                disabled={fetchingModels || !baseUrl.trim()}
+                className="h-8 gap-1.5 rounded-lg bg-background text-xs shadow-xs"
+              >
+                {fetchingModels ? (
+                  <Loader2 className="size-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="size-3" />
+                )}
+                Fetch models
+              </Button>
+            </div>
+
+            {modelFetchError && (
+              <p className="rounded-lg bg-destructive/10 px-2.5 py-2 text-[11px] text-destructive">
+                {modelFetchError}
+              </p>
+            )}
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="model-search" className="text-xs">
+                Default model
               </Label>
-              <div className="relative">
-                <Input
-                  id="google-key"
-                  type={showGoogle ? "text" : "password"}
-                  value={googleKey}
-                  onChange={(e) => setGoogleKey(e.target.value)}
-                  placeholder="AIza…"
-                  className="h-8 text-xs pr-9 font-mono"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowGoogle((v) => !v)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {showGoogle ? (
-                    <EyeOff className="size-3.5" />
-                  ) : (
-                    <Eye className="size-3.5" />
-                  )}
-                </button>
+              <Input
+                id="model-search"
+                value={modelQuery}
+                onChange={(e) => setModelQuery(e.target.value)}
+                placeholder="Search models"
+                className="h-8 rounded-lg text-xs"
+              />
+              <div className="flex max-h-56 flex-col gap-0.5 overflow-y-auto rounded-lg bg-background p-1">
+                {filteredModels.length === 0 ? (
+                  <p className="px-2 py-3 text-center text-[11px] text-muted-foreground">
+                    No models yet. Fetch the list above.
+                  </p>
+                ) : (
+                  filteredModels.map((model) => (
+                    <button
+                      key={model.id}
+                      onClick={() => setDefaultModelId(model.id)}
+                      className={cn(
+                        "shrink-0 truncate rounded-lg px-2 py-2 text-left font-mono text-xs leading-5 transition-colors",
+                        defaultModelId === model.id
+                          ? "bg-primary/12 text-foreground"
+                          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                      )}
+                    >
+                      {model.id}
+                    </button>
+                  ))
+                )}
               </div>
             </div>
-          </div>
+          </section>
 
-          <Separator />
+          {/* ── Behaviour ── */}
+          <section className="flex flex-col gap-2.5">
+            <Label
+              htmlFor="system-prompt"
+              className="text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground"
+            >
+              System prompt
+            </Label>
+            <Textarea
+              id="system-prompt"
+              value={customPrompt}
+              onChange={(e) => setCustomPrompt(e.target.value)}
+              placeholder="How the assistant should behave…"
+              className="min-h-24 resize-none rounded-xl text-xs leading-relaxed"
+            />
 
-          {/* Custom Context */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <h3 className="text-xs font-semibold text-foreground/80 uppercase tracking-wide">
-                  Custom Context
-                </h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Inject your focus data + custom prompt into every chat.
+            <div className="flex items-start justify-between gap-3 rounded-xl bg-muted/40 p-3">
+              <div className="min-w-0">
+                <p className="text-xs font-medium">Attach context by default</p>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+                  New chats start with profile and timer attached. Each chat can
+                  change what it sends from the composer.
                 </p>
               </div>
               <Switch
-                checked={customContextEnabled}
-                onCheckedChange={setCustomContextEnabled}
+                checked={contextEnabled}
+                onCheckedChange={setContextEnabled}
               />
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="custom-prompt" className="text-xs">
-                Custom System Prompt
-                <span className="text-muted-foreground/60 ml-1 font-normal">
-                  (optional)
-                </span>
-              </Label>
-              <Textarea
-                id="custom-prompt"
-                value={customPrompt}
-                onChange={(e) => setCustomPrompt(e.target.value)}
-                placeholder="You are a productivity coach. Help me analyze my focus patterns and suggest improvements…"
-                className="text-xs min-h-[80px] resize-none leading-relaxed"
-              />
-            </div>
-
-            {customContextEnabled && (
-              <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5">
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
-                  <Info className="size-3" />
-                  Focus data preview
-                </div>
-                <pre className="overflow-x-auto whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-muted-foreground/80">
-                  {focusPreview}
-                </pre>
-              </div>
+            {contextEnabled && contextPreview && (
+              <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-xl bg-muted/40 p-3 font-mono text-[11px] leading-relaxed text-muted-foreground">
+                {contextPreview}
+              </pre>
             )}
-          </div>
+          </section>
         </div>
 
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="ghost" size="sm" onClick={onClose} className="text-xs">
+        <div className="flex justify-end gap-1.5 border-t px-5 py-4">
+          <Button
+            variant="ghost"
+            onClick={onClose}
+            className="h-9 rounded-lg text-xs"
+          >
             Cancel
           </Button>
-          <Button size="sm" onClick={handleSave} disabled={saving} className="text-xs">
-            {saving ? "Saving…" : "Save Settings"}
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="h-9 rounded-lg text-xs"
+          >
+            {saving ? "Saving…" : "Save settings"}
           </Button>
         </div>
       </DialogContent>

@@ -1,17 +1,12 @@
 /**
  * FocusHeatmap Component - Calendar Heatmap for Focus Sessions
  *
- * Displays a GitHub-style contribution heatmap showing focus activity
- * for an entire year. Each cell represents a day and its intensity
- * reflects the total focus time relative to your personal maximum.
+ * A year of focus activity as a day grid. Each cell is one day; its fill is the
+ * day's total focus time measured against the best day in that year.
  *
- * Features:
- * - Full year calendar view (52 weeks)
- * - Year navigation controls
- * - Dynamic intensity based on user's data distribution
- * - Theme-aware colors
- * - Hover tooltips with detailed info
- * - Streak tracking
+ * The component is shell-less on purpose: it renders no card, title, or border
+ * of its own so the page that uses it owns the framing. It supplies only its
+ * own controls — the year stepper, a summary strip, the grid, and the legend.
  *
  * @fileoverview Calendar heatmap visualization for focus sessions
  * @author BIT Focus Development Team
@@ -21,8 +16,7 @@
 "use client";
 
 import { FocusSession, useFocus } from "@/hooks/useFocus";
-import { durationFromSeconds, formatTimeNew } from "@/lib/utils";
-import { Card, CardDescription, CardTitle } from "@/components/ui/card";
+import { cn, durationFromSeconds, formatTimeNew } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,10 +26,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { FaFire, FaChevronLeft, FaChevronRight } from "react-icons/fa6";
-import { useMemo, useState, type JSX } from "react";
+import { useMemo, useState, type JSX, type ReactNode } from "react";
 import dayjs from "dayjs";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { DotIcon } from "lucide-react";
 
 /**
  * Day data structure for heatmap cells
@@ -120,22 +113,17 @@ function getIntensityLevel(seconds: number, maxSeconds: number): number {
   return 1; // Any activity > 0
 }
 
-
 /**
  * Layout constants
  */
-const CELL_SIZE_MOBILE = 8;
-const CELL_SIZE_DESKTOP = 10;
-const CELL_GAP = 2;
+const CELL_SIZE_MOBILE = 9;
+const CELL_SIZE_DESKTOP = 11;
+const CELL_GAP = 3;
+const CELL_RADIUS = 3;
 const MONTH_LABEL_HEIGHT = 16;
-const MONTH_LABEL_MARGIN_LEFT_MOBILE = 20;
-const MONTH_LABEL_MARGIN_LEFT_DESKTOP = 28;
-const DAY_LABEL_MARGIN_RIGHT_MOBILE = 4;
-const DAY_LABEL_MARGIN_RIGHT_DESKTOP = 6;
-const DAY_LABEL_FONT_SIZE_MOBILE = 7;
-const DAY_LABEL_FONT_SIZE_DESKTOP = 9;
-const DAY_LABEL_WIDTH_MOBILE = 16;
-const DAY_LABEL_WIDTH_DESKTOP = 24;
+const DAY_LABEL_MARGIN_RIGHT = 6;
+const DAY_LABEL_WIDTH_MOBILE = 18;
+const DAY_LABEL_WIDTH_DESKTOP = 26;
 
 /**
  * Get day name abbreviation
@@ -156,6 +144,50 @@ const INTENSITY_THRESHOLD_LEVEL_4 = 0.3;
 const INTENSITY_THRESHOLD_LEVEL_3 = 0.15;
 const INTENSITY_THRESHOLD_LEVEL_2 = 0.075;
 
+/** Fill for one intensity step. Level 0 is the resting surface, not a faint tint. */
+function levelColor(level: number): string {
+  switch (level) {
+    case 0:
+      return "var(--muted)";
+    case 1:
+      return "color-mix(in srgb, var(--chart-1) 22%, var(--muted))";
+    case 2:
+      return "color-mix(in srgb, var(--chart-1) 40%, var(--muted))";
+    case 3:
+      return "color-mix(in srgb, var(--chart-1) 58%, var(--muted))";
+    case 4:
+      return "color-mix(in srgb, var(--chart-1) 76%, var(--muted))";
+    case 5:
+      return "color-mix(in srgb, var(--chart-1) 88%, var(--muted))";
+    case 6:
+      return "var(--chart-1)";
+    default:
+      return "var(--muted)";
+  }
+}
+
+/** Small rounded fact shown above the grid. */
+function SummaryChip({
+  children,
+  accent = false,
+}: {
+  children: ReactNode;
+  accent?: boolean;
+}): JSX.Element {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs",
+        accent
+          ? "bg-primary/12 font-medium text-primary"
+          : "bg-muted/60 text-muted-foreground"
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
 /**
  * FocusHeatmap Component
  *
@@ -168,31 +200,8 @@ const INTENSITY_THRESHOLD_LEVEL_2 = 0.075;
 export default function FocusHeatmap(): JSX.Element {
   const { focusSessions, loadingFocusSessions } = useFocus();
   const isMobile = useIsMobile();
-  // Theme-aware colors are now handled via CSS variables
   const currentYear = dayjs().year();
   const [selectedYear, setSelectedYear] = useState(currentYear);
-
-  // Helper to get the right color based on theme using CSS variables
-  const getColor = (level: number): string => {
-    switch (level) {
-      case 0:
-        return "color-mix(in srgb, var(--chart-1) 5%, transparent)"; // Empty cell
-      case 1:
-        return "color-mix(in srgb, var(--chart-1) 20%, transparent)";
-      case 2:
-        return "color-mix(in srgb, var(--chart-1) 40%, transparent)";
-      case 3:
-        return "color-mix(in srgb, var(--chart-1) 60%, transparent)";
-      case 4:
-        return "color-mix(in srgb, var(--chart-1) 80%, transparent)";
-      case 5:
-        return "color-mix(in srgb, var(--chart-1) 90%, transparent)";
-      case 6:
-        return "var(--chart-1)"; // Full intensity
-      default:
-        return "var(--secondary)";
-    }
-  };
 
   // Aggregate focus data by day for selected year
   const dayData = useMemo(
@@ -250,13 +259,23 @@ export default function FocusHeatmap(): JSX.Element {
     return total;
   }, [dayData, selectedYear]);
 
+  // Days with any activity, for the "active days" chip
+  const activeDays = useMemo(() => {
+    let count = 0;
+    dayData.forEach((data) => {
+      if (dayjs(data.date).year() === selectedYear && data.totalSeconds > 0) {
+        count++;
+      }
+    });
+    return count;
+  }, [dayData, selectedYear]);
+
   // Calculate current streak (only for current year)
   const currentStreak = useMemo(() => {
     if (selectedYear !== currentYear) return 0;
 
     let streak = 0;
-    const today = dayjs().startOf("day");
-    let checkDate = today;
+    let checkDate = dayjs().startOf("day");
 
     while (true) {
       const dateKey = checkDate.format("YYYY-MM-DD");
@@ -296,6 +315,8 @@ export default function FocusHeatmap(): JSX.Element {
   // Cell size based on screen - smaller for full year view
   const cellSize = isMobile ? CELL_SIZE_MOBILE : CELL_SIZE_DESKTOP;
   const cellGap = CELL_GAP;
+  const dayLabelWidth = isMobile ? DAY_LABEL_WIDTH_MOBILE : DAY_LABEL_WIDTH_DESKTOP;
+  const gridOffset = dayLabelWidth + DAY_LABEL_MARGIN_RIGHT;
 
   // Get available years from data
   const availableYears = useMemo(() => {
@@ -312,93 +333,93 @@ export default function FocusHeatmap(): JSX.Element {
 
   if (loadingFocusSessions) {
     return (
-      <Card className="px-4 py-6 w-full">
-        <CardTitle className="flex gap-2 items-center mb-4">
-          <FaFire />
-          <span>Focus Activity</span>
-        </CardTitle>
-        <Skeleton className="h-32 w-full" />
-      </Card>
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-7 w-56 rounded-full" />
+          <Skeleton className="h-9 w-32 rounded-xl" />
+        </div>
+        <Skeleton className="h-32 w-full rounded-xl" />
+      </div>
     );
   }
 
   return (
-    <Card className="px-4 py-6 w-full overflow-hidden">
-      <CardTitle className="flex flex-col sm:flex-row gap-2 sm:items-center justify-between mb-4">
-        <div className="flex gap-2 items-center">
-          <FaFire />
-          <span>Focus Activity</span>
+    <TooltipProvider delayDuration={100}>
+      <div className="flex w-full flex-col">
+        {/* ── Summary + year stepper ── */}
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <SummaryChip>
+              <span className="font-mono">
+                {formatTimeNew(durationFromSeconds(totalFocusTime), "H:M:S", "text")}
+              </span>
+              focused
+            </SummaryChip>
+            {activeDays > 0 && (
+              <SummaryChip>
+                <span className="font-mono">{activeDays}</span>
+                active {activeDays === 1 ? "day" : "days"}
+              </SummaryChip>
+            )}
+            {maxSeconds > 0 && (
+              <SummaryChip>
+                Best day
+                <span className="font-mono">
+                  {formatTimeNew(durationFromSeconds(maxSeconds), "H:M:S", "text")}
+                </span>
+              </SummaryChip>
+            )}
+            {currentStreak > 0 && selectedYear === currentYear && (
+              <SummaryChip accent>
+                <FaFire className="size-3" />
+                <span className="font-mono">{currentStreak}</span>
+                day streak
+              </SummaryChip>
+            )}
+          </div>
+
+          <div className="flex items-center gap-0.5 rounded-xl bg-muted/60 p-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7 rounded-lg hover:bg-background"
+              onClick={() => setSelectedYear((y) => y - 1)}
+              disabled={!canGoPrev}
+              aria-label="Previous year"
+            >
+              <FaChevronLeft className="size-3" />
+            </Button>
+            <span className="min-w-[3.25rem] text-center font-mono text-sm font-medium">
+              {selectedYear}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7 rounded-lg hover:bg-background"
+              onClick={() => setSelectedYear((y) => y + 1)}
+              disabled={!canGoNext}
+              aria-label="Next year"
+            >
+              <FaChevronRight className="size-3" />
+            </Button>
+          </div>
         </div>
 
-        {/* Year Navigation */}
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => setSelectedYear(y => y - 1)}
-            disabled={!canGoPrev}
-          >
-            <FaChevronLeft className="h-3 w-3" />
-          </Button>
-          <span className="text-sm font-semibold min-w-[4rem] text-center">
-            {selectedYear}
-          </span>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => setSelectedYear(y => y + 1)}
-            disabled={!canGoNext}
-          >
-            <FaChevronRight className="h-3 w-3" />
-          </Button>
-        </div>
-      </CardTitle>
-
-      {/* Stats Row */}
-      <div className="flex gap-1 sm:gap-2 text-xs sm:text-sm text-muted-foreground mb-4">
-        <span>
-          {formatTimeNew(durationFromSeconds(totalFocusTime), "H:M:S", "text")} total
-        </span>
-        {maxSeconds > 0 && (
-          <>
-            <span> <DotIcon /> </span>
-            <span>
-              Best: {formatTimeNew(durationFromSeconds(maxSeconds), "H:M:S", "text")}
-            </span>
-          </>
-        )}
-        {currentStreak > 0 && selectedYear === currentYear && (
-          <>
-            <span> <DotIcon /> </span>
-            <span className="flex items-center gap-1">
-              <FaFire className="text-balance" />
-              {currentStreak} day streak
-            </span>
-          </>
-        )}
-      </div>
-
-      <CardDescription>
-        <TooltipProvider delayDuration={100}>
-          <div className="flex flex-col w-full">
-            <div className="overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
-              <div className="min-w-max">
-                {/* Month labels */}
-                <div
-                  className="flex mb-1 relative"
-                style={{
-                  marginLeft: isMobile
-                    ? `${MONTH_LABEL_MARGIN_LEFT_MOBILE}px`
-                    : `${MONTH_LABEL_MARGIN_LEFT_DESKTOP}px`,
-                  height: `${MONTH_LABEL_HEIGHT}px`,
-                }}
-              >
+        {/* ── Grid ── */}
+        <div className="scrollbar-hide -mx-5 overflow-x-auto px-5 pb-1 sm:mx-0 sm:px-0">
+          <div className="min-w-max">
+            {/* Month labels */}
+            <div
+              className="relative mb-1.5 flex"
+              style={{
+                marginLeft: `${gridOffset}px`,
+                height: `${MONTH_LABEL_HEIGHT}px`,
+              }}
+            >
               {monthPositions.map((pos, idx) => (
                 <div
                   key={`${pos.month}-${idx}`}
-                  className="text-xs text-muted-foreground absolute"
+                  className="absolute text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground/70"
                   style={{
                     left: `${pos.startWeek * (cellSize + cellGap)}px`,
                   }}
@@ -412,26 +433,19 @@ export default function FocusHeatmap(): JSX.Element {
             <div className="flex">
               {/* Day labels */}
               <div
-                className="flex flex-col text-xs text-muted-foreground shrink-0"
+                className="flex shrink-0 flex-col text-muted-foreground/70"
                 style={{
                   gap: `${cellGap}px`,
-                  marginRight: isMobile
-                    ? `${DAY_LABEL_MARGIN_RIGHT_MOBILE}px`
-                    : `${DAY_LABEL_MARGIN_RIGHT_DESKTOP}px`,
+                  marginRight: `${DAY_LABEL_MARGIN_RIGHT}px`,
                 }}
               >
                 {DAY_LABELS.map((day, idx) => (
                   <div
                     key={day}
-                    className="flex items-center justify-end"
+                    className="flex items-center justify-end text-[9px]"
                     style={{
                       height: `${cellSize}px`,
-                      fontSize: isMobile
-                        ? `${DAY_LABEL_FONT_SIZE_MOBILE}px`
-                        : `${DAY_LABEL_FONT_SIZE_DESKTOP}px`,
-                      width: isMobile
-                        ? `${DAY_LABEL_WIDTH_MOBILE}px`
-                        : `${DAY_LABEL_WIDTH_DESKTOP}px`,
+                      width: `${dayLabelWidth}px`,
                     }}
                   >
                     {idx % 2 === 1 ? (isMobile ? day[0] : day) : ""}
@@ -440,10 +454,7 @@ export default function FocusHeatmap(): JSX.Element {
               </div>
 
               {/* Weeks grid */}
-              <div
-                className="flex"
-                style={{ gap: `${cellGap}px` }}
-              >
+              <div className="flex" style={{ gap: `${cellGap}px` }}>
                 {weeks.map((week, weekIdx) => (
                   <div
                     key={weekIdx}
@@ -460,15 +471,32 @@ export default function FocusHeatmap(): JSX.Element {
                             key={`pad-${idx}`}
                             style={{
                               width: `${cellSize}px`,
-                              height: `${cellSize}px`
+                              height: `${cellSize}px`,
                             }}
                           />
                         ))}
                     {week.map((day) => {
                       const isInYear = dayjs(day.date).year() === selectedYear;
-                      const intensity = isInYear
-                        ? getIntensityLevel(day.totalSeconds, maxSeconds)
-                        : -1; // Outside year
+
+                      // Days outside the selected year keep their slot empty so
+                      // the grid stays aligned week to week.
+                      if (!isInYear) {
+                        return (
+                          <div
+                            key={day.date.toISOString()}
+                            style={{
+                              width: `${cellSize}px`,
+                              height: `${cellSize}px`,
+                            }}
+                          />
+                        );
+                      }
+
+                      const intensity = getIntensityLevel(
+                        day.totalSeconds,
+                        maxSeconds
+                      );
+                      const isToday = dayjs(day.date).isSame(dayjs(), "day");
                       const formattedDate = dayjs(day.date).format("ddd, MMM D, YYYY");
                       const formattedTime =
                         day.totalSeconds > 0
@@ -479,36 +507,27 @@ export default function FocusHeatmap(): JSX.Element {
                             )
                           : "No focus time";
 
-                      // Don't render days outside the selected year
-                      if (!isInYear) {
-                        return (
-                          <div
-                            key={day.date.toISOString()}
-                            style={{
-                              width: `${cellSize}px`,
-                              height: `${cellSize}px`
-                            }}
-                          />
-                        );
-                      }
-
                       return (
                         <Tooltip key={day.date.toISOString()}>
                           <TooltipTrigger asChild>
                             <div
-                              className="rounded-sm cursor-pointer transition-all hover:ring-1 hover:ring-foreground/30"
+                              className={cn(
+                                "cursor-pointer transition-shadow duration-150 hover:ring-2 hover:ring-foreground/25",
+                                isToday && "ring-1 ring-foreground/40"
+                              )}
                               style={{
                                 width: `${cellSize}px`,
                                 height: `${cellSize}px`,
-                                backgroundColor: getColor(intensity)
+                                borderRadius: `${CELL_RADIUS}px`,
+                                backgroundColor: levelColor(intensity),
                               }}
                             />
                           </TooltipTrigger>
-                          <TooltipContent side="top" className="text-xs">
+                          <TooltipContent side="top" className="rounded-lg text-xs">
                             <p className="font-semibold">{formattedDate}</p>
                             <p>{formattedTime}</p>
                             {day.sessionCount > 0 && (
-                              <p className="text-secondary">
+                              <p className="opacity-70">
                                 {day.sessionCount} session
                                 {day.sessionCount !== 1 ? "s" : ""}
                               </p>
@@ -521,30 +540,34 @@ export default function FocusHeatmap(): JSX.Element {
                 ))}
               </div>
             </div>
-              </div>
-            </div>
-
-            {/* Legend */}
-            <div className="flex items-center justify-end gap-2 mt-3 text-xs text-muted-foreground">
-              <span>Less</span>
-              <div className="flex" style={{ gap: `${cellGap}px` }}>
-                {[0, 1, 2, 3, 4, 5, 6].map((level) => (
-                  <div
-                    key={level}
-                    className="rounded-sm"
-                    style={{
-                      width: `${cellSize}px`,
-                      height: `${cellSize}px`,
-                      backgroundColor: getColor(level)
-                    }}
-                  />
-                ))}
-              </div>
-              <span>More</span>
-            </div>
           </div>
-        </TooltipProvider>
-      </CardDescription>
-    </Card>
+        </div>
+
+        {/* ── Legend ── */}
+        <div className="mt-3 flex items-center justify-end gap-2 text-[11px] text-muted-foreground/70">
+          <span>Less</span>
+          <div className="flex" style={{ gap: `${cellGap}px` }}>
+            {[0, 1, 2, 3, 4, 5, 6].map((level) => (
+              <div
+                key={level}
+                style={{
+                  width: `${cellSize}px`,
+                  height: `${cellSize}px`,
+                  borderRadius: `${CELL_RADIUS}px`,
+                  backgroundColor: levelColor(level),
+                }}
+              />
+            ))}
+          </div>
+          <span>More</span>
+        </div>
+
+        {totalFocusTime === 0 && (
+          <p className="mt-3 text-xs text-muted-foreground">
+            No sessions recorded in {selectedYear}.
+          </p>
+        )}
+      </div>
+    </TooltipProvider>
   );
 }

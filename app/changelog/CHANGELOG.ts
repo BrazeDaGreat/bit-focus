@@ -1,6 +1,48 @@
-export const VERSION = "v0.21.1 (LTS)";
+export const VERSION = "v0.22.0-beta";
 
 const CHANGELOG = `
+## \`v0.22.0-beta\` (2026-09-08) — Interface, Rebuilt
+- Changed: The Sidebar, Top Bar, Home, and Focus pages were rebuilt around one visual language — layered surfaces, rounded wells, and a single button style per surface — replacing the mix of hairline borders, square notches, and competing button variants.
+- Changed: Sidebar navigation is now split into pinned and secondary. Home, Focus, Calendar, and Projects stay on screen; Focus Table, AI Chat, Excalidraw, Rewards, and Changelog live under "More", which remembers how you left it and opens itself when the page you are on is inside it.
+- Changed: The sidebar profile is a card rather than a header strip, and the active page is marked with a soft tinted pill and a rounded indicator bar instead of a square left notch.
+- Improved: Sidebar keyboard hints now fade in on hover instead of sitting on every row, and the active page is highlighted on project detail pages too, not just the project list.
+- Changed: The Top Bar's four utility buttons (sync, quick message, notepad, data) are grouped into one tray instead of four separate outlined boxes, and the bar is now sticky with a blurred background.
+- Changed: Reward points are shown as a round mono pill; a negative balance now reads as a soft red fill rather than a red outline.
+- Changed: The Home page is split into two zones with a labelled seam — "now" (today's focus and what is due) above, "review" (trend, tags, heatmap) below. Previously both were interleaved with no lead element.
+- Added: Today's focus time is now the headline number on Home, compared against your 7-day average, with 7-day and 30-day totals beneath it carrying their own change against the previous period.
+- Added: "Where the time went" panel on Home — a per-tag breakdown of the last 7 days, drawn in each tag's own colour, with untagged sessions counted.
+- Changed: Tag creation and deletion moved from the Home page body into a "Manage tags" popover attached to the tag breakdown.
+- Fixed: The Home greeting claimed to show your week while the numbers below covered 24 hours, 7 days, and 30 days.
+- Changed: The Focus Activity heatmap no longer draws its own card and title inside the page's card. Its summary is now a row of chips (total, active days, best day, streak) and the year stepper matches the rest of the app.
+- Improved: Empty days in the heatmap sit on the surface colour instead of a faint tint that read as noise, today's cell is ringed so you can find yourself in the grid, and an empty year says so.
+- Changed: The Focus page is now a single screen — the timer ring centred, the control dock along the bottom edge — with recent sessions one scroll below.
+- Added: A progress ring around the timer. Pomodoro fills toward the end of the current phase; standard fills toward your session goal, or sweeps once per hour when no goal is set.
+- Added: Session goals for the standard timer. Pick 25, 45, 60, 90, 120 minutes or set your own. Passing the goal does not stop the timer — the ring changes colour, reports how far past you are, and keeps going.
+- Added: Focus and break now have distinct colours across the ring, the phase label, and the glow behind it, so the current phase reads without checking the text.
+- Changed: The control dock is full width with three groups — mode on the left, session controls centred, tools on the right — separated by hairlines. Every control shares one height, radius, and type size; only start/pause is filled.
+- Changed: The mode toggle moved into the dock, next to the timer it governs, from the separate bar it used to sit in below the stage. Picture-in-Picture came out of the stage corner it was hiding in.
+- Changed: The session log on the Focus page now shows the five most recent sessions with a link to the Focus Table, and fades back while a session is running.
+- Changed: The YouTube player is a slim bar rather than a card with a title and a full-width video. Audio-only by default, with the video expandable on demand.
+- Changed: Pomodoro settings are now presets plus two duration steppers and a bar showing what one cycle looks like. The timer-mode selector was removed from the dialog — mode is set in the dock.
+- Added: New \`useFocusGoal\` store, persisting your session goal locally.
+- Fixed: Custom AI endpoints could never actually be used. The settings dialog only wrote the old Groq and Google key fields, and the chat request never carried a base URL, so an OpenAI-compatible endpoint was unreachable no matter what you entered.
+- Added: AI Settings now takes any OpenAI-compatible endpoint directly — presets for Groq, OpenAI, OpenRouter, Google, and Ollama, a base URL field, and an API key that is optional for local endpoints.
+- Added: "Fetch models" in AI Settings pulls the model list from your endpoint and makes it searchable, replacing the hardcoded list the dropdown used to show regardless of which endpoint you were on.
+- Security: Removed debug logging that printed your API key to the browser console on every AI page render, along with the request log in the chat route.
+- Changed: The AI Chat page was rebuilt on the AI SDK directly, dropping the assistant-ui layer that stood between the thread and its own state.
+- Added: The assistant can now read your data on demand instead of being handed a fixed block of it — focus totals, tag breakdowns, individual sessions, projects, due issues, and timer state. Every one of these runs in your browser against local data; nothing is uploaded to answer a question.
+- Added: The assistant can act, with your approval. Starting or pausing the timer, logging a missed session, creating or closing an issue, sending a webhook message, and saving to the notepad each appear as a card describing exactly what will happen. Nothing runs until you approve it, and dismissing tells the model not to retry.
+- Added: Per-chat context picker in the composer. Choose what is attached — profile, timer, last 7 days, last 30 days, tags, projects, points — each showing its own token cost, with sources that hold no data disabled. Replaces the single global on/off toggle.
+- Added: Prompt shortcuts on an empty thread: review my week, where did my time go, plan tomorrow, am I slipping.
+- Added: Stop a running reply, regenerate the last one, or edit an earlier message and send it again from that point.
+- Added: Conversations name themselves from the first exchange instead of being cut off at 60 characters, via a new \`/api/title\` route.
+- Added: Chat history now has search, pinning, renaming, and grouping by date.
+- Added: Each reply is tagged with the model that wrote it, and any message can be copied.
+- Fixed: A chat could stop dead after a tool ran, showing the tool chip and no answer, because tool results were never sent back to the model.
+- Fixed: An infinite resubmit loop after tool calls that ended in "Maximum update depth exceeded". Continuation now happens at most once per reply and is capped per message, so a model that keeps asking for the same data has to answer instead.
+- Fixed: Long lists (models, chats, tags, context sources) squashed their rows to fit instead of scrolling, clipping the text in half.
+***
+
 ## \`v0.21.0-beta\` (2026-08-21) — Sync, Rebuilt
 - Changed: Sync now works one item at a time instead of shipping your entire database as a single file. Two devices that change different things both keep their changes.
 - Removed: The conflict dialog. There is nothing left for it to ask — a session logged on your laptop and a note written on your phone are no longer a conflict, and you are never asked to sacrifice one version of your data to keep another.

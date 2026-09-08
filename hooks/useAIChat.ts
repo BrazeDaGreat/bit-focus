@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import db, { type AIChat, type AIConfig } from "@/lib/db";
-import { DEFAULT_MODEL_ID, DEFAULT_BASE_URL, FALLBACK_MODELS, type AIModel } from "@/lib/ai-models";
+import { DEFAULT_MODEL_ID, DEFAULT_BASE_URL, FALLBACK_MODELS, type AIModel, isLocalEndpoint } from "@/lib/ai-models";
 import type { UIMessage as Message } from "ai";
 
 const DEFAULT_SYSTEM_PROMPT = `You are BIT Focus AI, a highly optimized assistant tuned for productivity coaching.
@@ -38,6 +38,9 @@ interface AIChatState {
   createChat: (modelId: string, provider?: string, firstMessage?: string) => Promise<AIChat>;
   deleteChat: (id: string) => Promise<void>;
   updateChatTitle: (id: string, title: string) => Promise<void>;
+  generateChatTitle: (id: string, exchange: string) => Promise<void>;
+  toggleChatPinned: (id: string) => Promise<void>;
+  setChatContextSources: (id: string, sources: string[]) => Promise<void>;
   saveMessages: (chatId: string, messages: Message[]) => Promise<void>;
   loadMessages: (chatId: string) => Promise<Message[]>;
   loadAIConfig: () => Promise<void>;
@@ -99,6 +102,55 @@ export const useAIChat = create<AIChatState>((set, get) => ({
     }));
   },
 
+  /**
+   * Ask the configured model to name a conversation from its opening exchange.
+   * Silent on failure — the chat keeps whatever title it has.
+   */
+  generateChatTitle: async (id, exchange) => {
+    const config = get().aiConfig;
+    const chat = get().chats.find((c) => c.id === id);
+    if (!config?.baseUrl || !chat) return;
+
+    try {
+      const res = await fetch("/api/title", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          baseUrl: config.baseUrl,
+          apiKey: config.apiKey || "",
+          modelId: chat.modelId,
+          exchange,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.title) {
+        await get().updateChatTitle(id, data.title);
+      }
+    } catch {
+      // A conversation without a generated name is still perfectly usable.
+    }
+  },
+
+  toggleChatPinned: async (id) => {
+    const chat = get().chats.find((c) => c.id === id);
+    if (!chat) return;
+    const pinned = !chat.pinned;
+    await db.aiChats.update(id, { pinned, updatedAt: new Date() });
+    set((state) => ({
+      chats: state.chats.map((c) => (c.id === id ? { ...c, pinned } : c)),
+    }));
+  },
+
+  setChatContextSources: async (id, sources) => {
+    const serialized = JSON.stringify(sources);
+    await db.aiChats.update(id, { contextSources: serialized });
+    set((state) => ({
+      chats: state.chats.map((c) =>
+        c.id === id ? { ...c, contextSources: serialized } : c
+      ),
+    }));
+  },
+
   saveMessages: async (chatId, messages) => {
     const serialized = JSON.stringify(messages);
     const now = new Date();
@@ -143,22 +195,96 @@ export const useAIChat = create<AIChatState>((set, get) => ({
         body: JSON.stringify({ baseUrl, apiKey }),
       });
 
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        const errorMsg = data.error || `Failed to fetch models (${res.status})`;
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || data?.error) {
+        // If server-side proxy failed and this is a local endpoint, try direct client fetch
+        if (isLocalEndpoint(baseUrl)) {
+          try {
+            const rawUrl = baseUrl.trim().replace(/\/+$/, "");
+            const modelsUrl = rawUrl.endsWith("/models") ? rawUrl : `${rawUrl}/models`;
+            const localHeaders: Record<string, string> = { "Content-Type": "application/json" };
+            if (apiKey?.trim()) {
+              localHeaders["Authorization"] = `Bearer ${apiKey.trim()}`;
+            }
+            const directRes = await fetch(modelsUrl, { method: "GET", headers: localHeaders });
+            if (directRes.ok) {
+              const directData = await directRes.json();
+              const list: { id: string; name: string }[] = Array.isArray(directData?.data)
+                ? directData.data.map((m: { id?: string; name?: string }) => ({
+                    id: m.id || m.name || "",
+                    name: m.name || m.id || "",
+                  })).filter((m: { id: string; name: string }) => Boolean(m.id))
+                : Array.isArray(directData?.models)
+                ? directData.models.map((m: { id?: string; name?: string; model?: string }) => ({
+                    id: m.id || m.model || m.name || "",
+                    name: m.name || m.model || m.id || "",
+                  })).filter((m: { id: string; name: string }) => Boolean(m.id))
+                : [];
+              if (list.length > 0) {
+                set({ models: list, modelFetchError: null });
+                try {
+                  localStorage.setItem(CACHED_MODELS_KEY, JSON.stringify(list));
+                } catch {}
+                return list;
+              }
+            }
+          } catch {}
+        }
+
+        const errorMsg = data?.error || `Failed to fetch models (${res.status})`;
         set({ modelFetchError: errorMsg });
         return get().models;
       }
 
-      if (Array.isArray(data.models) && data.models.length > 0) {
-        set({ models: data.models, modelFetchError: null });
-        try {
-          localStorage.setItem(CACHED_MODELS_KEY, JSON.stringify(data.models));
-        } catch {}
-        return data.models;
+      if (Array.isArray(data?.models)) {
+        if (data.models.length > 0) {
+          set({ models: data.models, modelFetchError: null });
+          try {
+            localStorage.setItem(CACHED_MODELS_KEY, JSON.stringify(data.models));
+          } catch {}
+          return data.models;
+        } else {
+          set({ modelFetchError: "Endpoint returned 0 models" });
+          return get().models;
+        }
       }
       return get().models;
     } catch (err) {
+      // Local fallback on network error
+      if (isLocalEndpoint(baseUrl)) {
+        try {
+          const rawUrl = baseUrl.trim().replace(/\/+$/, "");
+          const modelsUrl = rawUrl.endsWith("/models") ? rawUrl : `${rawUrl}/models`;
+          const localHeaders: Record<string, string> = { "Content-Type": "application/json" };
+          if (apiKey?.trim()) {
+            localHeaders["Authorization"] = `Bearer ${apiKey.trim()}`;
+          }
+          const directRes = await fetch(modelsUrl, { method: "GET", headers: localHeaders });
+          if (directRes.ok) {
+            const directData = await directRes.json();
+            const list: { id: string; name: string }[] = Array.isArray(directData?.data)
+              ? directData.data.map((m: { id?: string; name?: string }) => ({
+                  id: m.id || m.name || "",
+                  name: m.name || m.id || "",
+                })).filter((m: { id: string; name: string }) => Boolean(m.id))
+              : Array.isArray(directData?.models)
+              ? directData.models.map((m: { id?: string; name?: string; model?: string }) => ({
+                  id: m.id || m.model || m.name || "",
+                  name: m.name || m.model || m.id || "",
+                })).filter((m: { id: string; name: string }) => Boolean(m.id))
+              : [];
+            if (list.length > 0) {
+              set({ models: list, modelFetchError: null });
+              try {
+                localStorage.setItem(CACHED_MODELS_KEY, JSON.stringify(list));
+              } catch {}
+              return list;
+            }
+          }
+        } catch {}
+      }
+
       const msg = err instanceof Error ? err.message : String(err);
       set({ modelFetchError: msg });
       return get().models;
