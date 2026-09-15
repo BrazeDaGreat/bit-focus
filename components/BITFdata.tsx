@@ -206,13 +206,13 @@ export default function BITFdata(): JSX.Element {
 
   const trigger = (
     <Button
-      size="sm"
+      size="icon"
       variant="outline"
+      className="rounded-lg"
       aria-label="Manage BIT Focus data"
       title="BITF data"
     >
-      <FaFileCsv className="xl:mr-2" />
-      <span className="hidden xl:inline">BITF Data</span>
+      <FaFileCsv />
     </Button>
   );
 

@@ -44,6 +44,8 @@ const CHANGELOG = `
 ### \`v0.22.1-beta\` (2026-09-15)
 - Improved: The Top Bar now follows a compact Android app-bar rhythm with a stable title and balance row, a separate command shelf, safe-area spacing, larger touch targets, and responsive utility controls.
 - Fixed: The Top Bar mini timer no longer stretches across all available mobile space; it stays content-sized while preserving every timer action.
+- Fixed: Top Bar utility buttons now remain icon-only at every viewport size, preventing the Quick Message, Notepad, and BITF Data controls from overlapping.
+- Improved: The changelog page now presents releases in a structured version timeline with a featured latest release, category-grouped entries, and a compact archive instead of one long markdown list.
 - Added: A reusable mobile drawer shell with safe-area padding, scroll containment, a persistent drag handle and header, plus an automatic desktop dialog fallback for shared modal flows.
 - Changed: Timer options now open as a bottom drawer on mobile, with touch-friendly mode controls, tag selection, reset, and Focus page navigation; larger screens retain the anchored popover.
 - Changed: Reward point management is now one mobile drawer that moves between Manage points, Throw away, and Loan views instead of stacking a dropdown and separate dialogs.
