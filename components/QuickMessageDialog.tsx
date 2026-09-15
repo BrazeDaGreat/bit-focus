@@ -98,21 +98,20 @@ export default function QuickMessageDropdown() {
 
   const trigger = (
     <Button
-      size="sm"
+      size="icon"
       variant="outline"
       disabled={sending}
+      className="rounded-lg"
       aria-label={sending ? "Sending quick message" : "Send a quick message"}
       title={sending ? "Sending…" : "Quick message"}
     >
       {sending ? (
         <>
-          <Loader2 className="size-4 animate-spin xl:mr-2" />
-          <span className="hidden xl:inline">Sending...</span>
+          <Loader2 className="size-4 animate-spin" />
         </>
       ) : (
         <>
-          <FaMessage className="xl:mr-2" />
-          <span className="hidden xl:inline">Quick Message</span>
+          <FaMessage />
         </>
       )}
     </Button>
