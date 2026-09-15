@@ -23,13 +23,7 @@
 
 import { Fragment, useEffect, useMemo, type JSX } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { ResponsiveDialog } from "@/components/ui/mobile-drawer";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { useConfig } from "@/hooks/useConfig";
 import { usePomo } from "@/hooks/PomoContext";
@@ -169,15 +163,15 @@ function ShortcutsDialog({ shortcuts }: { shortcuts: ShortcutDef[] }): JSX.Eleme
   };
 
   return (
-    <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Keyboard shortcuts</DialogTitle>
-          <DialogDescription>
-            Shortcuts work anywhere in the app, except while typing.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[65vh] overflow-y-auto pr-1 animate-in fade-in-50 duration-200">
+    <ResponsiveDialog
+      open={helpOpen}
+      onOpenChange={setHelpOpen}
+      title="Keyboard shortcuts"
+      description="Shortcuts work anywhere in the app, except while typing."
+      contentClassName="max-h-[94dvh]"
+      dialogContentClassName="max-w-2xl"
+    >
+        <div className="grid max-h-[68dvh] grid-cols-1 gap-6 overflow-y-auto pr-1 duration-200 animate-in fade-in-50 md:grid-cols-2">
           {/* Column 1: Navigation */}
           <div className="flex flex-col gap-4">
             {renderCategory("Navigation")}
@@ -189,7 +183,6 @@ function ShortcutsDialog({ shortcuts }: { shortcuts: ShortcutDef[] }): JSX.Eleme
             {renderCategory("General")}
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+    </ResponsiveDialog>
   );
 }

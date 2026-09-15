@@ -12,8 +12,8 @@
  *
  * Layout:
  * - Always-visible pill: status dot, monospace time, and a Start/Pause button.
- * - A popover (chevron) holds the less-frequent controls: mode toggle, active
- *   tag selection, reset, and a link to the full Focus page.
+ * - The chevron opens a bottom drawer on mobile and an anchored popover on
+ *   larger screens for mode, tag, reset, and full Focus page controls.
  *
  * @fileoverview Top-bar mini timer wired to the shared Pomodoro context.
  * @author BIT Focus Development Team
@@ -29,11 +29,13 @@ import { useTag } from "@/hooks/useTag";
 import { cn, formatClock } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MobileDrawer } from "@/components/ui/mobile-drawer";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import {
   FaPlay,
   FaPause,
@@ -65,6 +67,7 @@ export default function MiniTimer({
   const { state, start, pause, reset, setMode } = usePomo();
   const { tag, setTag, removeTag, savedTags } = useTag();
   const router = useRouter();
+  const isMobile = useIsMobile();
 
   const [open, setOpen] = useState(false);
   const [customTag, setCustomTag] = useState("");
@@ -85,6 +88,155 @@ export default function MiniTimer({
     setTag(t);
     setCustomTag("");
   };
+
+  const renderOptions = (showStatus: boolean): JSX.Element => (
+    <div>
+      {showStatus && (
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            {isActive ? (isRunning ? "Running" : "Paused") : "Ready"}
+          </span>
+          <span className="font-mono text-xs text-muted-foreground">
+            {modeLabel}
+          </span>
+        </div>
+      )}
+
+      {/* Mode toggle */}
+      <div className={cn("flex items-center gap-1 rounded-full bg-muted p-1", showStatus && "mt-3")}>
+        <button
+          type="button"
+          onClick={() => setMode("standard")}
+          className={cn(
+            "flex min-h-12 flex-1 touch-manipulation items-center justify-center gap-2 rounded-full px-4 text-sm font-medium transition-[background-color,color,transform] active:scale-[0.98] motion-reduce:transition-none md:min-h-0 md:gap-1.5 md:px-3 md:py-1.5 md:text-xs",
+            mode === "standard"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <IoIosTimer className="size-4 md:size-3" />
+          Standard
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("pomodoro")}
+          className={cn(
+            "flex min-h-12 flex-1 touch-manipulation items-center justify-center gap-2 rounded-full px-4 text-sm font-medium transition-[background-color,color,transform] active:scale-[0.98] motion-reduce:transition-none md:min-h-0 md:gap-1.5 md:px-3 md:py-1.5 md:text-xs",
+            mode === "pomodoro"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <GiTomato className="size-4 md:size-3" />
+          Pomodoro
+        </button>
+      </div>
+
+      {/* Tag selection */}
+      <div className="mt-5 md:mt-3">
+        <label
+          htmlFor="mini-timer-tag"
+          className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground"
+        >
+          Tag
+        </label>
+        <Input
+          id="mini-timer-tag"
+          className="h-12 rounded-xl text-base md:h-8 md:rounded-md md:text-sm"
+          placeholder="Set a tag…"
+          value={customTag}
+          onChange={(e) => setCustomTag(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              applyCustomTag();
+            }
+          }}
+        />
+
+        {savedTags.length > 0 && (
+          <div className="mt-3 flex max-h-32 flex-wrap gap-2 overflow-y-auto overscroll-contain md:mt-2 md:max-h-24 md:gap-1.5">
+            {savedTags.map((savedTag) => {
+              const active = savedTag.t === tag;
+              return (
+                <button
+                  type="button"
+                  key={savedTag.t}
+                  onClick={() => setTag(savedTag.t)}
+                  className={cn(
+                    "flex min-h-10 touch-manipulation items-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-[background-color,color,transform] active:scale-95 motion-reduce:transition-none md:min-h-0 md:gap-1 md:px-2 md:py-1 md:text-xs",
+                    !active && "border-transparent hover:bg-accent"
+                  )}
+                  style={
+                    active
+                      ? {
+                          backgroundColor: savedTag.c + "22",
+                          color: savedTag.c,
+                          borderColor: savedTag.c + "55",
+                        }
+                      : undefined
+                  }
+                >
+                  <FaHashtag className="size-3 opacity-70 md:size-2.5" />
+                  {savedTag.t}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {tag && (
+          <div className="mt-2 flex min-h-10 items-center justify-between gap-3 text-sm md:min-h-0 md:text-xs">
+            <span className="min-w-0 truncate text-muted-foreground">
+              Active:{" "}
+              <span
+                className="font-medium"
+                style={tagColor ? { color: tagColor } : undefined}
+              >
+                #{tag}
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={removeTag}
+              className="min-h-10 shrink-0 touch-manipulation rounded-full px-3 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:min-h-0 md:px-0 md:hover:bg-transparent"
+            >
+              Clear
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="mt-5 grid grid-cols-2 gap-3 border-t pt-4 md:mt-3 md:flex md:items-center md:justify-between md:gap-2 md:pt-3">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={reset}
+          disabled={!isActive}
+          className="h-12 touch-manipulation gap-2 rounded-full md:h-8 md:gap-1.5 md:rounded-md"
+          title="Reset and save session"
+        >
+          <FaForwardFast className="size-3" />
+          Reset
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            setOpen(false);
+            router.push("/focus");
+          }}
+          className="h-12 touch-manipulation gap-2 rounded-full text-muted-foreground md:h-8 md:gap-1.5 md:rounded-md"
+        >
+          Focus page
+          <FaArrowRightLong className="size-3" />
+        </Button>
+      </div>
+    </div>
+  );
 
   return (
     <div
@@ -127,153 +279,43 @@ export default function MiniTimer({
       </Button>
 
       {/* More controls */}
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <button
-            className="grid place-items-center size-6 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            title="Timer options"
-          >
-            <FaChevronDown className="size-2.5" />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent align="end" className="w-64 p-3">
-          {/* Status line */}
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              {isActive ? (isRunning ? "Running" : "Paused") : "Ready"}
-            </span>
-            <span className="font-mono text-xs text-muted-foreground">
-              {modeLabel}
-            </span>
-          </div>
-
-          {/* Mode toggle */}
-          <div className="mt-3 flex items-center gap-1 bg-muted rounded-full p-1">
+      {isMobile ? (
+        <MobileDrawer
+          open={open}
+          onOpenChange={setOpen}
+          title="Timer options"
+          description={`${isActive ? (isRunning ? "Running" : "Paused") : "Ready"} · ${modeLabel}`}
+          contentClassName="max-h-[min(85dvh,42rem)]"
+          trigger={
             <button
-              onClick={() => setMode("standard")}
-              className={cn(
-                "flex flex-1 items-center justify-center gap-1.5 text-xs px-3 py-1.5 rounded-full transition-colors font-medium",
-                mode === "standard"
-                  ? "bg-background shadow-sm text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
+              type="button"
+              className="grid size-6 touch-manipulation place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              title="Timer options"
+              aria-label="Open timer options"
             >
-              <IoIosTimer className="size-3" />
-              Standard
+              <FaChevronDown className="size-2.5" />
             </button>
+          }
+        >
+          {renderOptions(false)}
+        </MobileDrawer>
+      ) : (
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
             <button
-              onClick={() => setMode("pomodoro")}
-              className={cn(
-                "flex flex-1 items-center justify-center gap-1.5 text-xs px-3 py-1.5 rounded-full transition-colors font-medium",
-                mode === "pomodoro"
-                  ? "bg-background shadow-sm text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
+              type="button"
+              className="grid size-6 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              title="Timer options"
+              aria-label="Open timer options"
             >
-              <GiTomato className="size-3" />
-              Pomodoro
+              <FaChevronDown className="size-2.5" />
             </button>
-          </div>
-
-          {/* Tag selection */}
-          <div className="mt-3">
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">
-              Tag
-            </p>
-            <div className="flex gap-2">
-              <Input
-                className="h-8"
-                placeholder="Set a tag…"
-                value={customTag}
-                onChange={(e) => setCustomTag(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    applyCustomTag();
-                  }
-                }}
-              />
-            </div>
-
-            {savedTags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {savedTags.map((t) => {
-                  const active = t.t === tag;
-                  return (
-                    <button
-                      key={t.t}
-                      onClick={() => setTag(t.t)}
-                      className={cn(
-                        "flex items-center gap-1 text-xs px-2 py-1 rounded-full font-medium border transition-colors",
-                        !active && "border-transparent hover:bg-accent"
-                      )}
-                      style={
-                        active
-                          ? {
-                              backgroundColor: t.c + "22",
-                              color: t.c,
-                              borderColor: t.c + "55",
-                            }
-                          : undefined
-                      }
-                    >
-                      <FaHashtag className="size-2.5 opacity-70" />
-                      {t.t}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {tag && (
-              <div className="flex items-center justify-between mt-2 text-xs">
-                <span className="text-muted-foreground">
-                  Active:{" "}
-                  <span
-                    className="font-medium"
-                    style={tagColor ? { color: tagColor } : undefined}
-                  >
-                    #{tag}
-                  </span>
-                </span>
-                <button
-                  onClick={removeTag}
-                  className="text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Clear
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Actions */}
-          <div className="mt-3 pt-3 border-t flex items-center justify-between gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={reset}
-              disabled={!isActive}
-              className="gap-1.5"
-              title="Reset & save session"
-            >
-              <FaForwardFast className="size-3" />
-              Reset
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setOpen(false);
-                router.push("/focus");
-              }}
-              className="gap-1.5 text-muted-foreground"
-            >
-              Focus page
-              <FaArrowRightLong className="size-3" />
-            </Button>
-          </div>
-        </PopoverContent>
-      </Popover>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-64 p-3">
+            {renderOptions(true)}
+          </PopoverContent>
+        </Popover>
+      )}
     </div>
   );
 }

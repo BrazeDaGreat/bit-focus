@@ -13,14 +13,7 @@
 "use client";
 
 import { useState, type JSX, type ReactNode } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { ResponsiveDialog } from "@/components/ui/mobile-drawer";
 import ProviderButtons from "./ProviderButtons";
 import { FaArrowsRotate, FaLock } from "react-icons/fa6";
 
@@ -49,21 +42,23 @@ export default function ConnectAccountDialog({
   const setOpen = isControlled ? (onOpenChange ?? (() => {})) : setInternalOpen;
 
   return (
-    <Dialog open={isOpen} onOpenChange={setOpen}>
-      {children && <DialogTrigger asChild>{children}</DialogTrigger>}
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <span className="grid place-items-center size-10 rounded-xl bg-primary/10 text-primary mb-1">
+    <ResponsiveDialog
+      open={isOpen}
+      onOpenChange={setOpen}
+      trigger={children}
+      title={
+        <span className="flex items-center gap-3">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
             <FaArrowsRotate className="size-4" />
           </span>
-          <DialogTitle className="text-xl tracking-tight">
+          <span className="tracking-tight">
             Take your focus with you
-          </DialogTitle>
-          <DialogDescription className="leading-relaxed">
-            Connect an account and BIT Focus keeps your sessions, projects,
-            tags, and rewards the same on every device you sign in on.
-          </DialogDescription>
-        </DialogHeader>
+          </span>
+        </span>
+      }
+      description="Connect an account and BIT Focus keeps your sessions, projects, tags, and rewards the same on every device you sign in on."
+      dialogContentClassName="sm:max-w-md"
+    >
 
         <ProviderButtons
           className="pt-1"
@@ -85,7 +80,6 @@ export default function ConnectAccountDialog({
             working on this device exactly as before.
           </p>
         </div>
-      </DialogContent>
-    </Dialog>
+    </ResponsiveDialog>
   );
 }

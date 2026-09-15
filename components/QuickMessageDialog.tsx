@@ -28,12 +28,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { MobileDrawer } from "@/components/ui/mobile-drawer";
 import { FaMessage } from "react-icons/fa6";
 import { QUICK_MESSAGES } from "@/lib/quickMessages";
 import { sendMessage } from "@/lib/webhook";
 import { useConfig } from "@/hooks/useConfig";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 /**
  * Quick Message Dropdown Component
@@ -53,6 +55,8 @@ import { Loader2 } from "lucide-react";
 export default function QuickMessageDropdown() {
   const { webhook, name } = useConfig();
   const [sending, setSending] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   /**
    * Handles sending a selected quick message via webhook
@@ -70,6 +74,7 @@ export default function QuickMessageDropdown() {
     }
 
     setSending(true);
+    setIsOpen(false);
 
     try {
       // Format message with user name if available
@@ -91,28 +96,65 @@ export default function QuickMessageDropdown() {
     }
   };
 
+  const trigger = (
+    <Button
+      size="sm"
+      variant="outline"
+      disabled={sending}
+      aria-label={sending ? "Sending quick message" : "Send a quick message"}
+      title={sending ? "Sending…" : "Quick message"}
+    >
+      {sending ? (
+        <>
+          <Loader2 className="size-4 animate-spin xl:mr-2" />
+          <span className="hidden xl:inline">Sending...</span>
+        </>
+      ) : (
+        <>
+          <FaMessage className="xl:mr-2" />
+          <span className="hidden xl:inline">Quick Message</span>
+        </>
+      )}
+    </Button>
+  );
+
+  if (isMobile) {
+    return (
+      <MobileDrawer
+        open={isOpen}
+        onOpenChange={setIsOpen}
+        trigger={trigger}
+        title="Send a quick message"
+        description="Choose a status to send through your configured webhook."
+      >
+        <div className="grid gap-2 pt-2">
+          {QUICK_MESSAGES.map((item) => (
+            <Button
+              key={item.message}
+              type="button"
+              variant="ghost"
+              disabled={sending || !webhook}
+              onClick={() => handleSendMessage(item.message)}
+              className="min-h-12 h-auto touch-manipulation justify-start whitespace-normal rounded-xl px-4 py-3 text-left"
+            >
+              <item.icon className="size-4 shrink-0 text-muted-foreground" />
+              <span>{item.message}</span>
+            </Button>
+          ))}
+          {!webhook && (
+            <p className="rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">
+              No webhook is configured. Add one in settings to send messages.
+            </p>
+          )}
+        </div>
+      </MobileDrawer>
+    );
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={sending}
-          aria-label={sending ? "Sending quick message" : "Send a quick message"}
-          title={sending ? "Sending…" : "Quick message"}
-        >
-          {sending ? (
-            <>
-              <Loader2 className="size-4 animate-spin xl:mr-2" />
-              <span className="hidden xl:inline">Sending...</span>
-            </>
-          ) : (
-            <>
-              <FaMessage className="xl:mr-2" />
-              <span className="hidden xl:inline">Quick Message</span>
-            </>
-          )}
-        </Button>
+        {trigger}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuLabel>Send a Quick Message</DropdownMenuLabel>

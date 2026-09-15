@@ -23,6 +23,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
+import { MobileDrawer } from "@/components/ui/mobile-drawer";
 import {
   FaHome,
   FaProjectDiagram,
@@ -85,7 +86,7 @@ export function AppSidebar(): JSX.Element {
   const { pause, state, start } = usePomo();
   const { loadConfig, loadingConfig, featureToggles } = useConfig();
   const { loadProjects } = useProjects();
-  const { state: sidebarState } = useSidebar();
+  const { state: sidebarState, isMobile, setOpenMobile } = useSidebar();
 
   const isNavigatingRef = useRef(false);
   const wasRunningRef = useRef(false);
@@ -127,14 +128,18 @@ export function AppSidebar(): JSX.Element {
     (url: string, event: React.MouseEvent) => {
       event.preventDefault();
       if (isNavigatingRef.current) return;
-      if (pathname === url) return;
+      if (pathname === url) {
+        if (isMobile) setOpenMobile(false);
+        return;
+      }
       isNavigatingRef.current = true;
       pauseForNavigation();
+      if (isMobile) setOpenMobile(false);
       setTimeout(() => {
         router.push(url);
       }, 5);
     },
-    [pathname, router, pauseForNavigation]
+    [isMobile, pathname, router, pauseForNavigation, setOpenMobile]
   );
 
   const visible = (list: NavItem[]) =>
@@ -182,8 +187,8 @@ export function AppSidebar(): JSX.Element {
         <SidebarMenuButton
           isActive={active}
           className={cn(
-            "group/nav relative h-9 gap-2.5 rounded-lg px-2.5 transition-colors duration-150",
-            "[&>svg]:size-4 [&>svg]:shrink-0",
+            "group/nav relative h-12 gap-3 rounded-xl px-3 text-[15px] transition-colors duration-150 md:h-9 md:gap-2.5 md:rounded-lg md:px-2.5 md:text-sm",
+            "[&>svg]:size-[1.125rem] [&>svg]:shrink-0 md:[&>svg]:size-4",
             active
               ? "font-medium text-foreground data-[active=true]:bg-primary/12 data-[active=true]:hover:bg-primary/12 [&>svg]:text-primary"
               : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
@@ -198,7 +203,7 @@ export function AppSidebar(): JSX.Element {
           {shortcutKey && sidebarState !== "collapsed" && (
             <Kbd
               className={cn(
-                "ml-auto pointer-events-none transition-opacity duration-150",
+                "pointer-events-none ml-auto hidden transition-opacity duration-150 md:inline-flex",
                 active ? "opacity-100" : "opacity-0 group-hover/nav:opacity-100"
               )}
             >
@@ -214,21 +219,24 @@ export function AppSidebar(): JSX.Element {
     <Sidebar className="border-r-0">
       {/* ── Header: profile card ── */}
       <SidebarHeader className="p-3 pb-2">
+        <div className="flex h-11 items-center px-1 pr-12 md:hidden">
+          <span className="text-base font-semibold tracking-tight">BIT Focus</span>
+        </div>
         <UserConfigButton loadingConfig={loadingConfig} />
       </SidebarHeader>
 
       {/* ── Navigation ── */}
-      <SidebarContent className="gap-2 px-3">
+      <SidebarContent className="gap-2 px-2 pb-2 md:px-3 md:pb-0">
         <SidebarGroup className="p-0">
           <SidebarGroupContent>
-            <SidebarMenu className="gap-0.5 pl-1">{pinned.map(renderItem)}</SidebarMenu>
+            <SidebarMenu className="gap-1 md:gap-0.5 md:pl-1">{pinned.map(renderItem)}</SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
         {more.length > 0 && (
           <Collapsible open={moreOpen} onOpenChange={handleMoreOpenChange}>
             <SidebarGroup className="p-0">
-              <CollapsibleTrigger className="flex w-full items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground/70 transition-colors hover:text-foreground">
+              <CollapsibleTrigger className="flex min-h-11 w-full touch-manipulation items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground/70 transition-[background-color,color,transform] hover:bg-sidebar-accent/60 hover:text-foreground active:scale-[0.98] motion-reduce:transition-none md:min-h-0 md:gap-1.5 md:rounded-lg md:px-2.5 md:py-1.5 md:text-[11px] md:hover:bg-transparent">
                 <FaChevronRight
                   className={cn(
                     "size-2.5 transition-transform duration-200",
@@ -242,7 +250,7 @@ export function AppSidebar(): JSX.Element {
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <SidebarGroupContent className="pt-0.5">
-                  <SidebarMenu className="gap-0.5 pl-1">{more.map(renderItem)}</SidebarMenu>
+                  <SidebarMenu className="gap-1 md:gap-0.5 md:pl-1">{more.map(renderItem)}</SidebarMenu>
                 </SidebarGroupContent>
               </CollapsibleContent>
             </SidebarGroup>
@@ -250,7 +258,7 @@ export function AppSidebar(): JSX.Element {
         )}
 
         {/* ── Ambience mixer ── */}
-        <SidebarGroup className="mt-auto rounded-xl bg-sidebar-accent/50 p-1.5">
+        <SidebarGroup className="mt-auto rounded-2xl bg-sidebar-accent/50 p-1.5 md:rounded-xl">
           <SidebarGroupContent>
             <AmbienceMixer />
           </SidebarGroupContent>
@@ -259,7 +267,7 @@ export function AppSidebar(): JSX.Element {
 
       {/* ── Footer: theme, shortcuts, version ── */}
       <SidebarFooter className="p-3 pt-2">
-        <div className="flex items-center justify-between rounded-xl bg-sidebar-accent/50 px-2 py-1.5">
+        <div className="flex min-h-12 items-center justify-between rounded-2xl bg-sidebar-accent/50 px-2 py-1.5 md:min-h-0 md:rounded-xl">
           <div className="flex items-center gap-1">
             <ThemeIconButton />
             <ShortcutsButton />
@@ -281,7 +289,7 @@ function ShortcutsButton(): JSX.Element {
     <Button
       variant="ghost"
       size="icon"
-      className="group/kbd relative size-8 rounded-lg hover:bg-background"
+      className="group/kbd relative size-10 touch-manipulation rounded-xl hover:bg-background md:size-8 md:rounded-lg"
       title="Keyboard shortcuts (?)"
       onClick={() => setHelpOpen(true)}
     >
@@ -303,6 +311,8 @@ function ThemeIcon({ theme: t }: { theme: ThemeDefinition }): JSX.Element {
 function ThemeIconButton(): JSX.Element {
   const { setTheme, theme } = useTheme();
   const [currentTheme, setCurrentTheme] = useState<ThemeDefinition | null>(null);
+  const [open, setOpen] = useState(false);
+  const { isMobile } = useSidebar();
 
   useEffect(() => {
     const foundTheme = THEMES.find((t) => t.value === theme);
@@ -310,39 +320,63 @@ function ThemeIconButton(): JSX.Element {
   }, [theme, setTheme]);
 
   if (!currentTheme) {
-    return <Skeleton className="size-8 rounded-lg" />;
+    return <Skeleton className="size-10 rounded-xl md:size-8 md:rounded-lg" />;
+  }
+
+  const trigger = (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="size-10 touch-manipulation rounded-xl hover:bg-background md:size-8 md:rounded-lg"
+      title="Change theme"
+    >
+      <ThemeIcon theme={currentTheme} />
+    </Button>
+  );
+
+  const themeOptions = (
+    <div className="flex flex-col gap-1 md:gap-0.5">
+      {THEMES.map((themeOption) => (
+        <button
+          type="button"
+          key={themeOption.value}
+          onClick={() => {
+            setTheme(themeOption.value);
+            setOpen(false);
+          }}
+          className={cn(
+            "flex min-h-12 w-full touch-manipulation items-center gap-3 rounded-xl px-4 text-left text-sm transition-[background-color,color,transform] active:scale-[0.98] motion-reduce:transition-none md:min-h-0 md:gap-2 md:rounded-lg md:px-2 md:py-1.5",
+            theme === themeOption.value
+              ? "bg-primary/12 font-medium text-foreground"
+              : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+          )}
+        >
+          <ThemeIcon theme={themeOption} />
+          {themeOption.label}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <MobileDrawer
+        open={open}
+        onOpenChange={setOpen}
+        trigger={trigger}
+        title="Choose theme"
+        description="Change the app's colours without leaving your current page."
+      >
+        {themeOptions}
+      </MobileDrawer>
+    );
   }
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-8 rounded-lg hover:bg-background"
-          title="Change theme"
-        >
-          <ThemeIcon theme={currentTheme} />
-        </Button>
-      </PopoverTrigger>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent side="top" align="start" className="w-44 rounded-xl p-1.5">
-        <div className="flex flex-col gap-0.5">
-          {THEMES.map((t) => (
-            <button
-              key={t.value}
-              onClick={() => setTheme(t.value)}
-              className={cn(
-                "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors",
-                theme === t.value
-                  ? "bg-primary/12 font-medium text-foreground"
-                  : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
-              )}
-            >
-              <ThemeIcon theme={t} />
-              {t.label}
-            </button>
-          ))}
-        </div>
+        {themeOptions}
       </PopoverContent>
     </Popover>
   );
@@ -362,6 +396,7 @@ function UserConfigButton({ loadingConfig }: { loadingConfig: boolean }): JSX.El
   const { name, dob } = useConfig();
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
+  const { isMobile, setOpenMobile } = useSidebar();
 
   const hasName = name && name !== "NULL" && name.trim() !== "";
   const hasDob = !!dob;
@@ -371,13 +406,16 @@ function UserConfigButton({ loadingConfig }: { loadingConfig: boolean }): JSX.El
     return <Skeleton className="h-14 w-full rounded-xl" />;
   }
 
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          className="h-14 w-full justify-start gap-2.5 rounded-xl bg-sidebar-accent/50 px-2.5 hover:bg-sidebar-accent"
-        >
+  const closeProfile = () => {
+    setOpen(false);
+    if (isMobile) setOpenMobile(false);
+  };
+
+  const trigger = (
+    <Button
+      variant="ghost"
+      className="h-14 w-full touch-manipulation justify-start gap-2.5 rounded-2xl bg-sidebar-accent/50 px-2.5 hover:bg-sidebar-accent md:rounded-xl"
+    >
           {hasName || user ? (
             <AccountAvatar seed={name} className="size-9 shrink-0 shadow-sm" />
           ) : (
@@ -409,14 +447,34 @@ function UserConfigButton({ loadingConfig }: { loadingConfig: boolean }): JSX.El
               </span>
             )}
           </div>
-        </Button>
-      </PopoverTrigger>
+    </Button>
+  );
+
+  if (isMobile) {
+    return (
+      <MobileDrawer
+        open={open}
+        onOpenChange={setOpen}
+        trigger={trigger}
+        title="Profile and settings"
+        description="Update your details, preferences, and account settings."
+        contentClassName="max-h-[94dvh]"
+        bodyClassName="px-0"
+      >
+        <EditConfigForm onSave={closeProfile} />
+      </MobileDrawer>
+    );
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent
         side="top"
         align="start"
         className="max-h-[min(34rem,calc(100vh-5rem))] w-80 overflow-y-auto rounded-xl p-0"
       >
-        <EditConfigForm onSave={() => setOpen(false)} />
+        <EditConfigForm onSave={closeProfile} />
       </PopoverContent>
     </Popover>
   );

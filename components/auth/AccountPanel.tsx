@@ -70,7 +70,7 @@ export default function AccountPanel({
           </div>
           <Button
             size="sm"
-            className="w-full"
+            className="h-12 w-full rounded-full md:h-8 md:rounded-md"
             onClick={() => setConnectOpen(true)}
           >
             Connect an account
@@ -118,7 +118,7 @@ export default function AccountPanel({
         <Button
           size="sm"
           variant="ghost"
-          className="h-7 px-2 text-xs gap-1.5"
+          className="h-11 touch-manipulation gap-1.5 rounded-full px-3 text-xs md:h-7 md:rounded-md md:px-2"
           disabled={busy}
           onClick={() => syncNow()}
         >
@@ -133,7 +133,7 @@ export default function AccountPanel({
         <Button
           size="sm"
           variant="outline"
-          className="flex-1 h-8 text-xs gap-1.5"
+          className="h-12 flex-1 touch-manipulation gap-1.5 rounded-full text-xs md:h-8 md:rounded-md"
           onClick={() => {
             onNavigate?.();
             router.push("/account");
@@ -145,7 +145,7 @@ export default function AccountPanel({
         <Button
           size="sm"
           variant="ghost"
-          className="h-8 text-xs gap-1.5"
+          className="h-12 touch-manipulation gap-1.5 rounded-full text-xs md:h-8 md:rounded-md"
           onClick={() => {
             signOut();
             toast("Signed out. Your data stays on this device.");

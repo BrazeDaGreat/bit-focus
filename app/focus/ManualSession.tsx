@@ -12,16 +12,8 @@
  */
 
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { DialogFooter } from "@/components/ui/dialog";
+import { ResponsiveDialog } from "@/components/ui/mobile-drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useFocus } from "@/hooks/useFocus";
@@ -137,21 +129,20 @@ export default function ManualSessionDialog(): JSX.Element {
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
+    <ResponsiveDialog
+      open={open}
+      onOpenChange={handleOpenChange}
+      trigger={
         <Button size={"sm"} variant={"outline"}>
           <FaPlus /> Manual
         </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add Session Manually</DialogTitle>
-          <DialogDescription>
-            Log a focus session you forgot to record with the timer.
-          </DialogDescription>
-        </DialogHeader>
-
-        <form onSubmit={handleSubmit(onSubmit)}>
+      }
+      title="Add session manually"
+      description="Log a focus session you forgot to record with the timer."
+      contentClassName="max-h-[94dvh]"
+      bodyClassName="pt-1"
+    >
+      <form onSubmit={handleSubmit(onSubmit)}>
           <div className="space-y-4 py-2 pb-4">
             {/* Tag Field */}
             <div className="space-y-2">
@@ -344,16 +335,20 @@ export default function ManualSessionDialog(): JSX.Element {
             </div>
           </div>
 
-          <DialogFooter>
-            <Button type="submit">Add Session</Button>
-            <DialogClose asChild>
-              <Button variant="outline" type="button">
-                Cancel
-              </Button>
-            </DialogClose>
+          <DialogFooter className="grid grid-cols-2 gap-3 md:flex">
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => setOpen(false)}
+              className="h-12 rounded-full md:h-9 md:rounded-md"
+            >
+              Cancel
+            </Button>
+            <Button type="submit" className="h-12 rounded-full md:h-9 md:rounded-md">
+              Add session
+            </Button>
           </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      </form>
+    </ResponsiveDialog>
   );
 }

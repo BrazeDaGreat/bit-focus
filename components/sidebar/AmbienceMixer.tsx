@@ -63,7 +63,7 @@ export function AmbienceMixer(): JSX.Element {
   const activeCount = Object.values(tracks).filter((t) => t.enabled).length;
 
   return (
-    <div className="rounded-lg border bg-card/40 p-2.5">
+    <div className="rounded-xl border bg-card/40 p-2.5 md:rounded-lg">
       {/* Panel header */}
       <div className="mb-2 flex items-center gap-2 px-0.5">
         <FaWind className="size-3 text-muted-foreground" />
@@ -82,7 +82,7 @@ export function AmbienceMixer(): JSX.Element {
           aria-label={isPaused ? "Play selected ambience sounds" : "Pause selected ambience sounds"}
           title={isPaused ? "Play all ambience" : "Pause all ambience"}
           className={cn(
-            "grid size-6 place-items-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-35",
+            "grid size-10 touch-manipulation place-items-center rounded-full text-muted-foreground outline-none transition-[background-color,color,transform] hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-95 motion-reduce:transition-none disabled:pointer-events-none disabled:opacity-35 md:size-6 md:rounded-md",
             activeCount === 0 && "ml-auto"
           )}
         >
@@ -91,7 +91,7 @@ export function AmbienceMixer(): JSX.Element {
       </div>
 
       {/* Track rows */}
-      <div className="flex max-h-44 flex-col gap-1.5 overflow-y-auto overscroll-contain pr-1">
+      <div className="flex max-h-56 flex-col gap-1.5 overflow-y-auto overscroll-contain pr-1 md:max-h-44">
         {AMBIENCES.map((ambience) => {
           const state = tracks[ambience.id];
           const enabled = !!state?.enabled;
@@ -113,7 +113,7 @@ export function AmbienceMixer(): JSX.Element {
               aria-pressed={enabled}
               aria-label={`${enabled ? "Stop" : "Play"} ${ambience.label}`}
               className={cn(
-                "group/row flex cursor-pointer items-center rounded-md border p-1 text-left outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-ring",
+                "group/row flex min-h-12 shrink-0 cursor-pointer touch-manipulation items-center rounded-xl border px-2 py-1 text-left outline-none transition-[background-color,border-color,transform] duration-200 focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.99] motion-reduce:transition-none md:min-h-[auto] md:rounded-md md:p-1",
                 enabled
                   ? "border-primary/30 bg-primary/10"
                   : "border-transparent hover:bg-accent/50"
@@ -121,7 +121,7 @@ export function AmbienceMixer(): JSX.Element {
             >
               <span
                 className={cn(
-                  "relative grid size-7 shrink-0 place-items-center rounded-md transition-colors duration-200",
+                  "relative grid size-9 shrink-0 place-items-center rounded-lg transition-colors duration-200 md:size-7 md:rounded-md",
                   enabled
                     ? "bg-primary/20 text-primary shadow-[0_0_0_3px] shadow-primary/5"
                     : "bg-accent/60 text-muted-foreground group-hover/row:text-foreground"
@@ -134,11 +134,11 @@ export function AmbienceMixer(): JSX.Element {
               </span>
 
               {/* Right region: label (off) crossfades with volume bar (on) */}
-              <span className="relative ml-2.5 flex h-7 min-w-0 flex-1 items-center">
+              <span className="relative ml-2.5 flex h-9 min-w-0 flex-1 items-center md:h-7">
                 {/* Label — shown when the track is off */}
                 <span
                   className={cn(
-                    "absolute inset-0 flex items-center truncate text-xs transition-opacity duration-300",
+                    "absolute inset-0 flex items-center truncate text-sm transition-opacity duration-300 md:text-xs",
                     enabled
                       ? "pointer-events-none opacity-0"
                       : "text-muted-foreground opacity-100 group-hover/row:text-foreground"
@@ -226,7 +226,7 @@ function VolumeSlider({
           onChange(value + 0.05);
         }
       }}
-      className="group relative h-4 flex-1 cursor-pointer touch-none select-none outline-none"
+      className="group relative h-8 flex-1 cursor-pointer touch-none select-none outline-none md:h-4"
     >
       {/* Track */}
       <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-border/70" />

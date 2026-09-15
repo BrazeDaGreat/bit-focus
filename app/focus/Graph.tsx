@@ -43,13 +43,7 @@ import { FocusSession, useFocus } from "@/hooks/useFocus";
 import { formatTime, getTagColor } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { FaChartBar, FaChartPie } from "react-icons/fa6";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { ResponsiveDialog } from "@/components/ui/mobile-drawer";
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa";
 import { useTag } from "@/hooks/useTag";
 import { useTheme } from "next-themes";
@@ -507,11 +501,11 @@ const Graph: React.FC = (): JSX.Element => {
       </ResponsiveContainer>
 
       {/* View Period Selection Buttons */}
-      <div className="flex flex-col gap-2 mt-4 items-center">
-        <div className="flex gap-2">
+      <div className="mt-4 flex flex-col items-center gap-2">
+        <div className="grid w-full grid-cols-3 gap-2">
           <Button
             variant={view === "day" ? "secondary" : "ghost"}
-            className="w-28 justify-center"
+            className="w-full justify-center px-1 text-xs sm:px-3 sm:text-sm"
             onClick={() => {
               setView("day");
               setOffset(0);
@@ -521,7 +515,7 @@ const Graph: React.FC = (): JSX.Element => {
           </Button>
           <Button
             variant={view === "30days" ? "secondary" : "ghost"}
-            className="w-28 justify-center"
+            className="w-full justify-center px-1 text-xs sm:px-3 sm:text-sm"
             onClick={() => {
               setView("30days");
               setOffset(0);
@@ -531,7 +525,7 @@ const Graph: React.FC = (): JSX.Element => {
           </Button>
           <Button
             variant={view === "month" ? "secondary" : "ghost"}
-            className="w-28 justify-center"
+            className="w-full justify-center px-1 text-xs sm:px-3 sm:text-sm"
             onClick={() => {
               setView("month");
               setOffset(0);
@@ -540,10 +534,10 @@ const Graph: React.FC = (): JSX.Element => {
             6 Months
           </Button>
         </div>
-        <div className="flex gap-2">
+        <div className="grid w-full grid-cols-3 gap-2">
           <Button
             variant={view === "12months" ? "secondary" : "ghost"}
-            className="w-28 justify-center"
+            className="w-full justify-center px-1 text-xs sm:px-3 sm:text-sm"
             onClick={() => {
               setView("12months");
               setOffset(0);
@@ -553,7 +547,7 @@ const Graph: React.FC = (): JSX.Element => {
           </Button>
           <Button
             variant={view === "yearly" ? "secondary" : "ghost"}
-            className="w-28 justify-center"
+            className="w-full justify-center px-1 text-xs sm:px-3 sm:text-sm"
             onClick={() => {
               setView("yearly");
               setOffset(0);
@@ -563,7 +557,7 @@ const Graph: React.FC = (): JSX.Element => {
           </Button>
           <Button
             variant={view === "3years" ? "secondary" : "ghost"}
-            className="w-28 justify-center"
+            className="w-full justify-center px-1 text-xs sm:px-3 sm:text-sm"
             onClick={() => {
               setView("3years");
               setOffset(0);
@@ -685,21 +679,23 @@ const Graph: React.FC = (): JSX.Element => {
  * @see {@link Graph} for the main graph component
  */
 export default function GraphDialog(): JSX.Element {
+  const [open, setOpen] = useState(false);
+
   return (
-    <Dialog>
-      <DialogTrigger asChild>
+    <ResponsiveDialog
+      open={open}
+      onOpenChange={setOpen}
+      trigger={
         <Button size={"sm"} variant={"outline"}>
           <FaChartBar /> Details
         </Button>
-      </DialogTrigger>
-      <DialogContent className="max-h-[calc(85vh)] overflow-auto no-scroll-wheel">
-        <DialogTitle>Focus History</DialogTitle>
-        <DialogDescription>
-          See a summary of your focus time, broken down by days, weeks, and
-          months.
-        </DialogDescription>
-        <Graph />
-      </DialogContent>
-    </Dialog>
+      }
+      title="Focus history"
+      description="See a summary of your focus time across days, weeks, and months."
+      contentClassName="max-h-[94dvh]"
+      dialogContentClassName="max-h-[85vh] overflow-auto no-scroll-wheel"
+    >
+      <Graph />
+    </ResponsiveDialog>
   );
 }

@@ -9,15 +9,8 @@
  */
 
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { DialogFooter } from "@/components/ui/dialog";
+import { ResponsiveDialog } from "@/components/ui/mobile-drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FocusSession, useFocus } from "@/hooks/useFocus";
@@ -145,16 +138,15 @@ export function EditFocusSessionDialog({
   if (!session) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Edit Focus Session</DialogTitle>
-          <DialogDescription>
-            Modify your focus session details below.
-          </DialogDescription>
-        </DialogHeader>
-
-        <form onSubmit={handleSubmit(onSubmit)}>
+    <ResponsiveDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Edit focus session"
+      description="Modify the tag, start time, or duration for this session."
+      contentClassName="max-h-[94dvh]"
+      bodyClassName="pt-1"
+    >
+      <form onSubmit={handleSubmit(onSubmit)}>
           <div className="space-y-4 py-2 pb-4">
             {/* Tag Field */}
             <div className="space-y-2">
@@ -323,14 +315,20 @@ export function EditFocusSessionDialog({
             </div>
           </div>
 
-          <DialogFooter>
-            <Button type="submit">Save Changes</Button>
-            <DialogClose asChild>
-              <Button variant="outline">Cancel</Button>
-            </DialogClose>
+          <DialogFooter className="grid grid-cols-2 gap-3 md:flex">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="h-12 rounded-full md:h-9 md:rounded-md"
+            >
+              Cancel
+            </Button>
+            <Button type="submit" className="h-12 rounded-full md:h-9 md:rounded-md">
+              Save changes
+            </Button>
           </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      </form>
+    </ResponsiveDialog>
   );
 }

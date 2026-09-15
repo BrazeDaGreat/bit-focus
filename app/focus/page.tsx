@@ -18,13 +18,7 @@
  */
 
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { MobileDrawer, ResponsiveDialog } from "@/components/ui/mobile-drawer";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -370,19 +364,19 @@ export default function Focus(): JSX.Element {
       </section>
 
       {/* ── Pomodoro settings ───────────────────────────────────────────── */}
-      <Dialog open={showSettings} onOpenChange={setShowSettings}>
-        <DialogContent className="max-h-[90vh] gap-0 overflow-y-auto rounded-2xl p-0 sm:max-w-md">
-          <DialogHeader className="border-b px-5 py-4">
-            <DialogTitle className="text-base">Pomodoro</DialogTitle>
-            <DialogDescription className="text-xs">
-              How long each focus block and break runs.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="p-5">
-            <PomodoroSettings />
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ResponsiveDialog
+        open={showSettings}
+        onOpenChange={setShowSettings}
+        title="Pomodoro settings"
+        description="Choose how long each focus block and break runs."
+        contentClassName="max-h-[90dvh]"
+        bodyClassName="pt-2"
+        dialogContentClassName="max-h-[90vh] gap-0 overflow-y-auto rounded-2xl p-0 sm:max-w-md"
+        dialogHeaderClassName="border-b px-5 py-4"
+        dialogBodyClassName="p-5"
+      >
+        <PomodoroSettings />
+      </ResponsiveDialog>
 
       <Toaster theme={(theme ?? "system") as "system" | "light" | "dark"} />
     </div>
@@ -549,6 +543,7 @@ function TagSelectorPill(): JSX.Element {
   const { tag, setTag, removeTag, savedTags } = useTag();
   const [open, setOpen] = useState(false);
   const [tempTag, setTempTag] = useState("");
+  const isMobile = useIsMobile();
 
   const tagColor = savedTags.find((t) => t.t === tag)?.c;
 
@@ -560,93 +555,117 @@ function TagSelectorPill(): JSX.Element {
     setTempTag("");
   };
 
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          title="Session tag"
-          className={cn(
-            DOCK_BUTTON_BASE,
-            "min-w-0 gap-2",
-            tag
-              ? "text-foreground hover:opacity-90"
-              : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-          )}
-          style={tag && tagColor ? { backgroundColor: tagColor + "24" } : undefined}
-        >
-          {tag ? (
-            <>
-              <span
-                className="size-2 shrink-0 rounded-full"
-                style={{ backgroundColor: tagColor ?? "var(--muted-foreground)" }}
-              />
-              <span className="max-w-24 truncate">{tag}</span>
-            </>
-          ) : (
-            <>
-              <FaHashtag className="size-3.5" />
-              Tag
-            </>
-          )}
-          <FaChevronDown className="size-2.5 opacity-60" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-60 rounded-xl p-3">
-        <div className="flex flex-col gap-3">
-          <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
-            Session tag
-          </p>
+  const trigger = (
+    <button
+      title="Session tag"
+      className={cn(
+        DOCK_BUTTON_BASE,
+        "min-w-0 gap-2",
+        tag
+          ? "text-foreground hover:opacity-90"
+          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+      )}
+      style={tag && tagColor ? { backgroundColor: tagColor + "24" } : undefined}
+    >
+      {tag ? (
+        <>
+          <span
+            className="size-2 shrink-0 rounded-full"
+            style={{ backgroundColor: tagColor ?? "var(--muted-foreground)" }}
+          />
+          <span className="max-w-24 truncate">{tag}</span>
+        </>
+      ) : (
+        <>
+          <FaHashtag className="size-3.5" />
+          Tag
+        </>
+      )}
+      <FaChevronDown className="size-2.5 opacity-60" />
+    </button>
+  );
 
-          {savedTags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {savedTags.map((t) => (
-                <button
-                  key={t.t}
-                  onClick={() => {
-                    setTag(t.t);
-                    setOpen(false);
-                  }}
-                  className={cn(
-                    "rounded-full px-2.5 py-1 text-xs font-medium transition-opacity hover:opacity-80",
-                    tag === t.t && "ring-2 ring-offset-1 ring-offset-background"
-                  )}
-                  style={{
-                    backgroundColor: t.c + "33",
-                    color: t.c,
-                    border: `1px solid ${t.c}55`,
-                  }}
-                >
-                  {t.t}
-                </button>
-              ))}
-            </div>
-          )}
-
-          <div className="flex gap-2">
-            <Input
-              value={tempTag}
-              onChange={(e) => setTempTag(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSave()}
-              placeholder="New tag…"
-              className="h-8 text-xs"
-            />
-            <Button size="sm" onClick={handleSave} className="h-8 shrink-0">
-              Set
-            </Button>
-          </div>
-
-          {tag && (
+  const content = (
+    <div className="flex flex-col gap-4 md:gap-3">
+      {savedTags.length > 0 && (
+        <div className="flex max-h-48 flex-wrap gap-2 overflow-y-auto overscroll-contain md:max-h-32 md:gap-1.5">
+          {savedTags.map((savedTag) => (
             <button
+              type="button"
+              key={savedTag.t}
               onClick={() => {
-                removeTag();
+                setTag(savedTag.t);
                 setOpen(false);
               }}
-              className="text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
+              className={cn(
+                "min-h-10 touch-manipulation rounded-full px-3 text-sm font-medium transition-opacity hover:opacity-80 md:min-h-0 md:px-2.5 md:py-1 md:text-xs",
+                tag === savedTag.t && "ring-2 ring-offset-1 ring-offset-background"
+              )}
+              style={{
+                backgroundColor: savedTag.c + "33",
+                color: savedTag.c,
+                border: `1px solid ${savedTag.c}55`,
+              }}
             >
-              Clear tag
+              {savedTag.t}
             </button>
-          )}
+          ))}
         </div>
+      )}
+
+      <div className="flex gap-2">
+        <Input
+          value={tempTag}
+          onChange={(event) => setTempTag(event.target.value)}
+          onKeyDown={(event) => event.key === "Enter" && handleSave()}
+          placeholder="New tag…"
+          aria-label="New session tag"
+          className="h-12 rounded-xl text-base md:h-8 md:rounded-md md:text-xs"
+        />
+        <Button
+          size="sm"
+          onClick={handleSave}
+          disabled={!tempTag.trim()}
+          className="h-12 shrink-0 rounded-full px-5 md:h-8 md:rounded-md md:px-3"
+        >
+          Set
+        </Button>
+      </div>
+
+      {tag && (
+        <button
+          type="button"
+          onClick={() => {
+            removeTag();
+            setOpen(false);
+          }}
+          className="min-h-12 touch-manipulation rounded-xl px-3 text-left text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:min-h-0 md:rounded-none md:px-0 md:text-xs md:hover:bg-transparent"
+        >
+          Clear tag
+        </button>
+      )}
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <MobileDrawer
+        open={open}
+        onOpenChange={setOpen}
+        trigger={trigger}
+        title="Session tag"
+        description="Label this focus session so it is easy to find later."
+      >
+        {content}
+      </MobileDrawer>
+    );
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+      <PopoverContent className="w-60 rounded-xl p-3">
+        {content}
       </PopoverContent>
     </Popover>
   );
@@ -658,6 +677,7 @@ function GoalPill(): JSX.Element {
   const { goalMinutes, setGoal, clearGoal } = useFocusGoal();
   const [open, setOpen] = useState(false);
   const [custom, setCustom] = useState("");
+  const isMobile = useIsMobile();
 
   const applyCustom = () => {
     const value = Number(custom);
@@ -667,86 +687,101 @@ function GoalPill(): JSX.Element {
     setOpen(false);
   };
 
+  const trigger = (
+    <button
+      className={cn(
+        DOCK_BUTTON_BASE,
+        goalMinutes
+          ? "bg-primary/12 text-foreground hover:bg-primary/20"
+          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+      )}
+      title="Session goal"
+    >
+      <FaBullseye className={cn("size-3.5", goalMinutes && "text-primary")} />
+      {goalMinutes ? humanMinutes(goalMinutes) : "Goal"}
+    </button>
+  );
+
+  const content = (
+    <div className="flex flex-col gap-4 md:gap-3">
+      <div className="grid grid-cols-3 gap-2 md:flex md:flex-wrap md:gap-1.5">
+        {GOAL_PRESETS.map((preset) => (
+          <button
+            type="button"
+            key={preset}
+            onClick={() => {
+              setGoal(preset);
+              setOpen(false);
+            }}
+            className={cn(
+              "min-h-12 touch-manipulation rounded-xl px-3 text-sm font-medium transition-[background-color,color,transform] active:scale-95 motion-reduce:transition-none md:min-h-0 md:rounded-lg md:px-2.5 md:py-1.5 md:text-xs",
+              goalMinutes === preset
+                ? "bg-primary/15 text-primary"
+                : "bg-muted/60 text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {humanMinutes(preset)}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex gap-2">
+        <Input
+          type="number"
+          inputMode="numeric"
+          min={GOAL_MIN_MINUTES}
+          max={GOAL_MAX_MINUTES}
+          value={custom}
+          onChange={(event) => setCustom(event.target.value)}
+          onKeyDown={(event) => event.key === "Enter" && applyCustom()}
+          placeholder="Minutes"
+          aria-label="Custom goal in minutes"
+          className="h-12 rounded-xl text-base md:h-8 md:rounded-md md:text-xs"
+        />
+        <Button
+          size="sm"
+          onClick={applyCustom}
+          disabled={!custom.trim()}
+          className="h-12 shrink-0 rounded-full px-5 md:h-8 md:rounded-md md:px-3"
+        >
+          Set
+        </Button>
+      </div>
+
+      {goalMinutes && (
+        <button
+          type="button"
+          onClick={() => {
+            clearGoal();
+            setOpen(false);
+          }}
+          className="min-h-12 touch-manipulation rounded-xl px-3 text-left text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:min-h-0 md:rounded-none md:px-0 md:text-xs md:hover:bg-transparent"
+        >
+          Remove goal
+        </button>
+      )}
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <MobileDrawer
+        open={open}
+        onOpenChange={setOpen}
+        trigger={trigger}
+        title="Session goal"
+        description="The timer keeps running past your target; the ring changes colour when you reach it."
+      >
+        {content}
+      </MobileDrawer>
+    );
+  }
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          className={cn(
-            DOCK_BUTTON_BASE,
-            goalMinutes
-              ? "bg-primary/12 text-foreground hover:bg-primary/20"
-              : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-          )}
-          title="Session goal"
-        >
-          <FaBullseye className={cn("size-3.5", goalMinutes && "text-primary")} />
-          {goalMinutes ? humanMinutes(goalMinutes) : "Goal"}
-        </button>
-      </PopoverTrigger>
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent className="w-64 rounded-xl p-3">
-        <div className="flex flex-col gap-3">
-          <div>
-            <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
-              Session goal
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              The timer keeps running past it — the ring just changes colour.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-1.5">
-            {GOAL_PRESETS.map((preset) => (
-              <button
-                key={preset}
-                onClick={() => {
-                  setGoal(preset);
-                  setOpen(false);
-                }}
-                className={cn(
-                  "rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors",
-                  goalMinutes === preset
-                    ? "bg-primary/15 text-primary"
-                    : "bg-muted/60 text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {humanMinutes(preset)}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex gap-2">
-            <Input
-              type="number"
-              min={GOAL_MIN_MINUTES}
-              max={GOAL_MAX_MINUTES}
-              value={custom}
-              onChange={(e) => setCustom(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && applyCustom()}
-              placeholder="Minutes"
-              className="h-8 text-xs"
-            />
-            <Button
-              size="sm"
-              onClick={applyCustom}
-              disabled={!custom.trim()}
-              className="h-8 shrink-0"
-            >
-              Set
-            </Button>
-          </div>
-
-          {goalMinutes && (
-            <button
-              onClick={() => {
-                clearGoal();
-                setOpen(false);
-              }}
-              className="text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
-            >
-              Remove goal
-            </button>
-          )}
-        </div>
+        {content}
       </PopoverContent>
     </Popover>
   );

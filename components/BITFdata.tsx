@@ -9,8 +9,10 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { Button } from "./ui/button";
+import { MobileDrawer } from "./ui/mobile-drawer";
 import { FaFileCsv, FaFileExport, FaFileImport, FaUpload, FaTriangleExclamation } from "react-icons/fa6";
 import { useConfig } from "@/hooks/useConfig";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { VERSION } from "@/app//changelog/CHANGELOG";
 import axios from "axios";
 
@@ -44,6 +46,7 @@ export default function BITFdata(): JSX.Element {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const { webhook } = useConfig();
+  const isMobile = useIsMobile();
   const hasWebhook = webhook && webhook.trim().length > 0;
 
   /**
@@ -201,6 +204,18 @@ export default function BITFdata(): JSX.Element {
     return () => window.removeEventListener("keydown", listener);
   }, [isOpen, hasWebhook, handleUpload]);
 
+  const trigger = (
+    <Button
+      size="sm"
+      variant="outline"
+      aria-label="Manage BIT Focus data"
+      title="BITF data"
+    >
+      <FaFileCsv className="xl:mr-2" />
+      <span className="hidden xl:inline">BITF Data</span>
+    </Button>
+  );
+
   return (
     <>
       {/* Hidden File Input for Import */}
@@ -212,44 +227,92 @@ export default function BITFdata(): JSX.Element {
         className="hidden"
       />
 
-      {/* Dropdown Menu */}
-      <DropdownMenu onOpenChange={setIsOpen}>
-        <DropdownMenuTrigger asChild>
-          <Button
-            size="sm"
-            variant="outline"
-            aria-label="Manage BIT Focus data"
-            title="BITF data"
-          >
-            <FaFileCsv className="xl:mr-2" />
-            <span className="hidden xl:inline">BITF Data</span>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent>
-          <DropdownMenuItem onClick={handleExport}>
-            <FaFileExport className="mr-2" />
-            <span>Export</span>
-            <DropdownMenuShortcut>W</DropdownMenuShortcut>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={handleImportClick}>
-            <FaFileImport className="mr-2" />
-            <span>Import</span>
-            <DropdownMenuShortcut>Q</DropdownMenuShortcut>
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={handleUpload}
-            disabled={!hasWebhook}
-          >
-            {hasWebhook ? (
-              <FaUpload className="mr-2" />
-            ) : (
-              <FaTriangleExclamation className="mr-2 text-yellow-500" />
+      {isMobile ? (
+        <MobileDrawer
+          open={isOpen}
+          onOpenChange={setIsOpen}
+          trigger={trigger}
+          title="BIT Focus data"
+          description="Export a backup, restore one from your device, or upload it through your webhook."
+        >
+          <div className="grid gap-2 pt-2">
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-14 touch-manipulation justify-start rounded-xl px-4"
+              onClick={() => {
+                setIsOpen(false);
+                void handleExport();
+              }}
+            >
+              <FaFileExport className="size-4 text-muted-foreground" />
+              Export backup
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-14 touch-manipulation justify-start rounded-xl px-4"
+              onClick={() => {
+                setIsOpen(false);
+                handleImportClick();
+              }}
+            >
+              <FaFileImport className="size-4 text-muted-foreground" />
+              Import backup
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={!hasWebhook}
+              className="h-14 touch-manipulation justify-start rounded-xl px-4"
+              onClick={() => {
+                setIsOpen(false);
+                void handleUpload();
+              }}
+            >
+              {hasWebhook ? (
+                <FaUpload className="size-4 text-muted-foreground" />
+              ) : (
+                <FaTriangleExclamation className="size-4 text-yellow-500" />
+              )}
+              Upload backup
+            </Button>
+            {!hasWebhook && (
+              <p className="px-4 text-sm text-muted-foreground">
+                Configure a webhook in settings to enable uploads.
+              </p>
             )}
-            <span>Upload</span>
-            <DropdownMenuShortcut>A</DropdownMenuShortcut>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+          </div>
+        </MobileDrawer>
+      ) : (
+        <DropdownMenu onOpenChange={setIsOpen}>
+          <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem onClick={handleExport}>
+              <FaFileExport className="mr-2" />
+              <span>Export</span>
+              <DropdownMenuShortcut>W</DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleImportClick}>
+              <FaFileImport className="mr-2" />
+              <span>Import</span>
+              <DropdownMenuShortcut>Q</DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={handleUpload}
+              disabled={!hasWebhook}
+            >
+              {hasWebhook ? (
+                <FaUpload className="mr-2" />
+              ) : (
+                <FaTriangleExclamation className="mr-2 text-yellow-500" />
+              )}
+              <span>Upload</span>
+              <DropdownMenuShortcut>A</DropdownMenuShortcut>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
     </>
   );
 }

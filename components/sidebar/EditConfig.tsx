@@ -30,15 +30,15 @@ function FeatureToggles() {
 
   return (
     <div className="flex flex-col gap-1">
-      <Label className="text-xs opacity-90">Feature Toggles</Label>
-      <span className="text-[10px] text-muted-foreground">
+      <Label className="text-sm opacity-90 md:text-xs">Feature Toggles</Label>
+      <span className="text-xs text-muted-foreground md:text-[10px]">
         Turning a feature off hides its page
       </span>
       <div className="mt-1 flex flex-col gap-1.5">
         {FEATURE_LIST.map(({ key, label }) => (
-          <div key={key} className="flex items-center justify-between px-0.5">
+          <div key={key} className="flex min-h-11 items-center justify-between px-0.5 md:min-h-0">
             <Label
-              className="text-xs opacity-90 cursor-pointer"
+              className="cursor-pointer text-sm opacity-90 md:text-xs"
               htmlFor={`feature-${key}`}
             >
               {label}
@@ -118,12 +118,15 @@ export function EditConfigForm({ onSave }: { onSave?: () => void }) {
       <div className="space-y-1">
         <h4 className="font-medium leading-none text-sm">Edit Details</h4>
       </div>
-      <form className="flex flex-col gap-2" onSubmit={handleSubmit(onSubmit)}>
-        <Label className="text-xs opacity-90" htmlFor="cfg-name">Name</Label>
+      <form
+        className="flex flex-col gap-3 [&_[data-slot=input]]:h-12 [&_[data-slot=input]]:rounded-xl [&_[data-slot=input]]:text-base md:gap-2 md:[&_[data-slot=input]]:h-9 md:[&_[data-slot=input]]:rounded-md md:[&_[data-slot=input]]:text-sm"
+        onSubmit={handleSubmit(onSubmit)}
+      >
+        <Label className="text-sm opacity-90 md:text-xs" htmlFor="cfg-name">Name</Label>
         <Input id="cfg-name" {...register("name")} />
 
-        <Label className="text-xs opacity-90" htmlFor="cfg-dob">Date of Birth</Label>
-        <div className="flex gap-2">
+        <Label className="text-sm opacity-90 md:text-xs" htmlFor="cfg-dob">Date of Birth</Label>
+        <div className="grid grid-cols-3 gap-2">
           <Input
             type="number"
             placeholder="DD"
@@ -169,7 +172,7 @@ export function EditConfigForm({ onSave }: { onSave?: () => void }) {
         {errors.month && <span className="text-red-500 text-xs">{errors.month.message}</span>}
         {errors.year && <span className="text-red-500 text-xs">{errors.year.message}</span>}
 
-        <Label className="text-xs opacity-90" htmlFor="cfg-webhook">Webhook URL</Label>
+        <Label className="text-sm opacity-90 md:text-xs" htmlFor="cfg-webhook">Webhook URL</Label>
         <Input id="cfg-webhook" {...register("webhook", { validate: (value: string) => { if (value && !/^https?:\/\/.+\..+/.test(value)) return "Invalid webhook URL"; return true; } })} />
         {errors.webhook && <span className="text-red-500 text-xs">{errors.webhook.message}</span>}
 
@@ -177,14 +180,14 @@ export function EditConfigForm({ onSave }: { onSave?: () => void }) {
           <div className="flex flex-col gap-0.5">
             <Label
               className={cn(
-                "text-xs opacity-90 cursor-pointer transition-opacity",
+                "cursor-pointer text-sm opacity-90 transition-opacity md:text-xs",
                 !isWebhookPresent && "opacity-40 cursor-not-allowed"
               )}
               htmlFor="cfg-sendWebhookUpdates"
             >
               Send status updates
             </Label>
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-xs text-muted-foreground md:text-[10px]">
               Notify Discord when starting/completing timers
             </span>
           </div>
@@ -202,7 +205,7 @@ export function EditConfigForm({ onSave }: { onSave?: () => void }) {
           />
         </div>
 
-        <Label className="text-xs opacity-90" htmlFor="cfg-currency">Preferred Currency</Label>
+        <Label className="text-sm opacity-90 md:text-xs" htmlFor="cfg-currency">Preferred Currency</Label>
         <Controller
           control={control}
           name="currency"
@@ -211,6 +214,7 @@ export function EditConfigForm({ onSave }: { onSave?: () => void }) {
               id="cfg-currency"
               value={field.value}
               onChange={field.onChange}
+              className="h-12 w-full rounded-xl text-base md:h-9 md:rounded-md md:text-sm"
             />
           )}
         />
@@ -219,7 +223,7 @@ export function EditConfigForm({ onSave }: { onSave?: () => void }) {
           <FeatureToggles />
         </div>
 
-        <Button type="submit" variant="outline" className="mt-2">Save</Button>
+        <Button type="submit" variant="outline" className="mt-2 h-12 rounded-full md:h-9 md:rounded-md">Save changes</Button>
       </form>
     </div>
   );

@@ -62,6 +62,8 @@ import { useConfig } from "@/hooks/useConfig";
 import { usePomo } from "@/hooks/PomoContext";
 import FocusHeatmap from "@/components/FocusHeatmap";
 import ColorPicker from "@/components/ui/color-picker";
+import { MobileDrawer } from "@/components/ui/mobile-drawer";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import {
   BarChart,
   Bar,
@@ -740,6 +742,7 @@ function ManageTagsButton(): JSX.Element {
   const { savedTags, addSavedTag, removeSavedTag } = useTag();
   const [open, setOpen] = useState(false);
   const [color, setColor] = useState("#3b82f6");
+  const isMobile = useIsMobile();
 
   const {
     register,
@@ -754,62 +757,92 @@ function ManageTagsButton(): JSX.Element {
     setColor("#3b82f6");
   };
 
+  const trigger = (
+    <Button variant="ghost" size="sm" className="h-7 rounded-lg px-2 text-xs">
+      Manage tags
+    </Button>
+  );
+
+  const content = (
+    <>
+      <form className="flex flex-col gap-3" onSubmit={handleSubmit(create)}>
+        <Label htmlFor="tag-name" className="text-sm md:text-xs">
+          Tag name
+        </Label>
+        <Input
+          id="tag-name"
+          className="h-12 rounded-xl text-base md:h-8 md:rounded-md md:text-sm"
+          {...register("tagname", { required: true })}
+        />
+        {errors.tagname && (
+          <span className="text-xs text-red-500">Enter a tag name</span>
+        )}
+        <Label htmlFor="tag-color" className="text-sm md:text-xs">
+          Color
+        </Label>
+        <ColorPicker id="tag-color" value={color} onChange={setColor} />
+        <Button
+          type="submit"
+          size="sm"
+          className="h-12 touch-manipulation gap-2 rounded-full md:h-8 md:gap-1.5 md:rounded-md"
+        >
+          <FaPlus className="size-3 md:size-2.5" />
+          Add tag
+        </Button>
+      </form>
+
+      {savedTags.length > 0 && (
+        <div className="mt-5 border-t pt-4 md:mt-3 md:pt-3">
+          <p className="mb-2 text-sm text-muted-foreground md:text-xs">Saved tags</p>
+          <div className="flex max-h-56 flex-col gap-1 overflow-y-auto overscroll-contain md:max-h-40 md:gap-0.5">
+            {savedTags.map((savedTag) => (
+              <div
+                key={savedTag.t}
+                className="group flex min-h-12 shrink-0 items-center gap-3 rounded-xl px-3 hover:bg-muted/60 md:min-h-0 md:gap-2 md:rounded-lg md:px-1.5 md:py-1"
+              >
+                <span
+                  className="size-3 shrink-0 rounded-full md:size-2.5"
+                  style={{ backgroundColor: savedTag.c }}
+                />
+                <span className="min-w-0 flex-1 truncate text-sm md:text-xs">
+                  {savedTag.t}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeSavedTag(savedTag.t)}
+                  className="grid size-10 shrink-0 touch-manipulation place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:size-auto md:opacity-0 md:transition-opacity md:hover:bg-transparent md:group-hover:opacity-100"
+                  title={`Remove ${savedTag.t}`}
+                  aria-label={`Remove ${savedTag.t}`}
+                >
+                  <FaTrash className="size-3.5 md:size-2.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  if (isMobile) {
+    return (
+      <MobileDrawer
+        open={open}
+        onOpenChange={setOpen}
+        trigger={trigger}
+        title="Manage tags"
+        description="Create labels for focus sessions and remove ones you no longer use."
+      >
+        {content}
+      </MobileDrawer>
+    );
+  }
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-7 rounded-lg px-2 text-xs">
-          Manage tags
-        </Button>
-      </PopoverTrigger>
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent align="end" className="w-64 rounded-xl">
-        <form className="flex flex-col gap-3" onSubmit={handleSubmit(create)}>
-          <Label htmlFor="tag-name" className="text-xs">
-            Tag name
-          </Label>
-          <Input
-            id="tag-name"
-            className="h-8"
-            {...register("tagname", { required: true })}
-          />
-          {errors.tagname && (
-            <span className="text-xs text-red-500">Enter a tag name</span>
-          )}
-          <Label htmlFor="tag-color" className="text-xs">
-            Color
-          </Label>
-          <ColorPicker id="tag-color" value={color} onChange={setColor} />
-          <Button type="submit" size="sm" className="gap-1.5">
-            <FaPlus className="size-2.5" />
-            Add tag
-          </Button>
-        </form>
-
-        {savedTags.length > 0 && (
-          <div className="mt-3 border-t pt-3">
-            <p className="mb-2 text-xs text-muted-foreground">Saved tags</p>
-            <div className="flex max-h-40 flex-col gap-0.5 overflow-y-auto">
-              {savedTags.map((t) => (
-                <div
-                  key={t.t}
-                  className="group flex shrink-0 items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-muted/60"
-                >
-                  <span
-                    className="size-2.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: t.c }}
-                  />
-                  <span className="min-w-0 flex-1 truncate text-xs">{t.t}</span>
-                  <button
-                    onClick={() => removeSavedTag(t.t)}
-                    className="shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
-                    title={`Remove ${t.t}`}
-                  >
-                    <FaTrash className="size-2.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {content}
       </PopoverContent>
     </Popover>
   );

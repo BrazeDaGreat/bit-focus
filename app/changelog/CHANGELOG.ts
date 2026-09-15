@@ -1,4 +1,4 @@
-export const VERSION = "v0.22.0-beta";
+export const VERSION = "v0.22.1-beta";
 
 const CHANGELOG = `
 ## \`v0.22.0-beta\` (2026-09-08) — Interface, Rebuilt
@@ -41,6 +41,21 @@ const CHANGELOG = `
 - Fixed: A chat could stop dead after a tool ran, showing the tool chip and no answer, because tool results were never sent back to the model.
 - Fixed: An infinite resubmit loop after tool calls that ended in "Maximum update depth exceeded". Continuation now happens at most once per reply and is capped per message, so a model that keeps asking for the same data has to answer instead.
 - Fixed: Long lists (models, chats, tags, context sources) squashed their rows to fit instead of scrolling, clipping the text in half.
+### \`v0.22.1-beta\` (2026-09-15)
+- Improved: The Top Bar now follows a compact Android app-bar rhythm with a stable title and balance row, a separate command shelf, safe-area spacing, larger touch targets, and responsive utility controls.
+- Fixed: The Top Bar mini timer no longer stretches across all available mobile space; it stays content-sized while preserving every timer action.
+- Added: A reusable mobile drawer shell with safe-area padding, scroll containment, a persistent drag handle and header, plus an automatic desktop dialog fallback for shared modal flows.
+- Changed: Timer options now open as a bottom drawer on mobile, with touch-friendly mode controls, tag selection, reset, and Focus page navigation; larger screens retain the anchored popover.
+- Changed: Reward point management is now one mobile drawer that moves between Manage points, Throw away, and Loan views instead of stacking a dropdown and separate dialogs.
+- Changed: Quick messages and BIT Focus backup actions (export, import, and webhook upload) now open as mobile drawers while retaining desktop dropdown menus.
+- Changed: Home's Manage tags control now opens a mobile drawer with larger form fields, tag rows, and delete targets.
+- Changed: Pomodoro settings, session goals, the Focus tag selector, Focus history, manual session entry, and focus-session editing now use bottom drawers on mobile and conventional dialogs or popovers on desktop.
+- Improved: Focus History period controls now fit narrow screens without horizontal overflow.
+- Improved: The mobile Sidebar now uses viewport-aware width and height, Android-style rounded outer corners, a dedicated header row with a close control above the profile card, safe-area insets, contained scrolling, and mobile-sized navigation targets.
+- Fixed: Choosing the current or a new destination from the mobile Sidebar now closes the navigation drawer immediately.
+- Improved: Sidebar profile settings, theme selection, account connection, and keyboard shortcuts now use the shared mobile drawer pattern; profile fields and account actions have touch-friendly sizing.
+- Improved: The Sidebar ambience mixer now provides larger track, playback, and volume targets with a taller contained mobile scroll region.
+- Fixed: Ambience rows no longer compress and overlap inside the desktop Sidebar; each sound keeps its original row height and scrolls normally.
 ***
 
 ## \`v0.21.0-beta\` (2026-08-21) — Sync, Rebuilt
