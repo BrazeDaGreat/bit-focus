@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/select";
 import TagBadge from "@/components/TagBadge";
 import { useFocus } from "@/hooks/useFocus";
+import { deleteSessionsWithUndo, retagSessionsWithUndo } from "@/lib/focusUndo";
 import { useTag } from "@/hooks/useTag";
 import { cn, durationFromSeconds, formatTimeNew } from "@/lib/utils";
 import {
@@ -292,7 +293,6 @@ function BulkActionBar({
   selected: Set<number>;
   clearSelection: () => void;
 }): JSX.Element {
-  const { bulkRemoveFocusSessions, bulkUpdateTag } = useFocus();
   const { savedTags } = useTag();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [tagPopoverOpen, setTagPopoverOpen] = useState(false);
@@ -303,14 +303,14 @@ function BulkActionBar({
   const applyTag = async (tag: string) => {
     const trimmed = tag.trim();
     if (!trimmed) return;
-    await bulkUpdateTag(ids, trimmed);
+    await retagSessionsWithUndo(ids, trimmed);
     setTagPopoverOpen(false);
     setCustomTag("");
     clearSelection();
   };
 
   const handleDelete = async () => {
-    await bulkRemoveFocusSessions(ids);
+    await deleteSessionsWithUndo(ids);
     setConfirmOpen(false);
     clearSelection();
   };
@@ -390,9 +390,9 @@ function BulkActionBar({
           <DialogHeader>
             <DialogTitle>Delete {selected.size} sessions?</DialogTitle>
             <DialogDescription>
-              This permanently removes the selected focus{" "}
-              {selected.size === 1 ? "session" : "sessions"} and can&apos;t be
-              undone.
+              This removes the selected focus{" "}
+              {selected.size === 1 ? "session" : "sessions"}. You can undo it
+              from the notification that follows.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

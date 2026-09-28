@@ -42,11 +42,10 @@ import AccountAvatar from "./auth/AccountAvatar";
 import { useAuth } from "@/hooks/useAuth";
 import { usePathname, useRouter } from "next/navigation";
 import { useConfig, type FeatureKey } from "@/hooks/useConfig";
-import { useEffect, useRef, useCallback, useState, type JSX } from "react";
+import { useEffect, useCallback, useState, type JSX } from "react";
 import { AmbienceMixer } from "./sidebar/AmbienceMixer";
 import { Skeleton } from "./ui/skeleton";
 import { VERSION } from "@/app//changelog/CHANGELOG";
-import { usePomo } from "@/hooks/PomoContext";
 import { useShortcutsDialog, SHORTCUTS } from "@/hooks/useShortcuts";
 import { Kbd } from "@/components/ui/kbd";
 import { FaRegKeyboard } from "react-icons/fa6";
@@ -83,13 +82,9 @@ const MORE_OPEN_KEY = "bitf.sidebar.more-open";
 export function AppSidebar(): JSX.Element {
   const pathname = usePathname();
   const router = useRouter();
-  const { pause, state, start } = usePomo();
   const { loadConfig, loadingConfig, featureToggles } = useConfig();
   const { loadProjects } = useProjects();
   const { state: sidebarState, isMobile, setOpenMobile } = useSidebar();
-
-  const isNavigatingRef = useRef(false);
-  const wasRunningRef = useRef(false);
 
   useEffect(() => {
     loadConfig();
@@ -99,47 +94,18 @@ export function AppSidebar(): JSX.Element {
     loadProjects();
   }, [loadProjects]);
 
-  const pauseForNavigation = useCallback(() => {
-    if (state.isRunning && state.elapsedSeconds > 0 && !isNavigatingRef.current) {
-      wasRunningRef.current = true;
-      pause();
-    }
-  }, [state.isRunning, state.elapsedSeconds, pause]);
-
-  const resumeAfterNavigation = useCallback(() => {
-    if (wasRunningRef.current && !state.isRunning && state.elapsedSeconds > 0) {
-      const timeoutId = setTimeout(() => {
-        start();
-        wasRunningRef.current = false;
-        isNavigatingRef.current = false;
-      }, 10);
-      return () => clearTimeout(timeoutId);
-    } else {
-      isNavigatingRef.current = false;
-    }
-  }, [state.isRunning, state.elapsedSeconds, start]);
-
-  useEffect(() => {
-    const cleanup = resumeAfterNavigation();
-    return cleanup;
-  }, [pathname, resumeAfterNavigation]);
-
+  // Navigation used to pause the timer and resume it afterwards, because
+  // links seemed dead while a session ran. The timer's per-second tick was an
+  // urgent update at the app root, which kept interrupting the navigation
+  // transition; ticks are now transitions themselves, so navigation no longer
+  // touches the timer (a pause here would also split the saved session).
   const handleNavigation = useCallback(
     (url: string, event: React.MouseEvent) => {
       event.preventDefault();
-      if (isNavigatingRef.current) return;
-      if (pathname === url) {
-        if (isMobile) setOpenMobile(false);
-        return;
-      }
-      isNavigatingRef.current = true;
-      pauseForNavigation();
       if (isMobile) setOpenMobile(false);
-      setTimeout(() => {
-        router.push(url);
-      }, 5);
+      if (pathname !== url) router.push(url);
     },
-    [isMobile, pathname, router, pauseForNavigation, setOpenMobile]
+    [isMobile, pathname, router, setOpenMobile]
   );
 
   const visible = (list: NavItem[]) =>

@@ -44,6 +44,14 @@ const DEVICE_LOCAL_KEYS: readonly string[] = [
   // Live timer position and phase — see above.
   "pomoTime",
   "pomoPhase",
+  "pomoStartTime",
+  "pomoRunning",
+  "pomoLongBreak",
+  "pomoCycle",
+  "pomoExtension",
+  "pomoSegments",
+  "pomoSegmentStart",
+  "bitfocus.lastAutoBackup",
   "timerMode",
   // Picture-in-Picture mirror of the timer, rewritten several times a second.
   "piptimer",

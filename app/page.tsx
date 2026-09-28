@@ -25,9 +25,7 @@ import {
   getTagColor,
   reduceSessions,
 } from "@/lib/utils";
-import { useTheme } from "next-themes";
 import { toast } from "sonner";
-import { Toaster } from "@/components/ui/sonner";
 
 import dayjs from "dayjs";
 import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
@@ -109,7 +107,6 @@ function percentChange(current: number, baseline: number): number | null {
 // ── Home Page ─────────────────────────────────────────────────────────────────
 
 export default function Home(): JSX.Element {
-  const { theme } = useTheme();
   const { loadFocusSessions } = useFocus();
   const { featureToggles } = useConfig();
 
@@ -169,8 +166,6 @@ export default function Home(): JSX.Element {
           <FocusHeatmap />
         </Panel>
       </div>
-
-      <Toaster theme={(theme ?? "system") as "system" | "light" | "dark"} />
     </div>
   );
 }

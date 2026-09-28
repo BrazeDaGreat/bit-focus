@@ -61,7 +61,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Toaster } from "@/components/ui/sonner";
 import {
   Plus,
   Trash2,
@@ -93,8 +92,8 @@ import { useFocus } from "@/hooks/useFocus";
 import { useConfig } from "@/hooks/useConfig";
 import { useRewards } from "@/hooks/useRewards";
 import { useProjects } from "@/hooks/useProjects";
+import { useTag } from "@/hooks/useTag";
 import { usePomo } from "@/hooks/PomoContext";
-import { useTheme } from "next-themes";
 import {
   DEFAULT_BASE_URL,
   DEFAULT_MODEL_ID,
@@ -157,7 +156,6 @@ const MAX_AUTO_CONTINUE = 4;
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AIPage(): JSX.Element {
-  const { theme } = useTheme();
   const {
     chats,
     aiConfig,
@@ -177,6 +175,7 @@ export default function AIPage(): JSX.Element {
   const { rewardPoints, loadRewards } = useRewards();
   const { projects, milestones, issues, loadProjects } = useProjects();
   const { state: timerState } = usePomo();
+  const { tag: activeTag } = useTag();
 
   const [activeChat, setActiveChat] = useState<AIChat | null>(null);
   const [activeMessages, setActiveMessages] = useState<Message[]>([]);
@@ -224,7 +223,7 @@ export default function AIPage(): JSX.Element {
         phase: timerState.phase,
         isRunning: timerState.isRunning,
         elapsedSeconds: timerState.elapsedSeconds,
-        currentTag: timerState.data?.tag || "",
+        currentTag: activeTag || "",
       },
     }),
     [
@@ -236,6 +235,7 @@ export default function AIPage(): JSX.Element {
       milestones,
       issues,
       timerState,
+      activeTag,
     ]
   );
 
@@ -370,8 +370,6 @@ export default function AIPage(): JSX.Element {
         onClose={() => setSettingsOpen(false)}
         contextInput={contextInput}
       />
-
-      <Toaster theme={(theme ?? "system") as "system" | "light" | "dark"} />
     </div>
   );
 }

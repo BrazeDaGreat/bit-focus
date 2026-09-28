@@ -31,6 +31,7 @@ import FloatingNotepad from "./FloatingNotepad";
 import QuickMessageDialog from "./QuickMessageDialog";
 import MiniTimer from "./MiniTimer";
 import SyncChip from "./auth/SyncChip";
+import OfflineIndicator from "./OfflineIndicator";
 import { usePathname } from "next/navigation";
 import { FaArrowLeft, FaTrash, FaHandHoldingDollar, FaCoins } from "react-icons/fa6";
 
@@ -137,6 +138,7 @@ export default function TopBar(): JSX.Element {
             <h1 className="truncate text-lg font-semibold leading-none tracking-tight sm:text-xl lg:text-lg">
               {pageTitle}
             </h1>
+            <OfflineIndicator />
           </div>
 
           {/* A dedicated command shelf prevents tools competing with the title. */}

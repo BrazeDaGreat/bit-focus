@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, type JSX } from "react";
-import { useTheme } from "next-themes";
 import Markdown from "react-markdown";
 import {
   ArrowRightLeft,
@@ -16,7 +15,6 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
-import { Toaster } from "@/components/ui/sonner";
 import { Badge } from "@/components/ui/badge";
 import {
   Collapsible,
@@ -494,7 +492,6 @@ function ReleaseIndex({
 }
 
 export default function Changelog(): JSX.Element {
-  const { theme } = useTheme();
   const [openReleaseIds, setOpenReleaseIds] = useState<Set<string>>(
     () => new Set(),
   );
@@ -575,8 +572,6 @@ export default function Changelog(): JSX.Element {
           </div>
         </main>
       </div>
-
-      <Toaster theme={(theme ?? "system") as "system" | "light" | "dark"} />
     </div>
   );
 }

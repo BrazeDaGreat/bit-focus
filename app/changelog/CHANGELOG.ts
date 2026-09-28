@@ -1,4 +1,4 @@
-export const VERSION = "v0.22.1-beta";
+export const VERSION = "v0.22.2-beta";
 
 const CHANGELOG = `
 ## \`v0.22.0-beta\` (2026-09-08) — Interface, Rebuilt
@@ -58,6 +58,41 @@ const CHANGELOG = `
 - Improved: Sidebar profile settings, theme selection, account connection, and keyboard shortcuts now use the shared mobile drawer pattern; profile fields and account actions have touch-friendly sizing.
 - Improved: The Sidebar ambience mixer now provides larger track, playback, and volume targets with a taller contained mobile scroll region.
 - Fixed: Ambience rows no longer compress and overlap inside the desktop Sidebar; each sound keeps its original row height and scrolls normally.
+### \`v0.22.2-beta\` (2026-09-29)
+- Fixed: The Notepad opened inside the Top Bar instead of over the page. The bar's blurred background made it the anchor for the window, so the notepad was cut off, mispositioned, and picked up the Top Bar's button styles. It now opens above everything else.
+- Fixed: The Notepad background was see-through, leaving notes hard to read over whatever sat behind them. The window is now a solid surface, and the writing area is a soft well with full-contrast text in every theme.
+- Fixed: Typing "=" on a phone keyboard never solved the line. On-screen keyboards do not report which key was pressed, so the check now looks at what was typed instead of which key fired.
+- Fixed: Solving a line no longer throws the cursor to the end of the notepad; it lands after the answer on the line you were writing.
+- Improved: On phones the Notepad is a full-screen sheet that shrinks above the on-screen keyboard, respects the status bar and gesture areas, stops the page behind it from scrolling, and waits for a tap before bringing up the keyboard.
+- Added: A "Solve" button on mobile, since phones have no Ctrl + Enter.
+- Changed: Clearing the Notepad now takes a second press within three seconds, so a stray tap cannot wipe your notes.
+- Improved: The desktop Notepad can be dragged by mouse, pen, or touch, stays inside the window when dragged or when the browser is resized, and shrinks to fit small screens. A position saved on a larger display no longer leaves it off screen.
+- Improved: Escape closes the Notepad and returns focus to its Top Bar button, which is highlighted while the notepad is open. The header shows the Alt + N shortcut and the footer shows a line count.
+- Fixed: Ending a Pomodoro focus block in its last minute saved nothing. Stopping at 24:30 of a 25-minute block threw away all 24 and a half minutes. Any focus block of a minute or more is now saved.
+- Fixed: Completing a Pomodoro early recorded the time left instead of the time focused, and then showed 0:00 on the clock.
+- Fixed: Saving a session, awarding points, and sending the webhook ran inside the timer's state update, which React may run twice. They now happen once, after the timer changes.
+- Fixed: The webhook announced "Focus Session Completed" for sessions under a minute, which are never saved. Only saved sessions are announced now.
+- Fixed: A Pomodoro focus block that ended while no tag was set was not saved. It is now saved under "Focus", like a standard session.
+- Fixed: A Pomodoro block that ended in a background tab could be saved as longer than it was. It now ends at the moment the time ran out.
+- Fixed: Clicking the timer mode that was already selected reset a paused timer without saving it.
+- Fixed: Sessions are now listed by when they started, so a session added or edited by hand appears in the right place instead of at the top.
+- Fixed: Re-tagging several sessions at once is now all-or-nothing. A failure part way through used to leave some sessions re-tagged and others not.
+- Added: Long breaks. After a set number of focus blocks (4 by default, 2 to 8), the break is a long one (15 minutes by default). Presets set a matching long break.
+- Added: A cycle counter under the timer. One dot per focus block shows how far you are into the cycle, with a 2/4 count beside it. The Top Bar timer shows the count too, and Pomodoro settings can restart the cycle.
+- Added: "5 min" button in the Focus dock that adds five minutes to the current focus block or break. Press it again to add more.
+- Added: "Start breaks automatically" and "Start the next focus block automatically" in Pomodoro settings. Both are off by default.
+- Added: "Keep timer running after reload" in settings. When it's on, a running timer keeps counting after a reload or a closed tab. It's off by default, so the timer still pauses unless you turn it on.
+- Added: "Notify when a phase ends" in settings. When a Pomodoro phase ends in a background tab, the app shows a system notification. Your browser asks for permission the first time you turn it on.
+- Added: "Automatic backup" in settings. While the app is open, it downloads a backup file once every 24 hours and shows a notification when it does. The setting shows when the last backup ran.
+- Added: Undo after deleting sessions or re-tagging them. The notification that follows has an Undo button, and undo restores the sessions exactly as they were, including for sync.
+- Changed: During a break the Focus dock's Reset button reads "Skip", and it is there even before the break starts.
+- Added: BIT Focus is now installable as an app, with its own icon, and opens without a connection. Every main page is saved on install, so pages you haven't visited yet also work offline.
+- Added: An "Offline" chip next to the page title while you have no connection. Everything saved on your device keeps working, and sync, AI Chat, and webhooks resume when you reconnect.
+- Changed: The app now shows notifications in one place, so they also appear on pages that had none before, such as the Focus Table.
+- Fixed: Paused time was saved as focus time. A session paused for an hour showed on the Calendar and in your stats as an hour longer than you worked. A pause of 5 minutes or more now ends one saved session and starts the next, so the Calendar shows when you actually focused. Pauses under 5 minutes stay inside the session. The timer, points, and the completion message still count the session as a whole.
+- Fixed: Stopping a timer that had been paused for a while no longer adds the paused time to the end of the session.
+- Fixed: Pages opened slowly or not at all while a timer was running. The timer's once-a-second update kept interrupting page changes; it now waits its turn behind them.
+- Changed: Moving between pages from the Sidebar no longer pauses and restarts the timer behind the scenes.
 ***
 
 ## \`v0.21.0-beta\` (2026-08-21) — Sync, Rebuilt

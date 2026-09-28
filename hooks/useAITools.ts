@@ -46,7 +46,7 @@ export function useAITools() {
     getUpcomingIssues,
   } = useProjects();
   const { state: timerState, start, pause, setMode } = usePomo();
-  const { setTag } = useTag();
+  const { tag: activeTag, setTag } = useTag();
   const { webhook } = useConfig();
   const appendContent = useNotepad((s) => s.appendContent);
 
@@ -184,8 +184,10 @@ export function useAITools() {
             phase: timerState.phase,
             isRunning: timerState.isRunning,
             elapsedMinutes: Math.round(timerState.elapsedSeconds / 60),
-            activeTag: timerState.data?.tag || null,
+            activeTag: activeTag || null,
             pomodoro: timerState.pomodoroSettings,
+            completedPomodorosInCycle: timerState.completedPomodoros,
+            onLongBreak: timerState.isLongBreak,
           };
         }
 
@@ -284,6 +286,7 @@ export function useAITools() {
       updateIssue,
       getUpcomingIssues,
       timerState,
+      activeTag,
       start,
       pause,
       setMode,

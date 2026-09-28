@@ -29,6 +29,8 @@ import TopBar from "@/components/TopBar";
 import Onboarding from "@/components/onboarding/Onboarding";
 import GlobalShortcuts from "@/components/GlobalShortcuts";
 import SyncBridge from "@/components/auth/SyncBridge";
+import AutoBackup from "@/components/AutoBackup";
+import { Toaster } from "@/components/ui/sonner";
 
 /**
  * Boot Splash
@@ -89,6 +91,9 @@ export default function AppShell({
   const needsOnboarding =
     !name || name === "NULL" || name.trim() === "";
 
+  // One toaster for the whole app, whichever branch is on screen.
+  const toaster = <Toaster />;
+
   if (!booted) {
     return <BootSplash />;
   }
@@ -102,6 +107,7 @@ export default function AppShell({
       <>
         <SyncBridge />
         <BootSplash note="Checking your account for existing data…" />
+        {toaster}
       </>
     );
   }
@@ -114,6 +120,7 @@ export default function AppShell({
       <>
         <SyncBridge />
         <Onboarding />
+        {toaster}
       </>
     );
   }
@@ -121,12 +128,14 @@ export default function AppShell({
   return (
     <>
       <SyncBridge />
+      <AutoBackup />
       <AppSidebar />
       <GlobalShortcuts />
       <div className="flex min-w-0 max-h-screen flex-1 flex-col overflow-y-auto">
         <TopBar />
         {children}
       </div>
+      {toaster}
     </>
   );
 }

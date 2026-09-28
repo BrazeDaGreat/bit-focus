@@ -56,6 +56,13 @@ export interface FocusSession {
   startTime: Date;
   /** Session end timestamp */
   endTime: Date;
+  /** Sync identity (set by the sync tracker; kept so undo restores the same row) */
+  uid?: string;
+}
+
+/** Newest first, by when the session started. */
+function byStartDesc(a: FocusSession, b: FocusSession): number {
+  return new Date(b.startTime).getTime() - new Date(a.startTime).getTime();
 }
 
 /**
@@ -78,17 +85,21 @@ interface FocusState {
   ) => Promise<void>;
   /** Function to load all focus sessions from database */
   loadFocusSessions: () => Promise<void>;
-  /** Function to delete a focus session by ID */
-  removeFocusSession: (id: number) => Promise<void>;
+  /** Function to delete a focus session by ID; resolves with the removed row */
+  removeFocusSession: (id: number) => Promise<FocusSession | undefined>;
   /** Function to update an existing focus session */
   editFocusSession: (
     id: number,
     updatedSession: Partial<FocusSession>
   ) => Promise<void>;
-  /** Function to delete multiple focus sessions by ID */
-  bulkRemoveFocusSessions: (ids: number[]) => Promise<void>;
-  /** Function to re-tag multiple focus sessions at once */
-  bulkUpdateTag: (ids: number[], tag: string) => Promise<void>;
+  /** Function to delete multiple focus sessions by ID; resolves with the removed rows */
+  bulkRemoveFocusSessions: (ids: number[]) => Promise<FocusSession[]>;
+  /** Function to re-tag multiple focus sessions at once; resolves with each previous tag */
+  bulkUpdateTag: (ids: number[], tag: string) => Promise<Map<number, string>>;
+  /** Put previously removed sessions back exactly as they were (undo) */
+  restoreFocusSessions: (sessions: FocusSession[]) => Promise<void>;
+  /** Give sessions back their previous tags (undo of a bulk re-tag) */
+  restoreTags: (previous: Map<number, string>) => Promise<void>;
 }
 
 /**
@@ -194,9 +205,9 @@ export const useFocus = create<FocusState>((set) => ({
     // Add to database and get generated ID
     const id = await db.focus.add({ tag, startTime, endTime });
 
-    // Update local state with optimistic update (prepend for chronological order)
+    // Insert and keep newest-first order (manual sessions can be in the past)
     set((state) => ({
-      focusSessions: [{ id, tag, startTime, endTime }, ...state.focusSessions],
+      focusSessions: [{ id, tag, startTime, endTime }, ...state.focusSessions].sort(byStartDesc),
     }));
   },
 
@@ -204,8 +215,8 @@ export const useFocus = create<FocusState>((set) => ({
    * Load All Focus Sessions
    *
    * Retrieves all focus sessions from the database and updates the
-   * local state. Sessions are automatically sorted in reverse
-   * chronological order for optimal display in UI components.
+   * local state. Sessions are sorted newest first by start time, so
+   * sessions added or edited by hand land in the right place.
    *
    * Manages loading state to provide UI feedback during the
    * database operation and handles errors gracefully with
@@ -228,8 +239,7 @@ export const useFocus = create<FocusState>((set) => ({
       // Fetch all sessions from database
       const sessions = await db.focus.toArray();
 
-      // Update state with reversed array for chronological display
-      set({ focusSessions: sessions.reverse() });
+      set({ focusSessions: sessions.sort(byStartDesc) });
     } catch (error) {
       console.error("Failed to load focus sessions:", error);
     } finally {
@@ -258,13 +268,14 @@ export const useFocus = create<FocusState>((set) => ({
    * ```
    */
   removeFocusSession: async (id: number) => {
-    // Remove from database
+    // Keep the full row (uid included) so the delete can be undone
+    const removed = await db.focus.get(id);
     await db.focus.delete(id);
 
-    // Update local state with optimistic removal
     set((state) => ({
       focusSessions: state.focusSessions.filter((session) => session.id !== id),
     }));
+    return removed;
   },
 
   /**
@@ -311,11 +322,13 @@ export const useFocus = create<FocusState>((set) => ({
     // Update database record
     await db.focus.update(id, updatedSession);
 
-    // Update local state with optimistic changes
+    // Update local state; an edited start time can move the session
     set((state) => ({
-      focusSessions: state.focusSessions.map((session) =>
-        session.id === id ? { ...session, ...updatedSession } : session
-      ),
+      focusSessions: state.focusSessions
+        .map((session) =>
+          session.id === id ? { ...session, ...updatedSession } : session
+        )
+        .sort(byStartDesc),
     }));
   },
 
@@ -330,7 +343,13 @@ export const useFocus = create<FocusState>((set) => ({
    * @returns {Promise<void>} Resolves when all sessions are deleted
    */
   bulkRemoveFocusSessions: async (ids: number[]) => {
-    await db.focus.bulkDelete(ids);
+    const removed = await db.transaction("rw", db.focus, async () => {
+      const rows = (await db.focus.bulkGet(ids)).filter(
+        (row): row is NonNullable<typeof row> => !!row
+      );
+      await db.focus.bulkDelete(ids);
+      return rows;
+    });
 
     const idSet = new Set(ids);
     set((state) => ({
@@ -338,6 +357,7 @@ export const useFocus = create<FocusState>((set) => ({
         (session) => !idSet.has(session.id!)
       ),
     }));
+    return removed;
   },
 
   /**
@@ -352,12 +372,67 @@ export const useFocus = create<FocusState>((set) => ({
    * @returns {Promise<void>} Resolves when all sessions are updated
    */
   bulkUpdateTag: async (ids: number[], tag: string) => {
-    await Promise.all(ids.map((id) => db.focus.update(id, { tag })));
+    // One transaction: every session is re-tagged, or none is
+    const previous = await db.transaction("rw", db.focus, async () => {
+      const before = new Map<number, string>();
+      for (const row of await db.focus.bulkGet(ids)) {
+        if (row?.id !== undefined) before.set(row.id, row.tag);
+      }
+      await Promise.all(ids.map((id) => db.focus.update(id, { tag })));
+      return before;
+    });
 
     const idSet = new Set(ids);
     set((state) => ({
       focusSessions: state.focusSessions.map((session) =>
         idSet.has(session.id!) ? { ...session, tag } : session
+      ),
+    }));
+    return previous;
+  },
+
+  /**
+   * Restore Focus Sessions
+   *
+   * Writes removed sessions back with their original ids and sync uids, so
+   * an undo is indistinguishable from the delete never having happened.
+   *
+   * @async
+   * @param {FocusSession[]} sessions - Rows returned by a remove call
+   */
+  restoreFocusSessions: async (sessions: FocusSession[]) => {
+    if (sessions.length === 0) return;
+    await db.focus.bulkPut(sessions);
+
+    const restoredIds = new Set(sessions.map((s) => s.id));
+    set((state) => ({
+      focusSessions: [
+        ...state.focusSessions.filter((s) => !restoredIds.has(s.id)),
+        ...sessions,
+      ].sort(byStartDesc),
+    }));
+  },
+
+  /**
+   * Restore Tags
+   *
+   * Undoes a bulk re-tag by giving each session its previous tag back.
+   *
+   * @async
+   * @param {Map<number, string>} previous - Previous tag per session id
+   */
+  restoreTags: async (previous: Map<number, string>) => {
+    await db.transaction("rw", db.focus, async () => {
+      await Promise.all(
+        Array.from(previous, ([id, tag]) => db.focus.update(id, { tag }))
+      );
+    });
+
+    set((state) => ({
+      focusSessions: state.focusSessions.map((session) =>
+        session.id !== undefined && previous.has(session.id)
+          ? { ...session, tag: previous.get(session.id)! }
+          : session
       ),
     }));
   },

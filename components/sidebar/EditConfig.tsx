@@ -1,5 +1,8 @@
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useConfig, type FeatureKey } from "@/hooks/useConfig";
+import { usePreferences, type PreferenceKey } from "@/hooks/usePreferences";
+import { notificationsSupported, requestNotificationPermission } from "@/lib/notify";
+import { lastAutoBackupAt } from "@/lib/autoBackup";
 import { useForm, Controller } from "react-hook-form";
 import { Switch } from "@/components/ui/switch";
 import { FaPencil } from "react-icons/fa6";
@@ -47,6 +50,76 @@ function FeatureToggles() {
               id={`feature-${key}`}
               checked={featureToggles[key]}
               onCheckedChange={(checked) => setFeatureToggle(key, checked)}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const PREFERENCE_LIST: { key: PreferenceKey; label: string; hint: string }[] = [
+  {
+    key: "resumeTimerOnReload",
+    label: "Keep timer running after reload",
+    hint: "A running timer picks up where it was when you come back",
+  },
+  {
+    key: "phaseNotifications",
+    label: "Notify when a phase ends",
+    hint: "System notification when a Pomodoro phase ends in a background tab",
+  },
+  {
+    key: "autoBackup",
+    label: "Automatic backup",
+    hint: "Downloads a backup file once every 24 hours when the app is open",
+  },
+];
+
+/** Live on/off switches for timer and data behaviours. */
+function PreferenceToggles() {
+  const preferences = usePreferences();
+
+  const handleChange = async (key: PreferenceKey, enabled: boolean) => {
+    if (key === "phaseNotifications" && enabled) {
+      if (!notificationsSupported()) {
+        toast.error("This browser can't show notifications.");
+        return;
+      }
+      const permission = await requestNotificationPermission();
+      if (permission !== "granted") {
+        toast.error("Notifications are blocked. Allow them for this site in your browser settings.");
+        return;
+      }
+    }
+    preferences.setPreference(key, enabled);
+  };
+
+  const lastBackup = lastAutoBackupAt();
+
+  return (
+    <div className="flex flex-col gap-1">
+      <Label className="text-sm opacity-90 md:text-xs">Timer &amp; data</Label>
+      <div className="mt-1 flex flex-col gap-2">
+        {PREFERENCE_LIST.map(({ key, label, hint }) => (
+          <div key={key} className="flex min-h-11 items-center justify-between gap-3 px-0.5 md:min-h-0">
+            <div className="flex flex-col gap-0.5">
+              <Label
+                className="cursor-pointer text-sm opacity-90 md:text-xs"
+                htmlFor={`pref-${key}`}
+              >
+                {label}
+              </Label>
+              <span className="text-xs text-muted-foreground md:text-[10px]">
+                {key === "autoBackup" && preferences.autoBackup && lastBackup
+                  ? `Last backup ${dayjs(lastBackup).format("MMM D, HH:mm")}`
+                  : hint}
+              </span>
+            </div>
+            <Switch
+              id={`pref-${key}`}
+              checked={preferences[key]}
+              onCheckedChange={(checked) => void handleChange(key, checked)}
             />
           </div>
         ))}
@@ -218,6 +291,10 @@ export function EditConfigForm({ onSave }: { onSave?: () => void }) {
             />
           )}
         />
+
+        <div className="mt-2 border-t pt-3">
+          <PreferenceToggles />
+        </div>
 
         <div className="mt-2 border-t pt-3">
           <FeatureToggles />

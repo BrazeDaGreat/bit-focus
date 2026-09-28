@@ -24,7 +24,12 @@
 
 import { useState, type JSX } from "react";
 import { useRouter } from "next/navigation";
-import { usePomo } from "@/hooks/PomoContext";
+import {
+  cyclePosition,
+  displaySeconds,
+  phaseLabel,
+  usePomo,
+} from "@/hooks/PomoContext";
 import { useTag } from "@/hooks/useTag";
 import { cn, formatClock } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -47,18 +52,6 @@ import {
 import { IoIosTimer } from "react-icons/io";
 import { GiTomato } from "react-icons/gi";
 
-/** Compute the seconds to display, mirroring the Focus page / footer timer. */
-function displaySeconds(state: ReturnType<typeof usePomo>["state"]): number {
-  const { mode, phase, elapsedSeconds, pomodoroSettings } = state;
-  if (mode === "pomodoro" && phase === "focus") {
-    return Math.max(0, pomodoroSettings.focusDuration * 60 - elapsedSeconds);
-  }
-  if (mode === "pomodoro" && phase === "break") {
-    return Math.max(0, pomodoroSettings.breakDuration * 60 - elapsedSeconds);
-  }
-  return elapsedSeconds;
-}
-
 export default function MiniTimer({
   className,
 }: {
@@ -72,14 +65,17 @@ export default function MiniTimer({
   const [open, setOpen] = useState(false);
   const [customTag, setCustomTag] = useState("");
 
-  const { isRunning, elapsedSeconds, mode, phase } = state;
+  const { isRunning, elapsedSeconds, mode } = state;
   const isPaused = !isRunning && elapsedSeconds > 0;
   const isActive = isRunning || isPaused;
 
   const total = displaySeconds(state);
 
+  const cycle = cyclePosition(state);
   const modeLabel =
-    mode === "pomodoro" ? (phase === "focus" ? "Focus" : "Break") : "Standard";
+    mode === "pomodoro"
+      ? `${phaseLabel(state)} · ${cycle.current}/${cycle.total}`
+      : "Standard";
   const tagColor = savedTags.find((t) => t.t === tag)?.c;
 
   const applyCustomTag = () => {

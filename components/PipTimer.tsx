@@ -9,10 +9,10 @@ export interface PipTimer {
   running: boolean;
   mode: "standard" | "pomodoro";
   phase: "focus" | "break";
-  pomodoroSettings: {
-    focusDuration: number;
-    breakDuration: number;
-  };
+  /** Phase label, e.g. "Long break" */
+  label: string;
+  /** Length of the current Pomodoro phase in seconds, extensions included */
+  target: number;
   inc: {
     pause: number;
     resume: number;
@@ -26,7 +26,8 @@ export default function PipTimer(props: PipFunctionProps) {
     running: false,
     mode: "standard" as "standard" | "pomodoro",
     phase: "focus" as "focus" | "break",
-    pomodoroSettings: { focusDuration: 25, breakDuration: 5 },
+    label: "Focus",
+    target: 25 * 60,
     inc: { pause: 0, resume: 0 },
   });
 
@@ -40,10 +41,7 @@ export default function PipTimer(props: PipFunctionProps) {
 
   const getDisplayTime = () => {
     if (data.mode === "pomodoro") {
-      const total = data.phase === "focus"
-        ? data.pomodoroSettings.focusDuration * 60
-        : data.pomodoroSettings.breakDuration * 60;
-      const remaining = Math.max(0, total - data.time);
+      const remaining = Math.max(0, (data.target || 0) - data.time);
       return { minutes: Math.floor(remaining / 60), seconds: remaining % 60 };
     }
     return { minutes: Math.floor(data.time / 60), seconds: data.time % 60 };
@@ -51,10 +49,7 @@ export default function PipTimer(props: PipFunctionProps) {
 
   const getProgress = () => {
     if (!isPomodoro) return 0;
-    const total = data.phase === "focus"
-      ? data.pomodoroSettings.focusDuration * 60
-      : data.pomodoroSettings.breakDuration * 60;
-    return Math.min(1, data.time / total);
+    return data.target > 0 ? Math.min(1, data.time / data.target) : 0;
   };
 
   const displayTime = getDisplayTime();
@@ -124,7 +119,7 @@ export default function PipTimer(props: PipFunctionProps) {
             ? <FaCoffee style={{ fontSize: "8px", flexShrink: 0 }} />
             : <GiTomato style={{ fontSize: "9px", flexShrink: 0 }} />
           }
-          {isBreak ? "Break" : "Focus"}
+          {data.label}
         </div>
       )}
 
