@@ -93,6 +93,8 @@ import { useConfig } from "@/hooks/useConfig";
 import { useRewards } from "@/hooks/useRewards";
 import { useProjects } from "@/hooks/useProjects";
 import { useTag } from "@/hooks/useTag";
+import { useOnline } from "@/components/OfflineIndicator";
+import { FaPlugCircleXmark } from "react-icons/fa6";
 import { usePomo } from "@/hooks/PomoContext";
 import {
   DEFAULT_BASE_URL,
@@ -814,6 +816,14 @@ function Thread({
 
   const busy = status === "submitted" || status === "streaming";
 
+  // Replies come from a server route, so without a connection nothing can be
+  // sent — unless the app itself is running on this machine.
+  const online = useOnline();
+  const offline =
+    !online &&
+    typeof window !== "undefined" &&
+    !["localhost", "127.0.0.1"].includes(window.location.hostname);
+
   // Debounced persistence to IndexedDB.
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
@@ -860,11 +870,15 @@ function Thread({
     (text: string) => {
       const trimmed = text.trim();
       if (!trimmed || !configured) return;
+      if (offline) {
+        toast("You're offline. Your message is still here — send it when you reconnect.");
+        return;
+      }
       autoContinueRef.current = { messageId: null, count: 0 };
       sendMessage({ text: trimmed });
       setInput("");
     },
-    [sendMessage, configured]
+    [sendMessage, configured, offline]
   );
 
   const resolvePending = useCallback(
@@ -1005,6 +1019,16 @@ function Thread({
               </span>
             </button>
           ) : (
+            <>
+            {offline && (
+              <div role="status" className="mb-2 flex items-center gap-2.5 rounded-xl bg-muted/60 px-3.5 py-2.5 text-xs text-muted-foreground">
+                <FaPlugCircleXmark className="size-3.5 shrink-0" aria-hidden="true" />
+                <span>
+                  You&apos;re offline. AI Chat needs a connection to reply. You can keep typing
+                  and send when you&apos;re back; the rest of BIT Focus works as normal.
+                </span>
+              </div>
+            )}
             <div className="overflow-hidden rounded-2xl border bg-card shadow-xs focus-within:border-primary/40">
               <Textarea
                 value={input}
@@ -1047,7 +1071,7 @@ function Thread({
                     <Button
                       size="icon"
                       onClick={() => submit(input)}
-                      disabled={!input.trim()}
+                      disabled={!input.trim() || offline}
                       className="size-9 rounded-lg"
                       title="Send message"
                       aria-label="Send message"
@@ -1058,6 +1082,7 @@ function Thread({
                 </div>
               </div>
             </div>
+            </>
           )}
         </div>
       </div>

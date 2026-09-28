@@ -68,3 +68,23 @@ export const useTag = create<TagState>()(
     }
   )
 );
+
+/**
+ * Step the active tag through the saved tags, wrapping at either end.
+ *
+ * @param direction - 1 for the next saved tag, -1 for the previous one.
+ * @returns The tag now active, or null when there are no saved tags.
+ */
+export function cycleSavedTag(direction: 1 | -1): string | null {
+  const { tag, savedTags, setTag } = useTag.getState();
+  if (savedTags.length === 0) return null;
+  const index = savedTags.findIndex((t) => t.t === tag);
+  const next =
+    index === -1
+      ? direction === 1
+        ? 0
+        : savedTags.length - 1
+      : (index + direction + savedTags.length) % savedTags.length;
+  setTag(savedTags[next].t);
+  return savedTags[next].t;
+}

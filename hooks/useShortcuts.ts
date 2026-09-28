@@ -39,8 +39,13 @@ export interface ShortcutDef {
     | "nav"
     | "timer-toggle"
     | "timer-reset"
+    | "timer-extend"
+    | "timer-skip-break"
+    | "tag-next"
+    | "tag-prev"
     | "toggle-sidebar"
     | "open-help"
+    | "open-palette"
     | "toggle-notepad";
 }
 
@@ -56,10 +61,16 @@ export const SHORTCUTS: ShortcutDef[] = [
   { keys: ["P"], description: "Go to Projects", category: "Navigation", href: "/projects", feature: "projects", action: "nav" },
   { keys: ["R"], description: "Go to Rewards", category: "Navigation", href: "/rewards", feature: "rewards", action: "nav" },
   { keys: ["L"], description: "Go to Changelog", category: "Navigation", href: "/changelog", action: "nav" },
+  { keys: ["S"], description: "Go to Settings", category: "Navigation", href: "/settings", action: "nav" },
   // ── Timer ──
   { keys: ["Space"], description: "Start / pause the timer", category: "Timer", action: "timer-toggle" },
   { keys: ["Shift", "R"], description: "Reset the timer", category: "Timer", action: "timer-reset" },
+  { keys: ["+"], description: "Add 5 minutes (Pomodoro)", category: "Timer", action: "timer-extend" },
+  { keys: ["N"], description: "Skip the break (Pomodoro)", category: "Timer", action: "timer-skip-break" },
+  { keys: ["]"], description: "Next saved tag", category: "Timer", action: "tag-next" },
+  { keys: ["["], description: "Previous saved tag", category: "Timer", action: "tag-prev" },
   // ── General ──
+  { keys: ["Ctrl", "K"], description: "Open the command palette", category: "General", action: "open-palette" },
   { keys: ["Ctrl", "B"], description: "Toggle the sidebar", category: "General", action: "toggle-sidebar" },
   { keys: ["Alt", "N"], description: "Toggle Notepad view", category: "General", action: "toggle-notepad" },
   { keys: ["?"], description: "Show keyboard shortcuts", category: "General", action: "open-help" },
@@ -76,6 +87,19 @@ interface ShortcutsDialogState {
   /** Open/close the shortcuts help dialog */
   setHelpOpen: (open: boolean) => void;
 }
+
+interface CommandPaletteState {
+  /** Whether the command palette is open */
+  paletteOpen: boolean;
+  /** Open/close the command palette */
+  setPaletteOpen: (open: boolean) => void;
+}
+
+/** Visibility state for the command palette (Ctrl/⌘+K, sidebar, Top Bar) */
+export const useCommandPalette = create<CommandPaletteState>((set) => ({
+  paletteOpen: false,
+  setPaletteOpen: (open) => set({ paletteOpen: open }),
+}));
 
 /** Visibility state for the shortcuts help dialog (shared between the
  *  sidebar button and the global `?` key handler) */

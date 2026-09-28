@@ -14,7 +14,7 @@
  * references, so pages you have not opened yet still work offline.
  */
 
-const CACHE = "bitfocus-v1";
+const CACHE = "bitfocus-v2";
 
 const PAGES = [
   "/",
@@ -27,6 +27,7 @@ const PAGES = [
   "/excalidraw",
   "/account",
   "/ai",
+  "/settings",
 ];
 
 const STATIC_ASSETS = [
