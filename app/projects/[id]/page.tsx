@@ -2,9 +2,7 @@
 
 import { useEffect, useState, type JSX } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useTheme } from "next-themes";
 import { toast } from "sonner";
-import { Toaster } from "@/components/ui/sonner";
 import {
   FaEdit,
   FaPlus,
@@ -1059,7 +1057,6 @@ function MilestoneAccordion({
 // ---------------------------------------------------------------------------
 
 export default function ProjectDetailPage(): JSX.Element {
-  const { theme } = useTheme();
   const params = useParams();
   const router = useRouter();
   const projectId = parseInt(params.id as string);
@@ -1298,8 +1295,6 @@ export default function ProjectDetailPage(): JSX.Element {
           <CreateMilestoneDialog projectId={projectId} />
         </div>
       </div>
-
-      <Toaster theme={(theme ?? "system") as "system" | "light" | "dark"} />
     </div>
   );
 }

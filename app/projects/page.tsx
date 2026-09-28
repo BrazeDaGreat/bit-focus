@@ -4,9 +4,7 @@
 
 import { useEffect, useState, type JSX } from "react";
 import Link from "next/link";
-import { useTheme } from "next-themes";
 import { toast } from "sonner";
-import { Toaster } from "@/components/ui/sonner";
 import { FaEdit, FaPlus, FaProjectDiagram } from "react-icons/fa";
 
 import { Button } from "@/components/ui/button";
@@ -518,7 +516,6 @@ function ProjectCard({ project }: { project: ProjectWithStats }): JSX.Element {
 }
 
 export default function ProjectsPage(): JSX.Element {
-  const { theme } = useTheme();
   const { getAllProjectsWithStats, loadProjects } = useProjects();
   const [activeFilter, setActiveFilter] = useState<Project["status"] | "All">("All");
 
@@ -635,8 +632,6 @@ export default function ProjectsPage(): JSX.Element {
           ))}
         </div>
       )}
-
-      <Toaster theme={(theme ?? "system") as "system" | "light" | "dark"} />
     </div>
   );
 }

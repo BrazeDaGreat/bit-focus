@@ -52,8 +52,6 @@ import {
   getTagColor,
   reduceSessions,
 } from "@/lib/utils";
-import { useTheme } from "next-themes";
-import { Toaster } from "@/components/ui/sonner";
 import { EditFocusSessionDialog } from "@/components/EditFocusSessionDialog";
 import {
   Popover,
@@ -284,7 +282,6 @@ function MiniCalendar({
 }
 
 export default function CalendarPage(): JSX.Element {
-  const { theme } = useTheme();
   const { focusSessions, loadFocusSessions, loadingFocusSessions } = useFocus();
   const { savedTags } = useTag();
   const {
@@ -1149,8 +1146,6 @@ export default function CalendarPage(): JSX.Element {
         open={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}
       />
-
-      <Toaster theme={(theme ?? "system") as "system" | "light" | "dark"} />
 
       <style jsx global>{`
         .gcal {

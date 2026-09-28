@@ -29,8 +29,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
-import { usePomo } from "@/hooks/PomoContext";
+import {
+  cyclePosition,
+  displaySeconds,
+  phaseLabel,
+  phaseTargetSeconds,
+  usePomo,
+} from "@/hooks/PomoContext";
 import { FocusSession, useFocus } from "@/hooks/useFocus";
+import { deleteSessionsWithUndo } from "@/lib/focusUndo";
 import { useTag } from "@/hooks/useTag";
 import {
   GOAL_MAX_MINUTES,
@@ -39,7 +46,6 @@ import {
   useFocusGoal,
 } from "@/hooks/useFocusGoal";
 import { calculateTime, cn, formatClock, formatTimeNew } from "@/lib/utils";
-import { useTheme } from "next-themes";
 import { FaPause, FaPlay, FaTrash, FaYoutube } from "react-icons/fa";
 import {
   FaArrowRightLong,
@@ -49,11 +55,11 @@ import {
   FaHashtag,
   FaForwardFast,
   FaGear,
+  FaPlus,
 } from "react-icons/fa6";
 import { IoIosTimer } from "react-icons/io";
 import { GiTomato } from "react-icons/gi";
 import { TbPictureInPicture } from "react-icons/tb";
-import { Toaster } from "@/components/ui/sonner";
 import TagBadge from "@/components/TagBadge";
 import { EditFocusSession } from "./EditFocusSection";
 import GraphDialog from "./Graph";
@@ -64,7 +70,14 @@ import PipTimer from "@/components/PipTimer";
 import YouTubePlayer from "@/components/YouTubePlayer";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useRouter } from "next/navigation";
-import { type JSX, type ReactNode, useEffect, useState, useMemo } from "react";
+import {
+  type JSX,
+  type ReactNode,
+  startTransition,
+  useEffect,
+  useState,
+  useMemo,
+} from "react";
 import dayjs from "dayjs";
 
 /** How many sessions the page keeps on screen before sending you to the table. */
@@ -77,15 +90,6 @@ const RING_GOAL_MET = "#10b981";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-function calcDisplaySeconds(state: ReturnType<typeof usePomo>["state"]): number {
-  const { mode, phase, elapsedSeconds, pomodoroSettings } = state;
-  return mode === "pomodoro" && phase === "focus"
-    ? Math.max(0, pomodoroSettings.focusDuration * 60 - elapsedSeconds)
-    : mode === "pomodoro" && phase === "break"
-    ? Math.max(0, pomodoroSettings.breakDuration * 60 - elapsedSeconds)
-    : elapsedSeconds;
-}
-
 interface RingState {
   /** Ring fill, 0–1. */
   progress: number;
@@ -95,6 +99,8 @@ interface RingState {
   label: string;
   /** Line below the clock, when there is something worth saying. */
   caption?: string;
+  /** Pomodoro only: where this phase sits in the long-break cycle. */
+  cycle?: { current: number; total: number; onBreak: boolean };
 }
 
 /** Everything the ring needs to describe the current timer state. */
@@ -103,23 +109,21 @@ function describeRing(
   goalMinutes: number | null,
   hasElapsed: boolean
 ): RingState {
-  const { mode, phase, elapsedSeconds, pomodoroSettings, isRunning } = state;
+  const { mode, phase, elapsedSeconds, isRunning, extensionSeconds } = state;
 
   if (mode === "pomodoro") {
     const isBreak = phase === "break";
-    const total =
-      (isBreak
-        ? pomodoroSettings.breakDuration
-        : pomodoroSettings.focusDuration) * 60;
+    const total = phaseTargetSeconds(state);
+    const minutes = Math.round(total / 60);
     return {
       progress: total > 0 ? Math.min(1, elapsedSeconds / total) : 0,
       color: isBreak ? RING_BREAK : RING_FOCUS,
-      label: isBreak ? "Break" : "Focus",
-      caption: `${
-        isBreak
-          ? pomodoroSettings.breakDuration
-          : pomodoroSettings.focusDuration
-      } min phase`,
+      label: phaseLabel(state),
+      caption:
+        extensionSeconds > 0
+          ? `${minutes} min phase · +${Math.round(extensionSeconds / 60)} added`
+          : `${minutes} min phase`,
+      cycle: { ...cyclePosition(state), onBreak: isBreak },
     };
   }
 
@@ -170,8 +174,7 @@ function humanMinutes(minutes: number): string {
 // ── Focus Page ─────────────────────────────────────────────────────────────────
 
 export default function Focus(): JSX.Element {
-  const { theme } = useTheme();
-  const { state, start, pause, reset, setMode } = usePomo();
+  const { state, start, pause, reset, setMode, extend } = usePomo();
   const { focusSessions, loadFocusSessions } = useFocus();
   const { goalMinutes } = useFocusGoal();
   const isMobile = useIsMobile();
@@ -200,17 +203,23 @@ export default function Focus(): JSX.Element {
     running: state.isRunning,
     mode: state.mode,
     phase: state.phase,
-    pomodoroSettings: state.pomodoroSettings,
+    label: phaseLabel(state),
+    target: phaseTargetSeconds(state),
     inc: { pause: 0, resume: 0 },
   });
 
+  // Mirroring the clock into the PiP window is a transition, like the tick
+  // itself, so it never interrupts a page navigation.
   useEffect(() => {
-    update({
-      time: state.elapsedSeconds,
-      running: state.isRunning,
-      mode: state.mode,
-      phase: state.phase,
-      pomodoroSettings: state.pomodoroSettings,
+    startTransition(() => {
+      update({
+        time: state.elapsedSeconds,
+        running: state.isRunning,
+        mode: state.mode,
+        phase: state.phase,
+        label: phaseLabel(state),
+        target: phaseTargetSeconds(state),
+      });
     });
   }, [state, update]);
 
@@ -227,6 +236,7 @@ export default function Focus(): JSX.Element {
   }, [data, update]);
 
   const hasElapsed = state.startTime !== null || state.elapsedSeconds > 0;
+  const isBreak = state.mode === "pomodoro" && state.phase === "break";
   const ring = describeRing(state, goalMinutes, hasElapsed);
 
   return (
@@ -236,7 +246,7 @@ export default function Focus(): JSX.Element {
         {/* Ring takes the whole screen above the dock */}
         <div className="flex flex-1 items-center justify-center px-4 py-8">
           <TimerRing
-            seconds={calcDisplaySeconds(state)}
+            seconds={displaySeconds(state)}
             ring={ring}
             isRunning={state.isRunning}
             compact={isMobile}
@@ -293,13 +303,23 @@ export default function Focus(): JSX.Element {
                 {state.isRunning ? "Pause" : hasElapsed ? "Resume" : "Start"}
               </DockButton>
 
-              {hasElapsed && (
+              {(hasElapsed || isBreak) && (
                 <DockButton
                   onClick={reset}
                   icon={<FaForwardFast className="size-3.5" />}
-                  title="Reset the timer"
+                  title={isBreak ? "Skip the break" : "Reset the timer"}
                 >
-                  Reset
+                  {isBreak ? "Skip" : "Reset"}
+                </DockButton>
+              )}
+
+              {state.mode === "pomodoro" && hasElapsed && (
+                <DockButton
+                  onClick={() => extend()}
+                  icon={<FaPlus className="size-3" />}
+                  title={`Add 5 minutes to this ${isBreak ? "break" : "focus block"}`}
+                >
+                  5 min
                 </DockButton>
               )}
 
@@ -377,8 +397,6 @@ export default function Focus(): JSX.Element {
       >
         <PomodoroSettings />
       </ResponsiveDialog>
-
-      <Toaster theme={(theme ?? "system") as "system" | "light" | "dark"} />
     </div>
   );
 }
@@ -468,7 +486,55 @@ function TimerRing({
             {ring.caption}
           </span>
         )}
+
+        {ring.cycle && <CyclePips cycle={ring.cycle} color={ring.color} />}
       </div>
+    </div>
+  );
+}
+
+/**
+ * One pip per focus block in the long-break cycle. Finished blocks are solid,
+ * the one in progress is outlined, the rest are quiet.
+ */
+function CyclePips({
+  cycle,
+  color,
+}: {
+  cycle: NonNullable<RingState["cycle"]>;
+  color: string;
+}): JSX.Element {
+  const { current, total, onBreak } = cycle;
+  // On a break, `current` is the block just finished; in focus, the one underway.
+  const finished = onBreak ? current : current - 1;
+
+  return (
+    <div
+      className="mt-3 flex items-center gap-1.5"
+      role="img"
+      aria-label={`Pomodoro ${current} of ${total}`}
+      title={`Pomodoro ${current} of ${total} — a long break follows the last one`}
+    >
+      {Array.from({ length: total }, (_, i) => {
+        const done = i < finished;
+        const active = !onBreak && i === current - 1;
+        return (
+          <span
+            key={i}
+            className="size-1.5 rounded-full transition-colors duration-500"
+            style={{
+              backgroundColor: done ? color : "transparent",
+              boxShadow: done
+                ? undefined
+                : `inset 0 0 0 1px ${active ? color : "var(--muted-foreground)"}`,
+              opacity: done || active ? 1 : 0.4,
+            }}
+          />
+        );
+      })}
+      <span className="ml-1 font-mono text-[11px] tabular-nums text-muted-foreground">
+        {current}/{total}
+      </span>
     </div>
   );
 }
@@ -852,7 +918,6 @@ function RecentSessions({ sessions }: { sessions: FocusSession[] }): JSX.Element
 }
 
 function SessionRow({ session }: { session: FocusSession }): JSX.Element {
-  const { removeFocusSession } = useFocus();
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const duration = calculateTime(session.startTime, session.endTime);
@@ -901,7 +966,7 @@ function SessionRow({ session }: { session: FocusSession }): JSX.Element {
           <DropdownMenuSeparator />
           <EditFocusSession item={session} setIsDropdownOpen={setDropdownOpen} />
           <DropdownMenuItem
-            onClick={() => removeFocusSession(session.id!)}
+            onClick={() => void deleteSessionsWithUndo([session.id!])}
             className="gap-2 rounded-lg text-destructive focus:text-destructive"
           >
             <FaTrash className="size-3" />

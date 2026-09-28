@@ -25,7 +25,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import TagBadge from "@/components/TagBadge";
 import { EditFocusSession } from "@/app/focus/EditFocusSection";
-import { useFocus, type FocusSession } from "@/hooks/useFocus";
+import { type FocusSession } from "@/hooks/useFocus";
+import { deleteSessionsWithUndo } from "@/lib/focusUndo";
 import { calculateTime, formatTimeNew } from "@/lib/utils";
 import { FaTrash } from "react-icons/fa";
 import { FaEllipsis } from "react-icons/fa6";
@@ -42,7 +43,6 @@ export default function FocusTableRow({
   selected,
   onToggle,
 }: FocusTableRowProps): JSX.Element {
-  const { removeFocusSession } = useFocus();
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const duration = calculateTime(
@@ -108,7 +108,7 @@ export default function FocusTableRow({
               setIsDropdownOpen={setDropdownOpen}
             />
             <DropdownMenuItem
-              onClick={() => removeFocusSession(session.id!)}
+              onClick={() => void deleteSessionsWithUndo([session.id!])}
               className="text-destructive focus:text-destructive gap-2"
             >
               <FaTrash className="size-3" />

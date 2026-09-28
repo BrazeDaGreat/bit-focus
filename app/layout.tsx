@@ -41,7 +41,7 @@
  * @since v0.1.0-alpha
  */
 
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { JSX } from "react";
 import { Analytics } from "@vercel/analytics/next";
 import { Geist, Geist_Mono, Fira_Code } from "next/font/google";
@@ -115,6 +115,21 @@ export const metadata: Metadata = {
     type: "website",
     images: [],
   },
+  // Installable app: the manifest comes from app/manifest.ts
+  applicationName: "BIT Focus",
+  appleWebApp: {
+    capable: true,
+    title: "BIT Focus",
+    statusBarStyle: "black-translucent",
+  },
+  icons: {
+    apple: "/icons/apple-touch-icon.png",
+  },
+};
+
+/** Browser chrome colour for the installed app */
+export const viewport: Viewport = {
+  themeColor: "#0c0c0e",
 };
 
 /**
