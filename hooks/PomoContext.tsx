@@ -48,6 +48,7 @@ import { sendMessage } from "@/lib/webhook";
 import { useConfig } from "./useConfig";
 import { useRewards } from "@/hooks/useRewards";
 import { usePreferences } from "@/hooks/usePreferences";
+import { usePomodoroLog } from "@/hooks/usePomodoroLog";
 import { playNotificationSound } from "@/lib/sound";
 import { showSystemNotification } from "@/lib/notify";
 
@@ -637,7 +638,9 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
         const target = phaseTargetSeconds(s);
         // End at the moment the phase ran out, not "now" — a tab that slept
         // through the end must not stretch the session.
-        finishSession(s, s.startTime + target * 1000, target, "Pomodoro session");
+        const endTime = s.startTime + target * 1000;
+        finishSession(s, endTime, target, "Pomodoro session");
+        usePomodoroLog.getState().record({ at: endTime, completed: true, seconds: target });
       }
 
       if (completed) {
@@ -798,6 +801,9 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
           elapsed,
           s.mode === "pomodoro" ? "Pomodoro session" : "Focus session"
         );
+        if (s.mode === "pomodoro" && elapsed >= 60) {
+          usePomodoroLog.getState().record({ at: endTime, completed: false, seconds: elapsed });
+        }
       }
       dispatch({ type: "RESET" });
     },
@@ -819,6 +825,9 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
       const elapsed = liveElapsed(s, endTime);
       if (s.phase === "focus" && elapsed > 0) {
         finishSession(s, endTime, elapsed, "Pomodoro session");
+        if (elapsed >= 60) {
+          usePomodoroLog.getState().record({ at: endTime, completed: false, seconds: elapsed });
+        }
       }
       const prefs = usePreferences.getState();
       const autoStart = s.phase === "focus" ? prefs.autoStartBreaks : prefs.autoStartFocus;

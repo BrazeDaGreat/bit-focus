@@ -34,10 +34,9 @@ import {
 } from "react-icons/fa";
 import { BsStars } from "react-icons/bs";
 import { IoIosTimer } from "react-icons/io";
-import { FaReadme, FaUser, FaChevronRight } from "react-icons/fa6";
+import { FaReadme, FaUser, FaChevronRight, FaGear, FaMagnifyingGlass } from "react-icons/fa6";
 import { THEMES, type ThemeDefinition } from "@/lib/ThemeManager";
 import { useTheme } from "next-themes";
-import { EditConfigForm } from "./sidebar/EditConfig";
 import AccountAvatar from "./auth/AccountAvatar";
 import { useAuth } from "@/hooks/useAuth";
 import { usePathname, useRouter } from "next/navigation";
@@ -46,7 +45,7 @@ import { useEffect, useCallback, useState, type JSX } from "react";
 import { AmbienceMixer } from "./sidebar/AmbienceMixer";
 import { Skeleton } from "./ui/skeleton";
 import { VERSION } from "@/app//changelog/CHANGELOG";
-import { useShortcutsDialog, SHORTCUTS } from "@/hooks/useShortcuts";
+import { useShortcutsDialog, useCommandPalette, SHORTCUTS } from "@/hooks/useShortcuts";
 import { Kbd } from "@/components/ui/kbd";
 import { FaRegKeyboard } from "react-icons/fa6";
 import { useProjects } from "@/hooks/useProjects";
@@ -75,6 +74,7 @@ const moreItems: NavItem[] = [
   { title: "Excalidraw", url: "/excalidraw", icon: <FaPenNib />, feature: "excalidraw" },
   { title: "Rewards", url: "/rewards", icon: <FaCoffee />, feature: "rewards" },
   { title: "Changelog", url: "/changelog", icon: <FaReadme /> },
+  { title: "Settings", url: "/settings", icon: <FaGear /> },
 ];
 
 const MORE_OPEN_KEY = "bitf.sidebar.more-open";
@@ -189,6 +189,7 @@ export function AppSidebar(): JSX.Element {
           <span className="text-base font-semibold tracking-tight">BIT Focus</span>
         </div>
         <UserConfigButton loadingConfig={loadingConfig} />
+        <CommandButton />
       </SidebarHeader>
 
       {/* ── Navigation ── */}
@@ -244,6 +245,28 @@ export function AppSidebar(): JSX.Element {
         </div>
       </SidebarFooter>
     </Sidebar>
+  );
+}
+
+// ── Search-style button that opens the command palette ──
+
+function CommandButton(): JSX.Element {
+  const { setPaletteOpen } = useCommandPalette();
+  const { isMobile, setOpenMobile } = useSidebar();
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        if (isMobile) setOpenMobile(false);
+        setPaletteOpen(true);
+      }}
+      className="mt-1 flex h-11 w-full touch-manipulation items-center gap-2.5 rounded-xl px-3 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground md:h-8 md:gap-2 md:rounded-lg md:px-2.5 md:text-xs"
+      title="Command palette (Ctrl+K)"
+    >
+      <FaMagnifyingGlass className="size-3.5 shrink-0 md:size-3" />
+      <span className="flex-1 text-left">Search and commands</span>
+      <Kbd className="hidden md:inline-flex">Ctrl K</Kbd>
+    </button>
   );
 }
 
@@ -361,7 +384,7 @@ const calculateAge = (dob: Date) => {
 function UserConfigButton({ loadingConfig }: { loadingConfig: boolean }): JSX.Element {
   const { name, dob } = useConfig();
   const { user } = useAuth();
-  const [open, setOpen] = useState(false);
+  const router = useRouter();
   const { isMobile, setOpenMobile } = useSidebar();
 
   const hasName = name && name !== "NULL" && name.trim() !== "";
@@ -372,14 +395,18 @@ function UserConfigButton({ loadingConfig }: { loadingConfig: boolean }): JSX.El
     return <Skeleton className="h-14 w-full rounded-xl" />;
   }
 
-  const closeProfile = () => {
-    setOpen(false);
+  // Profile, account and every preference live on the Settings page now;
+  // the card is the way in.
+  const openSettings = () => {
     if (isMobile) setOpenMobile(false);
+    router.push("/settings");
   };
 
   const trigger = (
     <Button
       variant="ghost"
+      onClick={openSettings}
+      title="Profile and settings"
       className="h-14 w-full touch-manipulation justify-start gap-2.5 rounded-2xl bg-sidebar-accent/50 px-2.5 hover:bg-sidebar-accent md:rounded-xl"
     >
           {hasName || user ? (
@@ -416,32 +443,5 @@ function UserConfigButton({ loadingConfig }: { loadingConfig: boolean }): JSX.El
     </Button>
   );
 
-  if (isMobile) {
-    return (
-      <MobileDrawer
-        open={open}
-        onOpenChange={setOpen}
-        trigger={trigger}
-        title="Profile and settings"
-        description="Update your details, preferences, and account settings."
-        contentClassName="max-h-[94dvh]"
-        bodyClassName="px-0"
-      >
-        <EditConfigForm onSave={closeProfile} />
-      </MobileDrawer>
-    );
-  }
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent
-        side="top"
-        align="start"
-        className="max-h-[min(34rem,calc(100vh-5rem))] w-80 overflow-y-auto rounded-xl p-0"
-      >
-        <EditConfigForm onSave={closeProfile} />
-      </PopoverContent>
-    </Popover>
-  );
+  return trigger;
 }

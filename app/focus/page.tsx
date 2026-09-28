@@ -29,13 +29,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
-import {
-  cyclePosition,
-  displaySeconds,
-  phaseLabel,
-  phaseTargetSeconds,
-  usePomo,
-} from "@/hooks/PomoContext";
+import { displaySeconds, usePomo } from "@/hooks/PomoContext";
+import { describeRing, humanMinutes, type RingState } from "@/lib/timerRing";
 import { FocusSession, useFocus } from "@/hooks/useFocus";
 import { deleteSessionsWithUndo } from "@/lib/focusUndo";
 import { useTag } from "@/hooks/useTag";
@@ -65,15 +60,14 @@ import { EditFocusSession } from "./EditFocusSection";
 import GraphDialog from "./Graph";
 import ManualSessionDialog from "./ManualSession";
 import PomodoroSettings from "@/components/PomodoroSettings";
-import { usePip, usePipSpace } from "@/hooks/usePip";
-import PipTimer from "@/components/PipTimer";
+import { pipSupported, usePipWindow } from "@/hooks/usePipWindow";
+import { toast } from "sonner";
 import YouTubePlayer from "@/components/YouTubePlayer";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useRouter } from "next/navigation";
 import {
   type JSX,
   type ReactNode,
-  startTransition,
   useEffect,
   useState,
   useMemo,
@@ -82,94 +76,6 @@ import dayjs from "dayjs";
 
 /** How many sessions the page keeps on screen before sending you to the table. */
 const RECENT_SESSION_COUNT = 5;
-
-/** Ring colours. Focus, break, and "past your goal" are three different states. */
-const RING_FOCUS = "var(--primary)";
-const RING_BREAK = "var(--chart-2)";
-const RING_GOAL_MET = "#10b981";
-
-// ── helpers ───────────────────────────────────────────────────────────────────
-
-interface RingState {
-  /** Ring fill, 0–1. */
-  progress: number;
-  /** Stroke colour for the current state. */
-  color: string;
-  /** Line above the clock. */
-  label: string;
-  /** Line below the clock, when there is something worth saying. */
-  caption?: string;
-  /** Pomodoro only: where this phase sits in the long-break cycle. */
-  cycle?: { current: number; total: number; onBreak: boolean };
-}
-
-/** Everything the ring needs to describe the current timer state. */
-function describeRing(
-  state: ReturnType<typeof usePomo>["state"],
-  goalMinutes: number | null,
-  hasElapsed: boolean
-): RingState {
-  const { mode, phase, elapsedSeconds, isRunning, extensionSeconds } = state;
-
-  if (mode === "pomodoro") {
-    const isBreak = phase === "break";
-    const total = phaseTargetSeconds(state);
-    const minutes = Math.round(total / 60);
-    return {
-      progress: total > 0 ? Math.min(1, elapsedSeconds / total) : 0,
-      color: isBreak ? RING_BREAK : RING_FOCUS,
-      label: phaseLabel(state),
-      caption:
-        extensionSeconds > 0
-          ? `${minutes} min phase · +${Math.round(extensionSeconds / 60)} added`
-          : `${minutes} min phase`,
-      cycle: { ...cyclePosition(state), onBreak: isBreak },
-    };
-  }
-
-  const label = isRunning ? "Counting up" : hasElapsed ? "Paused" : "Ready";
-
-  if (!goalMinutes) {
-    // No target to measure against: sweep once per hour, like a dial hand.
-    return {
-      progress: (elapsedSeconds % 3600) / 3600,
-      color: RING_FOCUS,
-      label,
-    };
-  }
-
-  const goalSeconds = goalMinutes * 60;
-
-  if (elapsedSeconds < goalSeconds) {
-    return {
-      progress: elapsedSeconds / goalSeconds,
-      color: RING_FOCUS,
-      label,
-      caption: `${humanMinutes(
-        Math.ceil((goalSeconds - elapsedSeconds) / 60)
-      )} to goal`,
-    };
-  }
-
-  // Past the goal the session continues; the ring laps in the goal-met colour.
-  const overflow = elapsedSeconds - goalSeconds;
-  return {
-    progress: (overflow % goalSeconds) / goalSeconds,
-    color: RING_GOAL_MET,
-    label: "Goal reached",
-    caption: `${humanMinutes(Math.floor(overflow / 60))} past ${humanMinutes(
-      goalMinutes
-    )}`,
-  };
-}
-
-/** "90m" under two hours, "1h 30m" above. */
-function humanMinutes(minutes: number): string {
-  if (minutes < 120) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return rest === 0 ? `${hours}h` : `${hours}h ${rest}m`;
-}
 
 // ── Focus Page ─────────────────────────────────────────────────────────────────
 
@@ -186,54 +92,13 @@ export default function Focus(): JSX.Element {
     loadFocusSessions();
   }, [loadFocusSessions]);
 
-  // PiP setup
-  const { show } = usePip(PipTimer, {
-    width: 300,
-    height: 200,
-    injectStyles: `
-    * { padding:0; margin:0; box-sizing:border-box; }
-    html, body { width:100%; height:100%; overflow:hidden; background:#0c0c0e; }
-    button { cursor:pointer; }
-    button:focus { outline:none; }
-    `,
-  });
-
-  const { data, update } = usePipSpace("piptimer", {
-    time: state.elapsedSeconds,
-    running: state.isRunning,
-    mode: state.mode,
-    phase: state.phase,
-    label: phaseLabel(state),
-    target: phaseTargetSeconds(state),
-    inc: { pause: 0, resume: 0 },
-  });
-
-  // Mirroring the clock into the PiP window is a transition, like the tick
-  // itself, so it never interrupts a page navigation.
-  useEffect(() => {
-    startTransition(() => {
-      update({
-        time: state.elapsedSeconds,
-        running: state.isRunning,
-        mode: state.mode,
-        phase: state.phase,
-        label: phaseLabel(state),
-        target: phaseTargetSeconds(state),
-      });
-    });
-  }, [state, update]);
-
-  useEffect(() => {
-    if (data.inc.pause === 1) {
-      pause();
-      update({ running: false, inc: { pause: 0, resume: 0 } });
+  const openPip = () => {
+    if (!pipSupported()) {
+      toast("Picture in picture needs a Chromium browser, like Chrome or Edge.");
+      return;
     }
-    if (data.inc.resume === 1) {
-      start();
-      update({ running: true, inc: { pause: 0, resume: 0 } });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, update]);
+    void usePipWindow.getState().open();
+  };
 
   const hasElapsed = state.startTime !== null || state.elapsedSeconds > 0;
   const isBreak = state.mode === "pomodoro" && state.phase === "break";
@@ -353,15 +218,7 @@ export default function Focus(): JSX.Element {
 
               {!isMobile && (
                 <DockButton
-                  onClick={() =>
-                    show(
-                      {},
-                      {
-                        width: state.mode === "pomodoro" ? 280 : 220,
-                        height: state.mode === "pomodoro" ? 170 : 130,
-                      }
-                    )
-                  }
+                  onClick={openPip}
                   title="Open picture in picture"
                   icon={<TbPictureInPicture className="size-4" />}
                 />

@@ -27,9 +27,13 @@ import { ResponsiveDialog } from "@/components/ui/mobile-drawer";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { useConfig } from "@/hooks/useConfig";
 import { usePomo } from "@/hooks/PomoContext";
+import { cycleSavedTag } from "@/hooks/useTag";
+import { toast } from "sonner";
+import CommandPalette from "@/components/CommandPalette";
 import { useNotepad } from "@/hooks/useNotepad";
 import {
   activeShortcuts,
+  useCommandPalette,
   useShortcutsDialog,
   type ShortcutCategory,
   type ShortcutDef,
@@ -57,7 +61,7 @@ function isTypingTarget(target: EventTarget | null): boolean {
  */
 export default function GlobalShortcuts(): JSX.Element {
   const router = useRouter();
-  const { start, pause, reset, state } = usePomo();
+  const { start, pause, reset, extend, state } = usePomo();
   const { featureToggles } = useConfig();
   const { setHelpOpen } = useShortcutsDialog();
 
@@ -75,6 +79,14 @@ export default function GlobalShortcuts(): JSX.Element {
         e.preventDefault();
         const store = useNotepad.getState();
         store.setIsOpen(!store.isOpen);
+        return;
+      }
+
+      // ── Command palette (Ctrl/⌘+K works even when typing) ──
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        const palette = useCommandPalette.getState();
+        palette.setPaletteOpen(!palette.paletteOpen);
         return;
       }
 
@@ -101,6 +113,28 @@ export default function GlobalShortcuts(): JSX.Element {
         reset();
         return;
       }
+      // "+" is Shift+= on most layouts; accept "=" too so Shift is optional
+      if (e.key === "+" || e.key === "=") {
+        e.preventDefault();
+        if (state.mode !== "pomodoro") {
+          toast("Adding time works in Pomodoro mode.");
+          return;
+        }
+        extend();
+        toast("Added 5 minutes.");
+        return;
+      }
+      if (!e.shiftKey && e.key.toLowerCase() === "n") {
+        e.preventDefault();
+        if (state.mode === "pomodoro" && state.phase === "break") reset();
+        return;
+      }
+      if (e.key === "]" || e.key === "[") {
+        e.preventDefault();
+        const next = cycleSavedTag(e.key === "]" ? 1 : -1);
+        toast(next ? `Tag: #${next}` : "No saved tags yet. Add some from Home.");
+        return;
+      }
 
       // ── Navigation (plain letter keys) ──
       if (e.shiftKey) return;
@@ -115,9 +149,14 @@ export default function GlobalShortcuts(): JSX.Element {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [shortcuts, router, start, pause, reset, state.isRunning, setHelpOpen]);
+  }, [shortcuts, router, start, pause, reset, extend, state.isRunning, state.mode, state.phase, setHelpOpen]);
 
-  return <ShortcutsDialog shortcuts={shortcuts} />;
+  return (
+    <>
+      <ShortcutsDialog shortcuts={shortcuts} />
+      <CommandPalette />
+    </>
+  );
 }
 
 

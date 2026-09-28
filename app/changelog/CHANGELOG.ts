@@ -1,6 +1,24 @@
-export const VERSION = "v0.22.2-beta";
+export const VERSION = "v0.23.0 (LTS)";
 
 const CHANGELOG = `
+## \`v0.23.0 (LTS)\` (2026-09-29) — Settings, Commands & Review
+- Added: A Settings page. Profile, Account, Timer, Notifications, Data, Features, and Shortcuts each have their own section, with an index beside them that shows how each one is set up right now: your name, whether you're syncing, your Pomodoro rhythm, and when the last backup ran. On phones the index is a row of chips.
+- Changed: The profile card at the top of the Sidebar now opens Settings. The profile popover it used to open had grown too crowded to use comfortably. Settings is also under "More" in the Sidebar, and the S key opens it.
+- Added: Restore a backup and export one straight from Settings, next to the automatic backup switch.
+- Changed: The Discord webhook has its own place under Notifications and saves separately from your profile.
+- Added: A command palette. Press Ctrl + K (⌘ + K on Mac), or use "Search and commands" in the Sidebar, to start, pause, reset or extend the timer, skip a break, switch mode, set or clear a tag, pick a session goal, open picture in picture, jump to any page or open project, toggle the notepad, export a backup, or change theme. Typing a word that isn't a saved tag offers to tag the session with it. A strip at the top shows the live timer.
+- Added: Keyboard shortcuts for the timer. + (or =) adds 5 minutes, N skips a break, and ] and [ step through your saved tags. The shortcuts dialog lists them all.
+- Added: "Week in review" on Home. It covers the last 7 days: average session length and session count compared with the week before, how many Pomodoros ran to the end, focus per day split by tag, and a grid of your best focus hours over the last four weeks.
+- Added: Pomodoro blocks now record whether they ran to the end or were stopped early, for the completion rate in Week in review. Blocks from before this version aren't counted.
+- Changed: Picture in picture is redesigned in the app's own style. It has the Focus page's progress ring and phase colours, the Pomodoro cycle as dots inside the ring, the clock, the active tag, and dock-style buttons for start or pause, reset or skip, +5 minutes, and back to the app. It follows your theme, including when you change it while the window is open.
+- Fixed: Picture in picture closed when you left the Focus page. It now stays open while you move around the app.
+- Improved: The picture-in-picture timer is now always in step with the main timer, instead of syncing through storage four times a second. Space starts and pauses the timer from the window.
+- Changed: Browsers without picture in picture now show a short note saying which browsers support it, instead of a pop-up alert.
+- Added: AI Chat says so when you're offline. Sending is paused until you reconnect, and what you've typed stays in the box.
+- Fixed: Saving your profile could drop settings stored with it. Profile, webhook, and feature settings now save only the fields they change.
+- Security: Saving your profile no longer writes your name, date of birth, and webhook URL to the browser console.
+***
+
 ## \`v0.22.0-beta\` (2026-09-08) — Interface, Rebuilt
 - Changed: The Sidebar, Top Bar, Home, and Focus pages were rebuilt around one visual language — layered surfaces, rounded wells, and a single button style per surface — replacing the mix of hairline borders, square notches, and competing button variants.
 - Changed: Sidebar navigation is now split into pinned and secondary. Home, Focus, Calendar, and Projects stay on screen; Focus Table, AI Chat, Excalidraw, Rewards, and Changelog live under "More", which remembers how you left it and opens itself when the page you are on is inside it.

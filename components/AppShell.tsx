@@ -30,6 +30,7 @@ import Onboarding from "@/components/onboarding/Onboarding";
 import GlobalShortcuts from "@/components/GlobalShortcuts";
 import SyncBridge from "@/components/auth/SyncBridge";
 import AutoBackup from "@/components/AutoBackup";
+import PipHost from "@/components/PipHost";
 import { Toaster } from "@/components/ui/sonner";
 
 /**
@@ -129,6 +130,7 @@ export default function AppShell({
     <>
       <SyncBridge />
       <AutoBackup />
+      <PipHost />
       <AppSidebar />
       <GlobalShortcuts />
       <div className="flex min-w-0 max-h-screen flex-1 flex-col overflow-y-auto">

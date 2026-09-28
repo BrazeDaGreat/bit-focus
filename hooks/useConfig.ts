@@ -52,6 +52,15 @@ export const DEFAULT_FEATURE_TOGGLES: FeatureToggles = {
   rewards: true,
 };
 
+/** Profile fields stored on the configuration record */
+export interface ConfigFields {
+  name: string;
+  dob: Date | null;
+  webhook: string;
+  currency: string;
+  sendWebhookUpdates: boolean;
+}
+
 /**
  * Configuration State Interface
  *
@@ -76,6 +85,8 @@ interface ConfigState {
   loadingConfig: boolean;
   /** Function to update configuration with new values */
   setConfig: (name: string, dob: Date | null, webhook: string, currency: string, sendWebhookUpdates?: boolean) => Promise<void>;
+  /** Update some fields, keeping every other field on the record */
+  updateConfig: (changes: Partial<ConfigFields>) => Promise<void>;
   /** Function to enable/disable a single feature */
   setFeatureToggle: (key: FeatureKey, enabled: boolean) => Promise<void>;
   /** Function to load configuration from database */
@@ -177,22 +188,38 @@ export const useConfig = create<ConfigState>((set, get) => ({
    * ```
    */
   setConfig: async (name, dob, webhook, currency, sendWebhookUpdates = false) => {
-    console.log(name, dob, webhook, sendWebhookUpdates);
+    await get().updateConfig({ name, dob, webhook, currency, sendWebhookUpdates });
+  },
 
-    // Remove existing configuration to prevent duplicates
-    const existingConfig = await db.configuration.toCollection().first();
-    if (existingConfig) {
-      await db.configuration.delete(existingConfig.name);
-      console.log("Previous entry deleted.");
-    }
+  /**
+   * Update Configuration Fields
+   *
+   * Merges the changes into the stored record. The record is keyed by name,
+   * so it is replaced rather than modified — but every field is carried
+   * over, including ones this store doesn't know about, so nothing is lost.
+   *
+   * @async
+   * @param changes - Fields to change
+   */
+  updateConfig: async (changes) => {
+    await db.transaction("rw", db.configuration, async () => {
+      const existing = await db.configuration.toCollection().first();
+      const state = get();
+      const next = {
+        name: state.name,
+        dob: state.dob,
+        webhook: state.webhook,
+        currency: state.currency,
+        sendWebhookUpdates: state.sendWebhookUpdates,
+        ...(existing ?? {}),
+        featureToggles: state.featureToggles,
+        ...changes,
+      };
+      if (existing) await db.configuration.delete(existing.name);
+      await db.configuration.add(next);
+    });
 
-    // Add new configuration to database (preserve feature toggles)
-    const featureToggles = get().featureToggles;
-    await db.configuration.add({ name, dob, webhook, currency, sendWebhookUpdates, featureToggles });
-    console.log("Config added successfully.");
-
-    // Update local state
-    set({ name, dob, webhook, currency, sendWebhookUpdates });
+    set(changes);
   },
 
   /**

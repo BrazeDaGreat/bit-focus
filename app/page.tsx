@@ -58,6 +58,7 @@ import { Issue, Milestone, Project, useProjects } from "@/hooks/useProjects";
 import { useRouter } from "next/navigation";
 import { useConfig } from "@/hooks/useConfig";
 import { usePomo } from "@/hooks/PomoContext";
+import { usePomodoroLog } from "@/hooks/usePomodoroLog";
 import FocusHeatmap from "@/components/FocusHeatmap";
 import ColorPicker from "@/components/ui/color-picker";
 import { MobileDrawer } from "@/components/ui/mobile-drawer";
@@ -159,6 +160,10 @@ export default function Home(): JSX.Element {
       <div className="grid gap-4 lg:grid-cols-2">
         <TrendPanel />
         <TagBreakdownPanel />
+      </div>
+
+      <div className="mt-4">
+        <WeekReviewPanel />
       </div>
 
       <div className="mt-4">
@@ -403,6 +408,294 @@ function SupportStat({
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+// ── Week in review ────────────────────────────────────────────────────────────
+
+const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+/** Days of history behind the best-hours grid: four of each weekday. */
+const HOURS_WINDOW_DAYS = 28;
+
+/** "9am", "12pm", "5pm" */
+function hourLabel(hour: number): string {
+  const h = hour % 24;
+  const suffix = h < 12 ? "am" : "pm";
+  const twelve = h % 12 === 0 ? 12 : h % 12;
+  return `${twelve}${suffix}`;
+}
+
+/**
+ * Spread a session's minutes over the clock hours it covered, so a session
+ * from 9:40 to 11:10 counts toward 9am, 10am and 11am.
+ */
+function addToHourGrid(grid: number[][], start: Date, end: Date): void {
+  let cursor = dayjs(start);
+  const stop = dayjs(end);
+  while (cursor.isBefore(stop)) {
+    const nextHour = cursor.startOf("hour").add(1, "hour");
+    const sliceEnd = nextHour.isBefore(stop) ? nextHour : stop;
+    grid[cursor.day()][cursor.hour()] += sliceEnd.diff(cursor, "second") / 60;
+    cursor = sliceEnd;
+  }
+}
+
+/**
+ * The last seven days at a glance: when you focused and on what, the hours
+ * you do your best work, how long sessions run, and how many Pomodoros you
+ * finish rather than stop. Sits in the Review zone, under the daily trend.
+ */
+function WeekReviewPanel(): JSX.Element {
+  const { focusSessions, loadingFocusSessions } = useFocus();
+  const { savedTags } = useTag();
+  const pomodoroEntries = usePomodoroLog((s) => s.entries);
+
+  const review = useMemo(() => {
+    const today = dayjs().startOf("day");
+    const weekStart = today.subtract(6, "day");
+    const prevStart = weekStart.subtract(7, "day");
+    const hoursStart = today.subtract(HOURS_WINDOW_DAYS - 1, "day");
+
+    const days = Array.from({ length: 7 }, (_, i) => ({
+      date: weekStart.add(i, "day"),
+      byTag: new Map<string, number>(),
+      total: 0,
+    }));
+    const tagTotals = new Map<string, number>();
+    const hourGrid = Array.from({ length: 7 }, () => new Array<number>(24).fill(0));
+    let weekCount = 0;
+    let weekSeconds = 0;
+    let prevCount = 0;
+    let prevSeconds = 0;
+
+    for (const session of focusSessions) {
+      const at = dayjs(session.startTime);
+      const seconds = reduceSessions([session]);
+
+      if (!at.isBefore(hoursStart)) {
+        addToHourGrid(hourGrid, new Date(session.startTime), new Date(session.endTime));
+      }
+      if (!at.isBefore(weekStart)) {
+        weekCount += 1;
+        weekSeconds += seconds;
+        const day = days[at.startOf("day").diff(weekStart, "day")];
+        if (day) {
+          const key = session.tag?.trim() || "Untagged";
+          day.byTag.set(key, (day.byTag.get(key) ?? 0) + seconds);
+          day.total += seconds;
+          tagTotals.set(key, (tagTotals.get(key) ?? 0) + seconds);
+        }
+      } else if (!at.isBefore(prevStart)) {
+        prevCount += 1;
+        prevSeconds += seconds;
+      }
+    }
+
+    // The five biggest tags keep their colour; the rest share one grey.
+    const topTags = [...tagTotals.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([tag]) => tag);
+    const colorFor = (tag: string) =>
+      topTags.includes(tag) ? getTagColor(savedTags, tag)[0] : "var(--muted-foreground)";
+
+    const maxDay = Math.max(...days.map((d) => d.total), 1);
+
+    // Best two-hour window across the whole grid.
+    const byHour = new Array<number>(24).fill(0);
+    hourGrid.forEach((row) => row.forEach((m, h) => (byHour[h] += m)));
+    let bestHour = -1;
+    let bestMinutes = 0;
+    for (let h = 0; h < 24; h++) {
+      const span = byHour[h] + byHour[(h + 1) % 24];
+      if (span > bestMinutes) {
+        bestMinutes = span;
+        bestHour = h;
+      }
+    }
+    const maxCell = Math.max(...hourGrid.flat(), 1);
+
+    const avg = weekCount > 0 ? weekSeconds / weekCount : 0;
+    const prevAvg = prevCount > 0 ? prevSeconds / prevCount : 0;
+
+    const weekEntries = pomodoroEntries.filter((e) => e.at >= weekStart.valueOf());
+    const finished = weekEntries.filter((e) => e.completed).length;
+
+    return {
+      days: days.map((d) => ({
+        label: d.date.isSame(today, "day") ? "Today" : WEEKDAY_LABELS[d.date.day()],
+        total: d.total,
+        height: (d.total / maxDay) * 100,
+        segments: [...d.byTag.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .map(([tag, seconds]) => ({ tag, seconds, color: colorFor(tag) })),
+      })),
+      legend: topTags.map((tag) => ({ tag, color: colorFor(tag) })),
+      hourGrid,
+      maxCell,
+      bestHour,
+      avg,
+      avgChange: prevAvg > 0 && avg > 0 ? percentChange(avg, prevAvg) : null,
+      weekCount,
+      countChange: percentChange(weekCount, prevCount),
+      pomodoros: { finished, total: weekEntries.length },
+    };
+  }, [focusSessions, savedTags, pomodoroEntries]);
+
+  const { pomodoros } = review;
+  const rate = pomodoros.total > 0 ? Math.round((pomodoros.finished / pomodoros.total) * 100) : null;
+
+  return (
+    <Panel title="Week in review" subtitle="Last 7 days, compared with the 7 before">
+      {loadingFocusSessions ? (
+        <Skeleton className="h-[260px] w-full rounded-xl" />
+      ) : (
+        <div className="flex flex-col gap-6">
+          {/* Numbers */}
+          <div className="grid grid-cols-1 gap-px overflow-hidden rounded-xl bg-border sm:grid-cols-3">
+            <ReviewStat
+              label="Average session"
+              value={review.avg > 0 ? humanDuration(review.avg) : "—"}
+              footer={<Delta change={review.avgChange} label="vs previous" />}
+            />
+            <ReviewStat
+              label="Sessions"
+              value={String(review.weekCount)}
+              footer={<Delta change={review.countChange} label="vs previous" />}
+            />
+            <ReviewStat
+              label="Pomodoros finished"
+              value={rate === null ? "—" : `${rate}%`}
+              footer={
+                <span className="text-xs text-muted-foreground">
+                  {pomodoros.total === 0
+                    ? "None started this week"
+                    : `${pomodoros.finished} of ${pomodoros.total} ran to the end`}
+                </span>
+              }
+            />
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Focus by day, stacked by tag */}
+            <div>
+              <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
+                By day and tag
+              </p>
+              <div className="flex h-36 items-end gap-2">
+                {review.days.map((day) => (
+                  <div key={day.label} className="flex h-full flex-1 flex-col items-center gap-1.5">
+                    <div
+                      className="flex w-full max-w-9 flex-1 flex-col justify-end"
+                      title={`${day.label}: ${day.total > 0 ? humanDuration(day.total) : "no focus"}`}
+                    >
+                      <div
+                        className="flex w-full flex-col-reverse overflow-hidden rounded-md bg-muted transition-[height] duration-500"
+                        style={{ height: `${Math.max(day.height, day.total > 0 ? 4 : 2)}%` }}
+                      >
+                        {day.segments.map((seg) => (
+                          <div
+                            key={seg.tag}
+                            style={{
+                              height: `${(seg.seconds / day.total) * 100}%`,
+                              backgroundColor: seg.color,
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <span
+                      className={cn(
+                        "text-[10px]",
+                        day.label === "Today" ? "font-medium text-foreground" : "text-muted-foreground"
+                      )}
+                    >
+                      {day.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              {review.legend.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1">
+                  {review.legend.map((item) => (
+                    <span key={item.tag} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                      <span className="size-2 rounded-full" style={{ backgroundColor: item.color }} />
+                      {item.tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Best focus hours */}
+            <div>
+              <div className="mb-3 flex items-baseline justify-between gap-2">
+                <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
+                  Best hours
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  {review.bestHour >= 0
+                    ? `Most focus ${hourLabel(review.bestHour)}–${hourLabel(review.bestHour + 2)}`
+                    : `Last ${HOURS_WINDOW_DAYS} days`}
+                </p>
+              </div>
+              <div className="flex flex-col gap-[3px]">
+                {/* Monday first */}
+                {[1, 2, 3, 4, 5, 6, 0].map((weekday) => (
+                  <div key={weekday} className="flex items-center gap-2">
+                    <span className="w-7 shrink-0 text-[10px] text-muted-foreground">
+                      {WEEKDAY_LABELS[weekday]}
+                    </span>
+                    <div className="grid flex-1 grid-cols-[repeat(24,minmax(0,1fr))] gap-[3px]">
+                      {review.hourGrid[weekday].map((minutes, hour) => (
+                        <span
+                          key={hour}
+                          className="aspect-square rounded-[3px]"
+                          title={`${WEEKDAY_LABELS[weekday]} ${hourLabel(hour)}: ${Math.round(minutes)}m over ${HOURS_WINDOW_DAYS} days`}
+                          style={{
+                            backgroundColor:
+                              minutes > 0
+                                ? `color-mix(in oklch, var(--chart-1) ${Math.round(20 + (minutes / review.maxCell) * 80)}%, transparent)`
+                                : "var(--muted)",
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                <div className="flex gap-2">
+                  <span className="w-7 shrink-0" />
+                  <div className="grid flex-1 grid-cols-4 text-[10px] text-muted-foreground">
+                    <span>12am</span>
+                    <span>6am</span>
+                    <span>12pm</span>
+                    <span>6pm</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function ReviewStat({
+  label,
+  value,
+  footer,
+}: {
+  label: string;
+  value: string;
+  footer: ReactNode;
+}): JSX.Element {
+  return (
+    <div className="bg-muted/40 px-4 py-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-1 font-mono text-xl font-semibold tracking-tight">{value}</p>
+      <div className="mt-1">{footer}</div>
     </div>
   );
 }

@@ -49,6 +49,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/changelog": "Changelog",
   "/focus-table": "Focus Table",
   "/account": "Account",
+  "/settings": "Settings",
 };
 
 function usePageTitle(): string {
