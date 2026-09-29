@@ -278,7 +278,13 @@ function TimerRing({
   const offset = circumference * (1 - Math.min(1, Math.max(0, ring.progress)));
 
   return (
-    <div className="relative" style={{ width: size, height: size }}>
+    <div
+      className="relative"
+      style={{ width: size, height: size }}
+      role="timer"
+      aria-live="off"
+      aria-label="Focus timer"
+    >
       {/* Phase colour bleeds softly behind the ring */}
       <div
         className="absolute inset-6 rounded-full opacity-[0.07] blur-2xl transition-colors duration-700"

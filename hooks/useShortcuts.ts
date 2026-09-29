@@ -21,7 +21,7 @@ import { create } from "zustand";
 import type { FeatureKey, FeatureToggles } from "@/hooks/useConfig";
 
 /** Categories used to group shortcuts inside the help dialog */
-export type ShortcutCategory = "Navigation" | "Timer" | "General";
+export type ShortcutCategory = "Navigation" | "Timer" | "Calendar" | "General";
 
 export interface ShortcutDef {
   /** Keys shown in the help dialog, e.g. ["Shift", "R"] */
@@ -46,7 +46,9 @@ export interface ShortcutDef {
     | "toggle-sidebar"
     | "open-help"
     | "open-palette"
-    | "toggle-notepad";
+    | "toggle-notepad"
+    /** Handled by the page or widget itself; documented here only */
+    | "page-local";
 }
 
 /** Every application-wide shortcut, in display order */
@@ -69,10 +71,20 @@ export const SHORTCUTS: ShortcutDef[] = [
   { keys: ["N"], description: "Skip the break (Pomodoro)", category: "Timer", action: "timer-skip-break" },
   { keys: ["]"], description: "Next saved tag", category: "Timer", action: "tag-next" },
   { keys: ["["], description: "Previous saved tag", category: "Timer", action: "tag-prev" },
+  // ── Calendar (only while the Calendar page is open) ──
+  { keys: ["D"], description: "Day view (Calendar page)", category: "Calendar", feature: "calendar", action: "page-local" },
+  { keys: ["W"], description: "Week view (Calendar page)", category: "Calendar", feature: "calendar", action: "page-local" },
+  { keys: ["M"], description: "Month view (Calendar page)", category: "Calendar", feature: "calendar", action: "page-local" },
+  { keys: ["T"], description: "Jump to today (Calendar page)", category: "Calendar", feature: "calendar", action: "page-local" },
+  { keys: ["←"], description: "Previous day / week / month", category: "Calendar", feature: "calendar", action: "page-local" },
+  { keys: ["→"], description: "Next day / week / month", category: "Calendar", feature: "calendar", action: "page-local" },
   // ── General ──
   { keys: ["Ctrl", "K"], description: "Open the command palette", category: "General", action: "open-palette" },
   { keys: ["Ctrl", "B"], description: "Toggle the sidebar", category: "General", action: "toggle-sidebar" },
   { keys: ["Alt", "N"], description: "Toggle Notepad view", category: "General", action: "toggle-notepad" },
+  { keys: ["W"], description: "Export backup (data menu open)", category: "General", action: "page-local" },
+  { keys: ["Q"], description: "Import backup (data menu open)", category: "General", action: "page-local" },
+  { keys: ["A"], description: "Upload backup (data menu open)", category: "General", action: "page-local" },
   { keys: ["?"], description: "Show keyboard shortcuts", category: "General", action: "open-help" },
 ];
 

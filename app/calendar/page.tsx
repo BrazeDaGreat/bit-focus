@@ -355,8 +355,10 @@ export default function CalendarPage(): JSX.Element {
       }
       e.preventDefault();
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    // Capture phase: this listener must beat the global single-letter
+    // shortcuts (notably "T" for Focus Table) so "T" means "today" here.
+    window.addEventListener("keydown", onKey, { capture: true });
+    return () => window.removeEventListener("keydown", onKey, { capture: true });
   }, [currentView]);
 
   const allFocusEvents = useMemo<CalendarEvent[]>(() => {

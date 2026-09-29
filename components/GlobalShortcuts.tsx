@@ -226,14 +226,15 @@ const ShortcutsDialog = memo(function ShortcutsDialog({
       open={helpOpen}
       onOpenChange={setHelpOpen}
       title="Keyboard shortcuts"
-      description="Shortcuts work anywhere in the app, except while typing."
+      description="Shortcuts work anywhere in the app, except while typing. Page shortcuts only work on that page."
       contentClassName="max-h-[94dvh]"
       dialogContentClassName="max-w-2xl"
     >
         <div className="grid max-h-[68dvh] grid-cols-1 gap-6 overflow-y-auto pr-1 duration-200 animate-in fade-in-50 md:grid-cols-2">
-          {/* Column 1: Navigation */}
+          {/* Column 1: Navigation & Calendar */}
           <div className="flex flex-col gap-4">
             {renderCategory("Navigation")}
+            {renderCategory("Calendar")}
           </div>
 
           {/* Column 2: Timer & General */}

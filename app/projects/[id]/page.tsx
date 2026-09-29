@@ -17,15 +17,8 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { DialogFooter } from "@/components/ui/dialog";
+import { ResponsiveDialog } from "@/components/ui/mobile-drawer";
 import {
   Sheet,
   SheetContent,
@@ -114,18 +107,19 @@ function ProjectEditDialog({ project }: { project: Project }): JSX.Element {
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
+    <ResponsiveDialog
+      open={isOpen}
+      onOpenChange={handleOpenChange}
+      title="Edit Project"
+      description="Update title, status, and version."
+      dialogBodyClassName="grid gap-4"
+      trigger={
         <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
           <FaEdit className="mr-2 h-3 w-3" />
           Edit Project
         </DropdownMenuItem>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Edit Project</DialogTitle>
-          <DialogDescription>Update title, status, and version.</DialogDescription>
-        </DialogHeader>
+      }
+    >
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="edit-title">Project Title *</Label>
@@ -172,8 +166,7 @@ function ProjectEditDialog({ project }: { project: Project }): JSX.Element {
             {isSubmitting ? "Saving..." : "Save Changes"}
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </ResponsiveDialog>
   );
 }
 
@@ -310,18 +303,19 @@ function CreateMilestoneDialog({ projectId }: { projectId: number }): JSX.Elemen
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
+    <ResponsiveDialog
+      open={open}
+      onOpenChange={setOpen}
+      title="Create New Milestone"
+      description="Add a milestone to track progress."
+      dialogBodyClassName="grid gap-4"
+      trigger={
         <Button variant="outline" className="gap-2 w-full border-dashed">
           <FaPlus className="h-3 w-3" />
           Add Milestone
         </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Create New Milestone</DialogTitle>
-          <DialogDescription>Add a milestone to track progress.</DialogDescription>
-        </DialogHeader>
+      }
+    >
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="milestone-title">Title *</Label>
@@ -381,8 +375,7 @@ function CreateMilestoneDialog({ projectId }: { projectId: number }): JSX.Elemen
             {isSubmitting ? "Creating..." : "Create Milestone"}
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </ResponsiveDialog>
   );
 }
 
@@ -423,8 +416,13 @@ function CreateIssueDialog({ milestoneId }: { milestoneId: number }): JSX.Elemen
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
+    <ResponsiveDialog
+      open={open}
+      onOpenChange={setOpen}
+      title="Create New Issue"
+      description="Add a new issue to this milestone."
+      dialogBodyClassName="grid gap-4"
+      trigger={
         <Button
           size="sm"
           variant="ghost"
@@ -433,12 +431,8 @@ function CreateIssueDialog({ milestoneId }: { milestoneId: number }): JSX.Elemen
           <FaPlus className="h-3 w-3" />
           Add Issue
         </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Create New Issue</DialogTitle>
-          <DialogDescription>Add a new issue to this milestone.</DialogDescription>
-        </DialogHeader>
+      }
+    >
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="issue-title">Title *</Label>
@@ -494,8 +488,7 @@ function CreateIssueDialog({ milestoneId }: { milestoneId: number }): JSX.Elemen
             {isSubmitting ? "Creating..." : "Create Issue"}
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </ResponsiveDialog>
   );
 }
 
@@ -547,17 +540,18 @@ function EditIssueDialog({ issue }: { issue: Issue }): JSX.Element {
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
+    <ResponsiveDialog
+      open={isOpen}
+      onOpenChange={handleOpenChange}
+      title="Edit Issue"
+      description="Update issue details."
+      dialogBodyClassName="grid gap-4"
+      trigger={
         <Button variant="ghost" size="icon" className="h-6 w-6" title="Edit issue">
           <FaEdit className="h-3 w-3" />
         </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Edit Issue</DialogTitle>
-          <DialogDescription>Update issue details.</DialogDescription>
-        </DialogHeader>
+      }
+    >
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="edit-issue-title">Title *</Label>
@@ -628,8 +622,7 @@ function EditIssueDialog({ issue }: { issue: Issue }): JSX.Element {
             {isSubmitting ? "Saving..." : "Save Changes"}
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </ResponsiveDialog>
   );
 }
 
@@ -684,18 +677,19 @@ function EditMilestoneDialog({ milestone }: { milestone: MilestoneWithProgress }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
+    <ResponsiveDialog
+      open={isOpen}
+      onOpenChange={handleOpenChange}
+      title="Edit Milestone"
+      description="Update milestone details."
+      dialogBodyClassName="grid gap-4"
+      trigger={
         <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
           <FaEdit className="mr-2 h-3 w-3" />
           Edit Milestone
         </DropdownMenuItem>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Edit Milestone</DialogTitle>
-          <DialogDescription>Update milestone details.</DialogDescription>
-        </DialogHeader>
+      }
+    >
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="edit-milestone-title">Title *</Label>
@@ -755,8 +749,7 @@ function EditMilestoneDialog({ milestone }: { milestone: MilestoneWithProgress }
             {isSubmitting ? "Saving..." : "Save Changes"}
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </ResponsiveDialog>
   );
 }
 
@@ -787,17 +780,18 @@ function AddQuickLinkDialog({ projectId }: { projectId: number }): JSX.Element {
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
+    <ResponsiveDialog
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      title="Add Quick Link"
+      description="Add a quick link to this project."
+      dialogBodyClassName="grid gap-4"
+      trigger={
         <Button variant="outline" size="icon" className="h-8 w-8" title="Add Quick Link">
           <FaLink className="h-3 w-3" />
         </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add Quick Link</DialogTitle>
-          <DialogDescription>Add a quick link to this project.</DialogDescription>
-        </DialogHeader>
+      }
+    >
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="quick-link-url">URL *</Label>
@@ -826,8 +820,7 @@ function AddQuickLinkDialog({ projectId }: { projectId: number }): JSX.Element {
             {isSubmitting ? "Saving..." : "Add Link"}
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </ResponsiveDialog>
   );
 }
 
