@@ -21,7 +21,8 @@
 
 "use client";
 
-import { Fragment, useEffect, useMemo, type JSX } from "react";
+import { Fragment, memo, useEffect, useMemo, useState, type JSX } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { ResponsiveDialog } from "@/components/ui/mobile-drawer";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
@@ -29,7 +30,6 @@ import { useConfig } from "@/hooks/useConfig";
 import { usePomo } from "@/hooks/PomoContext";
 import { cycleSavedTag } from "@/hooks/useTag";
 import { toast } from "sonner";
-import CommandPalette from "@/components/CommandPalette";
 import { useNotepad } from "@/hooks/useNotepad";
 import {
   activeShortcuts,
@@ -38,6 +38,14 @@ import {
   type ShortcutCategory,
   type ShortcutDef,
 } from "@/hooks/useShortcuts";
+
+/**
+ * The palette (cmdk plus a long list of icons) is only needed once someone
+ * asks for it, so it is fetched on first open rather than with the app frame.
+ */
+const CommandPalette = dynamic(() => import("@/components/CommandPalette"), {
+  ssr: false,
+});
 
 /** True when the keystroke originates from a text-editing context */
 function isTypingTarget(target: EventTarget | null): boolean {
@@ -64,6 +72,14 @@ export default function GlobalShortcuts(): JSX.Element {
   const { start, pause, reset, extend, state } = usePomo();
   const { featureToggles } = useConfig();
   const { setHelpOpen } = useShortcutsDialog();
+
+  // Mount the palette the first time it opens, then keep it mounted so it
+  // keeps its state and its close animation.
+  const paletteOpen = useCommandPalette((s) => s.paletteOpen);
+  const [paletteRequested, setPaletteRequested] = useState(false);
+  useEffect(() => {
+    if (paletteOpen) setPaletteRequested(true);
+  }, [paletteOpen]);
 
   const shortcuts = useMemo(
     () => activeShortcuts(featureToggles),
@@ -154,7 +170,7 @@ export default function GlobalShortcuts(): JSX.Element {
   return (
     <>
       <ShortcutsDialog shortcuts={shortcuts} />
-      <CommandPalette />
+      {paletteRequested && <CommandPalette />}
     </>
   );
 }
@@ -166,7 +182,11 @@ export default function GlobalShortcuts(): JSX.Element {
  * Screen-centered dialog listing all currently active shortcuts, grouped
  * by category with kbd-styled key caps.
  */
-function ShortcutsDialog({ shortcuts }: { shortcuts: ShortcutDef[] }): JSX.Element {
+const ShortcutsDialog = memo(function ShortcutsDialog({
+  shortcuts,
+}: {
+  shortcuts: ShortcutDef[];
+}): JSX.Element {
   const { helpOpen, setHelpOpen } = useShortcutsDialog();
 
   const renderCategory = (category: ShortcutCategory) => {
@@ -224,4 +244,4 @@ function ShortcutsDialog({ shortcuts }: { shortcuts: ShortcutDef[] }): JSX.Eleme
         </div>
     </ResponsiveDialog>
   );
-}
+});

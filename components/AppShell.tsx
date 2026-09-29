@@ -21,19 +21,47 @@
 
 "use client";
 
-import { useEffect, useRef, useState, type JSX, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type JSX,
+  type ReactNode,
+} from "react";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { useConfig } from "@/hooks/useConfig";
 import { useSync } from "@/hooks/useSync";
 import { AppSidebar } from "@/components/AppSidebar";
 import TopBar from "@/components/TopBar";
-import Onboarding from "@/components/onboarding/Onboarding";
 import GlobalShortcuts from "@/components/GlobalShortcuts";
 import SyncBridge from "@/components/auth/SyncBridge";
 import AutoBackup from "@/components/AutoBackup";
 import PipHost from "@/components/PipHost";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
+import { writeProfileHint } from "@/lib/profileHint";
+
+/**
+ * Onboarding is a large, one-time flow. Returning users never need it, so it is
+ * fetched only when the profile check says it is required.
+ */
+const Onboarding = dynamic(() => import("@/components/onboarding/Onboarding"), {
+  ssr: false,
+  loading: () => <BootSplash />,
+});
+
+const noopSubscribe = () => () => {};
+
+/** True while rendering on the server and while hydrating; false afterwards. */
+function useIsServerRender(): boolean {
+  return useSyncExternalStore(
+    noopSubscribe,
+    () => false,
+    () => true
+  );
+}
 
 /**
  * Boot Splash
@@ -41,10 +69,23 @@ import { cn } from "@/lib/utils";
  * Minimal centered mark shown while the configuration record is read from
  * IndexedDB. Kept intentionally quiet to avoid a jarring flash before the real
  * UI resolves.
+ *
+ * As an `overlay` it sits on top of the server-rendered app frame and is only
+ * displayed when no profile hint is stored (see `lib/profileHint.ts`), so
+ * returning users never see it.
  */
-function BootSplash({ note }: { note?: string } = {}): JSX.Element {
+function BootSplash({
+  note,
+  overlay = false,
+}: { note?: string; overlay?: boolean } = {}): JSX.Element {
   return (
-    <div className="flex-1 min-h-screen flex flex-col gap-4 items-center justify-center bg-background">
+    <div
+      {...(overlay ? { "data-boot-overlay": "" } : {})}
+      className={cn(
+        "flex-col gap-4 items-center justify-center bg-background",
+        overlay ? "" : "flex flex-1 min-h-screen"
+      )}
+    >
       <span className="font-mono text-sm tracking-[0.3em] text-muted-foreground motion-safe:animate-pulse">
         BIT·FOCUS
       </span>
@@ -69,6 +110,13 @@ export default function AppShell({
   const { name, loadConfig } = useConfig();
   const { bootstrapping } = useSync();
   const pathname = usePathname();
+
+  // Only the home page is prepared for server rendering (its data-dependent
+  // parts sit behind fixed-size placeholders). Every other page keeps reading
+  // browser-only state such as dates and local storage while it renders, so it
+  // is mounted right after hydration instead of being part of the server HTML.
+  const serverRender = useIsServerRender();
+  const showPage = pathname === "/" || !serverRender;
 
   // Once the flow is on screen it stays on screen. Someone who signs in from
   // inside onboarding has already typed answers, and replacing the flow with a
@@ -98,15 +146,21 @@ export default function AppShell({
   // One toaster for the whole app, whichever branch is on screen.
   const toaster = <Toaster />;
 
-  if (!booted) {
-    return <BootSplash />;
-  }
+  // Keeps the profile hint honest for the next load's pre-paint check.
+  useEffect(() => {
+    if (booted) writeProfileHint(!needsOnboarding);
+  }, [booted, needsOnboarding]);
+
+  // Until the database answers, the frame is still rendered (and server-
+  // rendered): returning users get their page straight away, everyone else
+  // sits behind the boot overlay. See `lib/profileHint.ts`.
+  const awaitingProfile = !booted;
 
   // Signing in on a new device starts a restore. Until it finishes we do not
   // know whether this person already has a name, tags and history waiting, so
   // onboarding waits rather than asking for details that are seconds away —
   // and rather than racing the restore and overwriting it with blank answers.
-  if (needsOnboarding && bootstrapping && !onboardingStarted.current) {
+  if (!awaitingProfile && needsOnboarding && bootstrapping && !onboardingStarted.current) {
     return (
       <>
         <SyncBridge />
@@ -118,7 +172,7 @@ export default function AppShell({
 
   // Sync runs in both branches: someone can connect an account during
   // onboarding to restore an existing profile onto a fresh device.
-  if (needsOnboarding) {
+  if (!awaitingProfile && needsOnboarding) {
     onboardingStarted.current = true;
     return (
       <>
@@ -145,9 +199,10 @@ export default function AppShell({
         )}
       >
         <TopBar />
-        {children}
+        {showPage ? children : null}
       </div>
       {toaster}
+      {awaitingProfile && <BootSplash overlay />}
     </>
   );
 }

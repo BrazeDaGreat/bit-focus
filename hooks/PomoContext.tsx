@@ -36,6 +36,7 @@ import {
   useEffect,
   useRef,
   useCallback,
+  useMemo,
   useState,
   startTransition,
 } from "react";
@@ -750,8 +751,10 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
     };
   }, [state.isRunning]);
 
-  // Context value with all timer controls
-  const contextValue = {
+  // Context value with all timer controls. Memoised on the timer state: the
+  // controls only read refs, so consumers should re-render when the timer
+  // changes, not whenever an unrelated store this provider reads updates.
+  const contextValue = useMemo(() => ({
     state,
     start: () => {
       const s = stateRef.current;
@@ -845,7 +848,7 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
     resetCycle: () => {
       dispatch({ type: "RESET_CYCLE" });
     },
-  };
+  }), [state, finishSession, advancePhase]);
 
   return (
     <PomoContext.Provider value={contextValue}>

@@ -1,4 +1,6 @@
-export const VERSION = "v0.23.0 (LTS)";
+// The version number itself lives in ./version.ts so small consumers do not
+// have to load this whole file. Re-exported here for existing importers.
+export { VERSION } from "./version";
 
 const CHANGELOG = `
 ## \`v0.23.0 (LTS)\` (2026-09-29) — Settings, Commands & Review
@@ -19,6 +21,8 @@ const CHANGELOG = `
 - Added: AI Chat says so when you're offline. Sending is paused until you reconnect, and what you've typed stays in the box.
 - Fixed: Saving your profile could drop settings stored with it. Profile, webhook, and feature settings now save only the fields they change.
 - Security: Saving your profile no longer writes your name, date of birth, and webhook URL to the browser console.
+- Improved: Home loads faster. The page and greeting now appear straight away instead of waiting on the app to start, and the chart, heatmap, and command palette load only when needed.
+- Fixed: The Due panel on Home no longer jumps the page around as your issues load in.
 ***
 
 ## \`v0.22.0-beta\` (2026-09-08) — Interface, Rebuilt

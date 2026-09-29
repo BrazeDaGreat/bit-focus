@@ -113,7 +113,11 @@ function messageFor(error: unknown, fallback: string): string {
 }
 
 export const useAuth = create<AuthState>((set, get) => ({
-  user: (pb.authStore.record as AuthUser | null) ?? null,
+  // Always signed-out until `init` runs after mount: PocketBase restores its
+  // session from localStorage as soon as it loads in the browser, which the
+  // server cannot see, so reading it here would make the first client render
+  // differ from the server-rendered HTML.
+  user: null,
   ready: false,
   signingIn: false,
   pendingProvider: null,
