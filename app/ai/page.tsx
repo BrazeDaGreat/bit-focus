@@ -777,6 +777,9 @@ function Thread({
       id: chat.id,
       messages: initialMessages,
       transport,
+      // Streaming can produce many message snapshots in quick succession.
+      // Limit React updates while the SDK continues processing every chunk.
+      experimental_throttle: 100,
       // A client-side tool result is only half a turn: once every call in the
       // last assistant message has an output, the thread goes back to the model
       // so it can answer with what the tools returned.
