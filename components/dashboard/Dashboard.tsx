@@ -56,6 +56,13 @@ import { useConfig } from "@/hooks/useConfig";
 import { usePomo } from "@/hooks/PomoContext";
 import { usePomodoroLog } from "@/hooks/usePomodoroLog";
 import { MobileDrawer } from "@/components/ui/mobile-drawer";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { DEFAULT_TAG_COLOR } from "./ManageTagsContent";
 import type { TrendDatum } from "./TrendChart";
@@ -446,12 +453,50 @@ function WeekReviewPanel(): JSX.Element {
   const { focusSessions, loadingFocusSessions } = useFocus();
   const { savedTags } = useTag();
   const pomodoroEntries = usePomodoroLog((s) => s.entries);
+  const [hoursTag, setHoursTag] = useState("all");
+
+  const hours = useMemo(() => {
+    const hoursStart = dayjs().startOf("day").subtract(HOURS_WINDOW_DAYS - 1, "day");
+    const hourGrid = Array.from({ length: 7 }, () => new Array<number>(24).fill(0));
+    const tags = new Set(savedTags.map((tag) => tag.t.trim()).filter(Boolean));
+    let hasUntagged = false;
+
+    for (const session of focusSessions) {
+      if (dayjs(session.startTime).isBefore(hoursStart)) continue;
+      const tag = session.tag?.trim();
+      if (tag) tags.add(tag);
+      else hasUntagged = true;
+      if (hoursTag !== "all" && (hoursTag === "untagged" ? !!tag : hoursTag !== `tag:${tag}`)) {
+        continue;
+      }
+      addToHourGrid(hourGrid, new Date(session.startTime), new Date(session.endTime));
+    }
+
+    const byHour = new Array<number>(24).fill(0);
+    hourGrid.forEach((row) => row.forEach((minutes, hour) => (byHour[hour] += minutes)));
+    let bestHour = -1;
+    let bestMinutes = 0;
+    for (let hour = 0; hour < 24; hour++) {
+      const span = byHour[hour] + byHour[(hour + 1) % 24];
+      if (span > bestMinutes) {
+        bestMinutes = span;
+        bestHour = hour;
+      }
+    }
+
+    return {
+      hourGrid,
+      bestHour,
+      maxCell: Math.max(...hourGrid.flat(), 1),
+      tags: [...tags].sort((a, b) => a.localeCompare(b)),
+      hasUntagged,
+    };
+  }, [focusSessions, hoursTag, savedTags]);
 
   const review = useMemo(() => {
     const today = dayjs().startOf("day");
     const weekStart = today.subtract(6, "day");
     const prevStart = weekStart.subtract(7, "day");
-    const hoursStart = today.subtract(HOURS_WINDOW_DAYS - 1, "day");
 
     const days = Array.from({ length: 7 }, (_, i) => ({
       date: weekStart.add(i, "day"),
@@ -459,24 +504,16 @@ function WeekReviewPanel(): JSX.Element {
       total: 0,
     }));
     const tagTotals = new Map<string, number>();
-    const hourGrid = Array.from({ length: 7 }, () => new Array<number>(24).fill(0));
     let weekCount = 0;
     let weekSeconds = 0;
     let prevCount = 0;
     let prevSeconds = 0;
 
-    // Nothing here reads a session older than the best-hours window, so skip
-    // those before building a dayjs object for each.
-    const oldestNeeded = Math.min(hoursStart.valueOf(), prevStart.valueOf());
-
     for (const session of focusSessions) {
-      if (new Date(session.startTime).getTime() < oldestNeeded) continue;
+      if (new Date(session.startTime).getTime() < prevStart.valueOf()) continue;
       const at = dayjs(session.startTime);
       const seconds = reduceSessions([session]);
 
-      if (!at.isBefore(hoursStart)) {
-        addToHourGrid(hourGrid, new Date(session.startTime), new Date(session.endTime));
-      }
       if (!at.isBefore(weekStart)) {
         weekCount += 1;
         weekSeconds += seconds;
@@ -503,20 +540,6 @@ function WeekReviewPanel(): JSX.Element {
 
     const maxDay = Math.max(...days.map((d) => d.total), 1);
 
-    // Best two-hour window across the whole grid.
-    const byHour = new Array<number>(24).fill(0);
-    hourGrid.forEach((row) => row.forEach((m, h) => (byHour[h] += m)));
-    let bestHour = -1;
-    let bestMinutes = 0;
-    for (let h = 0; h < 24; h++) {
-      const span = byHour[h] + byHour[(h + 1) % 24];
-      if (span > bestMinutes) {
-        bestMinutes = span;
-        bestHour = h;
-      }
-    }
-    const maxCell = Math.max(...hourGrid.flat(), 1);
-
     const avg = weekCount > 0 ? weekSeconds / weekCount : 0;
     const prevAvg = prevCount > 0 ? prevSeconds / prevCount : 0;
 
@@ -533,9 +556,6 @@ function WeekReviewPanel(): JSX.Element {
           .map(([tag, seconds]) => ({ tag, seconds, color: colorFor(tag) })),
       })),
       legend: topTags.map((tag) => ({ tag, color: colorFor(tag) })),
-      hourGrid,
-      maxCell,
-      bestHour,
       avg,
       avgChange: prevAvg > 0 && avg > 0 ? percentChange(avg, prevAvg) : null,
       weekCount,
@@ -631,16 +651,28 @@ function WeekReviewPanel(): JSX.Element {
 
             {/* Best focus hours */}
             <div>
-              <div className="mb-3 flex items-baseline justify-between gap-2">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
                   Best hours
                 </p>
-                <p className="text-[11px] text-muted-foreground">
-                  {review.bestHour >= 0
-                    ? `Most focus ${hourLabel(review.bestHour)}–${hourLabel(review.bestHour + 2)}`
-                    : `Last ${HOURS_WINDOW_DAYS} days`}
-                </p>
+                <Select value={hoursTag} onValueChange={setHoursTag}>
+                  <SelectTrigger size="sm" aria-label="Filter best hours by tag" className="max-w-44 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All tags</SelectItem>
+                    {hours.tags.map((tag) => (
+                      <SelectItem key={tag} value={`tag:${tag}`}>{tag}</SelectItem>
+                    ))}
+                    {hours.hasUntagged && <SelectItem value="untagged">Untagged</SelectItem>}
+                  </SelectContent>
+                </Select>
               </div>
+              <p className="mb-2 text-[11px] text-muted-foreground">
+                {hours.bestHour >= 0
+                  ? `Most focus ${hourLabel(hours.bestHour)}–${hourLabel(hours.bestHour + 2)} · Last ${HOURS_WINDOW_DAYS} days`
+                  : `No focus in the last ${HOURS_WINDOW_DAYS} days`}
+              </p>
               <div className="flex flex-col gap-[3px]">
                 {/* Monday first */}
                 {[1, 2, 3, 4, 5, 6, 0].map((weekday) => (
@@ -649,7 +681,7 @@ function WeekReviewPanel(): JSX.Element {
                       {WEEKDAY_LABELS[weekday]}
                     </span>
                     <div className="grid flex-1 grid-cols-[repeat(24,minmax(0,1fr))] gap-[3px]">
-                      {review.hourGrid[weekday].map((minutes, hour) => (
+                      {hours.hourGrid[weekday].map((minutes, hour) => (
                         <span
                           key={hour}
                           className="aspect-square rounded-[3px]"
@@ -657,7 +689,7 @@ function WeekReviewPanel(): JSX.Element {
                           style={{
                             backgroundColor:
                               minutes > 0
-                                ? `color-mix(in oklch, var(--chart-1) ${Math.round(20 + (minutes / review.maxCell) * 80)}%, transparent)`
+                                ? `color-mix(in oklch, var(--chart-1) ${Math.round(20 + (minutes / hours.maxCell) * 80)}%, transparent)`
                                 : "var(--muted)",
                           }}
                         />

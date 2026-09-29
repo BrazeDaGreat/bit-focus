@@ -19,6 +19,7 @@ const CHANGELOG = `
 - Improved: The picture-in-picture timer is now always in step with the main timer, instead of syncing through storage four times a second. Space starts and pauses the timer from the window.
 - Changed: Browsers without picture in picture now show a short note saying which browsers support it, instead of a pop-up alert.
 - Added: AI Chat says so when you're offline. Sending is paused until you reconnect, and what you've typed stays in the box.
+- Fixed: AI Chat now limits UI updates during streamed replies to prevent the React maximum update depth error.
 - Fixed: Saving your profile could drop settings stored with it. Profile, webhook, and feature settings now save only the fields they change.
 - Security: Saving your profile no longer writes your name, date of birth, and webhook URL to the browser console.
 - Improved: Home loads faster. The page and greeting now appear straight away instead of waiting on the app to start, and the chart, heatmap, and command palette load only when needed.
