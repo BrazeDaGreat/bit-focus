@@ -51,6 +51,7 @@ import { THEME_CLASS_MAP } from "@/lib/ThemeManager";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { PomoProvider } from "@/hooks/PomoContext";
 import AppShell from "@/components/AppShell";
+import { PROFILE_HINT_SCRIPT } from "@/lib/profileHint";
 
 /**
  * Geist Sans Font Configuration
@@ -93,6 +94,8 @@ const geistMono = Geist_Mono({
 const firaCode = Fira_Code({
   variable: "--font-fira-code",
   subsets: ["latin"],
+  // Only the notepad uses it, so it should not compete with first paint.
+  preload: false,
 });
 
 /**
@@ -187,6 +190,10 @@ export default function RootLayout({
 }: Readonly<RootLayoutProps>): JSX.Element {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Runs before first paint: tells CSS whether to cover the frame with the boot splash */}
+        <script dangerouslySetInnerHTML={{ __html: PROFILE_HINT_SCRIPT }} />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${firaCode.variable} antialiased`}
       >

@@ -48,7 +48,6 @@ const PAGE_TITLES: Record<string, string> = {
   "/excalidraw": "Excalidraw",
   "/changelog": "Changelog",
   "/focus-table": "Focus Table",
-  "/account": "Account",
   "/settings": "Settings",
 };
 

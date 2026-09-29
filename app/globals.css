@@ -1120,3 +1120,19 @@
     opacity: 0.7;
   }
 }
+
+/*
+ * Boot overlay. The app frame is always server-rendered; this splash covers it
+ * only while there is no saved-profile hint (first visit, or storage cleared),
+ * so returning users see the page immediately. See lib/profileHint.ts.
+ */
+[data-boot-overlay] {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+}
+
+html[data-profile="none"] [data-boot-overlay] {
+  display: flex;
+}

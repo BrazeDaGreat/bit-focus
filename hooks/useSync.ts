@@ -22,7 +22,6 @@ import {
   currentSnapshot,
   deleteCloudCopy as engineDeleteCloudCopy,
   detach as engineDetach,
-  isPaused,
   latestBackup,
   onStatus,
   resyncEverything as engineResyncEverything,
@@ -64,7 +63,9 @@ export const useSync = create<SyncStore>((set) => {
   return {
     ...currentSnapshot(),
     userId: null,
-    paused: isPaused(),
+    // Read from localStorage after mount (`SyncBridge` does this), so the
+    // first client render matches the server-rendered HTML.
+    paused: false,
 
     attach: async (userId) => {
       set({ userId });

@@ -47,15 +47,21 @@ interface AIChatState {
   saveAIConfig: (config: Partial<Omit<AIConfig, "key">>) => Promise<void>;
   fetchModels: (customBaseUrl?: string, customApiKey?: string) => Promise<AIModel[]>;
   setModels: (models: AIModel[]) => void;
+  /** Adopt the model list cached in localStorage (browser only). */
+  restoreCachedModels: () => void;
 }
 
 export const useAIChat = create<AIChatState>((set, get) => ({
   chats: [],
   aiConfig: null,
-  models: loadInitialCachedModels(),
+  // The cached list is adopted after mount (`restoreCachedModels`), so the
+  // first client render matches the server-rendered HTML.
+  models: FALLBACK_MODELS,
   loading: false,
   fetchingModels: false,
   modelFetchError: null,
+
+  restoreCachedModels: () => set({ models: loadInitialCachedModels() }),
 
   setModels: (models: AIModel[]) => {
     set({ models });

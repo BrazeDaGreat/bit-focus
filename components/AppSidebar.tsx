@@ -44,7 +44,7 @@ import { useConfig, type FeatureKey } from "@/hooks/useConfig";
 import { useEffect, useCallback, useState, type JSX } from "react";
 import { AmbienceMixer } from "./sidebar/AmbienceMixer";
 import { Skeleton } from "./ui/skeleton";
-import { VERSION } from "@/app//changelog/CHANGELOG";
+import { VERSION } from "@/app/changelog/version";
 import { useShortcutsDialog, useCommandPalette, SHORTCUTS } from "@/hooks/useShortcuts";
 import { Kbd } from "@/components/ui/kbd";
 import { FaRegKeyboard } from "react-icons/fa6";
@@ -82,14 +82,11 @@ const MORE_OPEN_KEY = "bitf.sidebar.more-open";
 export function AppSidebar(): JSX.Element {
   const pathname = usePathname();
   const router = useRouter();
-  const { loadConfig, loadingConfig, featureToggles } = useConfig();
+  const { loadingConfig, featureToggles } = useConfig();
   const { loadProjects } = useProjects();
   const { state: sidebarState, isMobile, setOpenMobile } = useSidebar();
 
-  useEffect(() => {
-    loadConfig();
-  }, [loadConfig]);
-
+  // The configuration itself is loaded once by AppShell.
   useEffect(() => {
     loadProjects();
   }, [loadProjects]);

@@ -1,8 +1,12 @@
-export const VERSION = "v0.23.0 (LTS)";
+// The version number itself lives in ./version.ts so small consumers do not
+// have to load this whole file. Re-exported here for existing importers.
+export { VERSION } from "./version";
 
 const CHANGELOG = `
 ## \`v0.23.0 (LTS)\` (2026-09-29) — Settings, Commands & Review
 - Added: A Settings page. Profile, Account, Timer, Notifications, Data, Features, and Shortcuts each have their own section, with an index beside them that shows how each one is set up right now: your name, whether you're syncing, your Pomodoro rhythm, and when the last backup ran. On phones the index is a row of chips.
+- Changed: Account management now lives inside Settings, including the full sync record, manual sync controls, pre-sync backup, and account actions. Old /account links open the Account section in Settings.
+- Fixed: Settings now scrolls as one page, with section links and the active-section index following the document instead of a nested scroll area.
 - Changed: The profile card at the top of the Sidebar now opens Settings. The profile popover it used to open had grown too crowded to use comfortably. Settings is also under "More" in the Sidebar, and the S key opens it.
 - Added: Restore a backup and export one straight from Settings, next to the automatic backup switch.
 - Changed: The Discord webhook has its own place under Notifications and saves separately from your profile.
@@ -17,6 +21,8 @@ const CHANGELOG = `
 - Added: AI Chat says so when you're offline. Sending is paused until you reconnect, and what you've typed stays in the box.
 - Fixed: Saving your profile could drop settings stored with it. Profile, webhook, and feature settings now save only the fields they change.
 - Security: Saving your profile no longer writes your name, date of birth, and webhook URL to the browser console.
+- Improved: Home loads faster. The page and greeting now appear straight away instead of waiting on the app to start, and the chart, heatmap, and command palette load only when needed.
+- Fixed: The Due panel on Home no longer jumps the page around as your issues load in.
 ***
 
 ## \`v0.22.0-beta\` (2026-09-08) — Interface, Rebuilt

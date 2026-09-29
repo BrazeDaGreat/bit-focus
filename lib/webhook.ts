@@ -29,8 +29,7 @@
  * @since v0.3.2-alpha
  */
 
-import { VERSION } from "@/app//changelog/CHANGELOG";
-import axios from "axios";
+import { VERSION } from "@/app/changelog/version";
 
 /**
  * Send Message to Discord Webhook
@@ -97,6 +96,10 @@ export const sendMessage = async (
   };
 
   try {
+    // axios is only needed when a webhook is actually configured, so it is
+    // loaded here instead of shipping with every page.
+    const { default: axios } = await import("axios");
+
     // Send webhook request with Discord-compatible payload
     await axios.post(webhookUrl, {
       username: "BIT Focus",

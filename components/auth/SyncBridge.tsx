@@ -21,7 +21,7 @@
 import { useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useSync } from "@/hooks/useSync";
-import { onRefresh } from "@/lib/sync/engine";
+import { isPaused, onRefresh } from "@/lib/sync/engine";
 import { refreshStores } from "@/lib/sync/refresh";
 
 /**
@@ -36,6 +36,12 @@ export default function SyncBridge(): null {
   useEffect(() => {
     init();
   }, [init]);
+
+  // The pause flag lives in localStorage; adopt it once mounted so the first
+  // client render matches the server-rendered HTML.
+  useEffect(() => {
+    useSync.setState({ paused: isPaused() });
+  }, []);
 
   // Reload only the slices that changed. This is what replaced the full page
   // reload the previous engine performed after every pull.

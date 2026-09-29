@@ -255,7 +255,11 @@ export default function MiniTimer({
       />
 
       {/* Time */}
-      <span className="min-w-[3.2rem] flex-1 font-mono text-sm font-semibold tracking-tight tabular-nums lg:flex-none">
+      <span
+        role="timer"
+        aria-live="off"
+        className="min-w-[3.2rem] flex-1 font-mono text-sm font-semibold tracking-tight tabular-nums lg:flex-none"
+      >
         {formatClock(total)}
       </span>
 

@@ -1,15 +1,8 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { DialogFooter } from "@/components/ui/dialog";
+import { ResponsiveDialog } from "@/components/ui/mobile-drawer";
 import {
   Sheet,
   SheetContent,
@@ -256,20 +249,20 @@ export default function RewardsPage(): JSX.Element {
           </button>
         ))}
         <div className="ml-auto">
-          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-            <DialogTrigger asChild>
+          <ResponsiveDialog
+            open={createDialogOpen}
+            onOpenChange={setCreateDialogOpen}
+            title="Create Reward Item"
+            description="Add a new item to your rewards shop"
+            dialogContentClassName="sm:max-w-[425px]"
+            dialogBodyClassName="grid gap-4"
+            trigger={
               <Button size="sm" className="gap-1.5">
                 <FaPlus className="size-3" />
                 Add Item
               </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>Create Reward Item</DialogTitle>
-                <DialogDescription>
-                  Add a new item to your rewards shop
-                </DialogDescription>
-              </DialogHeader>
+            }
+          >
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="title" className="text-right">
@@ -361,8 +354,7 @@ export default function RewardsPage(): JSX.Element {
                   Create Item
                 </Button>
               </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          </ResponsiveDialog>
         </div>
       </div>
 
@@ -493,15 +485,15 @@ export default function RewardsPage(): JSX.Element {
         </div>
       )}
 
-      {/* Edit Item Dialog */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Edit Reward Item</DialogTitle>
-            <DialogDescription>
-              Make changes to your reward item
-            </DialogDescription>
-          </DialogHeader>
+        {/* Edit Item Dialog */}
+        <ResponsiveDialog
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          title="Edit Reward Item"
+          description="Make changes to your reward item"
+          dialogContentClassName="sm:max-w-[425px]"
+          dialogBodyClassName="grid gap-4"
+        >
           {editingItem && (
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
@@ -558,18 +550,16 @@ export default function RewardsPage(): JSX.Element {
               Save Changes
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </ResponsiveDialog>
 
       {/* Purchase Confirmation Dialog */}
-      <Dialog open={purchaseDialogOpen} onOpenChange={setPurchaseDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Redemption</DialogTitle>
-            <DialogDescription>
-              Review the cost before redeeming this reward.
-            </DialogDescription>
-          </DialogHeader>
+      <ResponsiveDialog
+        open={purchaseDialogOpen}
+        onOpenChange={setPurchaseDialogOpen}
+        title="Confirm Redemption"
+        description="Review the cost before redeeming this reward."
+        dialogBodyClassName="grid gap-4"
+      >
           {purchasingItem && (
             <div className="space-y-4">
               <div className="flex items-center gap-3 p-4 rounded-xl border">
@@ -660,18 +650,17 @@ export default function RewardsPage(): JSX.Element {
             </button>
             <Button onClick={handlePurchase}>Confirm Redemption</Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      </ResponsiveDialog>
 
       {/* Add Points Dialog */}
-      <Dialog open={addPointsDialogOpen} onOpenChange={setAddPointsDialogOpen}>
-        <DialogContent className="sm:max-w-[360px]">
-          <DialogHeader>
-            <DialogTitle>Add Points</DialogTitle>
-            <DialogDescription>
-              Add points to your balance or take a loan.
-            </DialogDescription>
-          </DialogHeader>
+      <ResponsiveDialog
+        open={addPointsDialogOpen}
+        onOpenChange={setAddPointsDialogOpen}
+        title="Add Points"
+        description="Add points to your balance or take a loan."
+        dialogContentClassName="sm:max-w-[360px]"
+        dialogBodyClassName="grid gap-4"
+      >
           <div className="space-y-4 py-2">
             <div className="flex rounded-lg border overflow-hidden">
               <button
@@ -720,8 +709,7 @@ export default function RewardsPage(): JSX.Element {
               {addPointsMode === "add" ? "Add Points" : "Take Loan"}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      </ResponsiveDialog>
 
       {/* Discounts Sheet */}
       <Sheet open={discountsSheetOpen} onOpenChange={setDiscountsSheetOpen}>

@@ -36,6 +36,7 @@ import {
   useEffect,
   useRef,
   useCallback,
+  useMemo,
   useState,
   startTransition,
 } from "react";
@@ -49,6 +50,7 @@ import { useConfig } from "./useConfig";
 import { useRewards } from "@/hooks/useRewards";
 import { usePreferences } from "@/hooks/usePreferences";
 import { usePomodoroLog } from "@/hooks/usePomodoroLog";
+import { useFocusGoal } from "@/hooks/useFocusGoal";
 import { playNotificationSound } from "@/lib/sound";
 import { showSystemNotification } from "@/lib/notify";
 
@@ -464,6 +466,21 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
   // Guards a phase from being completed twice by overlapping ticks.
   const completingRef = useRef<number | null>(null);
 
+  // Screen-reader feedback for timer events that never raise a toast
+  // (start, pause, resume, break skipped, goal reached). Completed phases
+  // and saved sessions already reach assistive technology through Sonner's
+  // polite live region, so they are deliberately not repeated here.
+  const [announcement, setAnnouncement] = useState("");
+  const announce = useCallback((message: string) => {
+    // Identical consecutive text is announced only once, so alternate a
+    // trailing no-break space to make a repeat audible.
+    setAnnouncement((prev) => (prev === message ? `${message}\u00A0` : message));
+  }, []);
+
+  // A standard-mode goal is announced once per session per goal; the key
+  // changes with the session start or when the goal itself is edited.
+  const goalAnnouncedRef = useRef<string | null>(null);
+
   /**
    * Save a finished focus block, award points, and report it to the webhook.
    * Sessions under a minute are rejected — and not reported.
@@ -477,9 +494,17 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
    * @param endTime - When the session ended (ms).
    * @param elapsedSeconds - Focused seconds, used for points and the toast.
    * @param kind - Wording for the completion toast.
+   * @param completed - True only when the session ended on its own terms
+   *   (a phase ran its full length); false when the user stopped it early.
    */
   const finishSession = useCallback(
-    (s: PomoState, endTime: number, elapsedSeconds: number, kind: "Focus session" | "Pomodoro session") => {
+    (
+      s: PomoState,
+      endTime: number,
+      elapsedSeconds: number,
+      kind: "Focus session" | "Pomodoro session",
+      completed: boolean
+    ) => {
       const env = envRef.current;
 
       if (elapsedSeconds < 60) {
@@ -501,8 +526,11 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
 
       if (env.name && env.webhook && env.tag && env.sendWebhookUpdates) {
         const formattedTime = formatTimeNew(durationFromSeconds(elapsedSeconds), "H:M:S", "text");
+        const headline = completed
+          ? `🎉 **Focus Session Completed!**`
+          : `⏹️ **Focus Session Ended**`;
         const message = [
-          `🎉 **Focus Session Completed!**`,
+          headline,
           `👤 **User:** ${env.name}`,
           `🏷️ **Tag:** \`#${env.tag}\``,
           `⏱️ **Duration:** \`${formattedTime}\``
@@ -621,6 +649,50 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
     state.segmentStart,
   ]);
 
+  // Keep a running timer visible on phones. Browsers release screen wake
+  // locks when a page becomes hidden, so request a new one when it returns.
+  useEffect(() => {
+    if (!state.isRunning || !/Mobi|iPhone|iPod/i.test(navigator.userAgent) || !("wakeLock" in navigator)) return;
+
+    let lock: WakeLockSentinel | null = null;
+    let requestId = 0;
+
+    const release = () => {
+      requestId++;
+      if (lock) {
+        void lock.release();
+        lock = null;
+      }
+    };
+
+    const acquire = async () => {
+      if (document.hidden) return;
+      const id = ++requestId;
+      try {
+        const requested = await navigator.wakeLock.request("screen");
+        if (id !== requestId || document.hidden) {
+          void requested.release();
+        } else {
+          lock = requested;
+        }
+      } catch {
+        // Unsupported permissions, low battery, or browser policy can deny it.
+      }
+    };
+
+    const onVisibilityChange = () => {
+      release();
+      if (!document.hidden) void acquire();
+    };
+
+    void acquire();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      release();
+    };
+  }, [state.isRunning]);
+
   /**
    * End the current Pomodoro phase: save a completed focus block, tell the
    * user, and move to the next phase (starting it if they asked for that).
@@ -639,7 +711,7 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
         // End at the moment the phase ran out, not "now" — a tab that slept
         // through the end must not stretch the session.
         const endTime = s.startTime + target * 1000;
-        finishSession(s, endTime, target, "Pomodoro session");
+        finishSession(s, endTime, target, "Pomodoro session", true);
         usePomodoroLog.getState().record({ at: endTime, completed: true, seconds: target });
       }
 
@@ -684,6 +756,19 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
     const tick = () => {
       const s = stateRef.current;
       const newElapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+
+      // Reaching a standard-mode goal only changes the ring — say it out
+      // loud once per session per goal.
+      if (s.mode === "standard" && !document.hidden) {
+        const goal = useFocusGoal.getState().goalMinutes;
+        if (goal !== null && newElapsedSeconds >= goal * 60) {
+          const key = `${startTime}:${goal}`;
+          if (goalAnnouncedRef.current !== key) {
+            goalAnnouncedRef.current = key;
+            announce(`Session goal reached: ${goal} minutes.`);
+          }
+        }
+      }
 
       // Check for Pomodoro phase completion
       if (s.mode === "pomodoro") {
@@ -733,7 +818,7 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
       clearInterval(intervalId);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [state.isRunning, state.startTime, state.mode, state.phase, advancePhase]);
+  }, [state.isRunning, state.startTime, state.mode, state.phase, advancePhase, announce]);
 
   /**
    * Restore document title when timer stops or component unmounts
@@ -750,8 +835,10 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
     };
   }, [state.isRunning]);
 
-  // Context value with all timer controls
-  const contextValue = {
+  // Context value with all timer controls. Memoised on the timer state: the
+  // controls only read refs, so consumers should re-render when the timer
+  // changes, not whenever an unrelated store this provider reads updates.
+  const contextValue = useMemo(() => ({
     state,
     start: () => {
       const s = stateRef.current;
@@ -780,12 +867,14 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
       }
 
       dispatch({ type: "START", payload: { startTime, now } });
+      announce(s.elapsedSeconds === 0 ? "Session started." : "Timer resumed.");
     },
     pause: () => {
       const s = stateRef.current;
       if (s.isRunning) {
         const now = Date.now();
         dispatch({ type: "PAUSE", payload: { elapsedSeconds: liveElapsed(s, now), now } });
+        announce("Timer paused.");
       }
     },
     reset: () => {
@@ -799,11 +888,16 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
           s,
           endTime,
           elapsed,
-          s.mode === "pomodoro" ? "Pomodoro session" : "Focus session"
+          s.mode === "pomodoro" ? "Pomodoro session" : "Focus session",
+          false
         );
         if (s.mode === "pomodoro" && elapsed >= 60) {
           usePomodoroLog.getState().record({ at: endTime, completed: false, seconds: elapsed });
         }
+      } else if (s.phase === "break") {
+        announce("Break skipped.");
+      } else {
+        announce("Timer reset.");
       }
       dispatch({ type: "RESET" });
     },
@@ -824,7 +918,7 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
       const endTime = Date.now();
       const elapsed = liveElapsed(s, endTime);
       if (s.phase === "focus" && elapsed > 0) {
-        finishSession(s, endTime, elapsed, "Pomodoro session");
+        finishSession(s, endTime, elapsed, "Pomodoro session", false);
         if (elapsed >= 60) {
           usePomodoroLog.getState().record({ at: endTime, completed: false, seconds: elapsed });
         }
@@ -845,11 +939,15 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
     resetCycle: () => {
       dispatch({ type: "RESET_CYCLE" });
     },
-  };
+  }), [state, finishSession, advancePhase, announce]);
 
   return (
     <PomoContext.Provider value={contextValue}>
       {children}
+      {/* Live region for the timer events Sonner's toasts never cover. */}
+      <div role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </div>
     </PomoContext.Provider>
   );
 }

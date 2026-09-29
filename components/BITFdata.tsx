@@ -13,8 +13,7 @@ import { MobileDrawer } from "./ui/mobile-drawer";
 import { FaFileCsv, FaFileExport, FaFileImport, FaUpload, FaTriangleExclamation } from "react-icons/fa6";
 import { useConfig } from "@/hooks/useConfig";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { VERSION } from "@/app//changelog/CHANGELOG";
-import axios from "axios";
+import { VERSION } from "@/app/changelog/version";
 
 /**
  * BITF Data Management Component
@@ -152,7 +151,8 @@ export default function BITFdata(): JSX.Element {
       formData.append("avatar_url", avatarUrl);
       formData.append("content", `📦 Backup uploaded from BIT Focus ${VERSION}`);
 
-      // Send to webhook
+      // Send to webhook (axios is only needed for this upload, so load it now)
+      const { default: axios } = await import("axios");
       await axios.post(webhook, formData, {
         headers: {
           "Content-Type": "multipart/form-data",

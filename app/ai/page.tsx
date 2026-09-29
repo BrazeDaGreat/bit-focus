@@ -171,6 +171,7 @@ export default function AIPage(): JSX.Element {
     toggleChatPinned,
     updateChatTitle,
     setChatContextSources,
+    restoreCachedModels,
   } = useAIChat();
   const { focusSessions, loadFocusSessions } = useFocus();
   const { name, dob, loadConfig } = useConfig();
@@ -187,6 +188,7 @@ export default function AIPage(): JSX.Element {
   const [loadingMessages, setLoadingMessages] = useState(false);
 
   useEffect(() => {
+    restoreCachedModels();
     loadChats();
     loadAIConfig();
     loadFocusSessions();
@@ -194,6 +196,7 @@ export default function AIPage(): JSX.Element {
     loadRewards();
     loadProjects();
   }, [
+    restoreCachedModels,
     loadChats,
     loadAIConfig,
     loadFocusSessions,

@@ -14,7 +14,7 @@
  * references, so pages you have not opened yet still work offline.
  */
 
-const CACHE = "bitfocus-v2";
+const CACHE = "bitfocus-v3";
 
 const PAGES = [
   "/",
@@ -25,7 +25,6 @@ const PAGES = [
   "/rewards",
   "/changelog",
   "/excalidraw",
-  "/account",
   "/ai",
   "/settings",
 ];
@@ -113,6 +112,11 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith("/api/")) return;
+
+  if (request.mode === "navigate" && url.pathname === "/account") {
+    event.respondWith(Response.redirect(new URL("/settings#account", self.location.origin), 307));
+    return;
+  }
 
   if (request.mode === "navigate") {
     event.respondWith(networkFirst(request, "/"));
