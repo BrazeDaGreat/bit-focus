@@ -22,6 +22,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type JSX, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { useConfig } from "@/hooks/useConfig";
 import { useSync } from "@/hooks/useSync";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -32,6 +33,7 @@ import SyncBridge from "@/components/auth/SyncBridge";
 import AutoBackup from "@/components/AutoBackup";
 import PipHost from "@/components/PipHost";
 import { Toaster } from "@/components/ui/sonner";
+import { cn } from "@/lib/utils";
 
 /**
  * Boot Splash
@@ -66,6 +68,7 @@ export default function AppShell({
 }): JSX.Element {
   const { name, loadConfig } = useConfig();
   const { bootstrapping } = useSync();
+  const pathname = usePathname();
 
   // Once the flow is on screen it stays on screen. Someone who signs in from
   // inside onboarding has already typed answers, and replacing the flow with a
@@ -133,7 +136,14 @@ export default function AppShell({
       <PipHost />
       <AppSidebar />
       <GlobalShortcuts />
-      <div className="flex min-w-0 max-h-screen flex-1 flex-col overflow-y-auto">
+      <div
+        className={cn(
+          "flex min-w-0 flex-1 flex-col",
+          pathname === "/settings"
+            ? "min-h-svh"
+            : "h-dvh min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain"
+        )}
+      >
         <TopBar />
         {children}
       </div>

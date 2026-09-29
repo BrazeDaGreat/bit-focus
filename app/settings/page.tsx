@@ -18,7 +18,7 @@
  * @since v0.23.0
  */
 
-import { useEffect, useRef, useState, type JSX, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type JSX, type ReactNode } from "react";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { toast } from "sonner";
@@ -28,7 +28,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Kbd } from "@/components/ui/kbd";
 import CurrencySelect from "@/components/CurrencySelect";
-import AccountPanel from "@/components/auth/AccountPanel";
+import AccountSettings from "@/components/auth/AccountSettings";
 import PomodoroSettings from "@/components/PomodoroSettings";
 import { useConfig, type FeatureKey } from "@/hooks/useConfig";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -43,6 +43,7 @@ import { cn } from "@/lib/utils";
 dayjs.extend(relativeTime);
 
 type SectionId = "profile" | "account" | "timer" | "notifications" | "data" | "features" | "shortcuts";
+const SECTION_IDS: SectionId[] = ["profile", "account", "timer", "notifications", "data", "features", "shortcuts"];
 
 const FEATURE_LIST: { key: FeatureKey; label: string; hint: string }[] = [
   { key: "calendar", label: "Calendar", hint: "Sessions and timeblocks on a calendar" },
@@ -53,6 +54,7 @@ const FEATURE_LIST: { key: FeatureKey; label: string; hint: string }[] = [
 ];
 
 export default function SettingsPage(): JSX.Element {
+  const pageRef = useRef<HTMLDivElement>(null);
   const { name, featureToggles, webhook } = useConfig();
   const { user } = useAuth();
   const { state } = usePomo();
@@ -82,33 +84,50 @@ export default function SettingsPage(): JSX.Element {
     { id: "shortcuts", title: "Shortcuts", status: "Ctrl K" },
   ];
 
-  // Highlight the section nearest the top of the viewport.
+  // Settings uses document scrolling so the long page has one scroll area.
+  // Track sections against its sticky top bar, including tall sections.
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible[0]) setActive(visible[0].target.id as SectionId);
-      },
-      { rootMargin: "-80px 0px -60% 0px" }
-    );
-    for (const s of sections) {
-      const el = document.getElementById(s.id);
-      if (el) observer.observe(el);
-    }
-    return () => observer.disconnect();
-    // Section ids are static; re-observing on every status change is wasted work.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const updateActive = () => {
+      const topBarHeight = (pageRef.current?.parentElement?.firstElementChild as HTMLElement | null)?.offsetHeight ?? 0;
+      const threshold = topBarHeight + 32;
+      let current: SectionId = "profile";
+      for (const id of SECTION_IDS) {
+        const section = pageRef.current?.querySelector<HTMLElement>(`#${id}`);
+        if (section && section.getBoundingClientRect().top <= threshold) current = id;
+      }
+      if (window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2) {
+        current = "shortcuts";
+      }
+      setActive(current);
+    };
+
+    window.addEventListener("scroll", updateActive, { passive: true });
+    window.addEventListener("resize", updateActive);
+    updateActive();
+    return () => {
+      window.removeEventListener("scroll", updateActive);
+      window.removeEventListener("resize", updateActive);
+    };
   }, []);
 
-  const jump = (id: SectionId) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const jump = useCallback((id: SectionId, behavior: ScrollBehavior = "smooth") => {
+    const section = pageRef.current?.querySelector<HTMLElement>(`#${id}`);
+    if (!section) return;
+    const topBarHeight = (pageRef.current?.parentElement?.firstElementChild as HTMLElement | null)?.offsetHeight ?? 0;
+    const top = window.scrollY + section.getBoundingClientRect().top - topBarHeight - 24;
+    window.scrollTo({ top, behavior });
     setActive(id);
-  };
+  }, []);
+
+  // Settings mounts after the app finishes loading, so a redirected fragment
+  // may have arrived before its section existed in the document.
+  useEffect(() => {
+    const id = window.location.hash.slice(1) as SectionId;
+    if (SECTION_IDS.includes(id)) jump(id, "auto");
+  }, [jump]);
 
   return (
-    <div className="mx-auto w-full max-w-screen-lg flex-1 px-4 py-6 sm:px-6 sm:py-8">
+    <div ref={pageRef} className="mx-auto w-full max-w-screen-lg flex-1 px-4 py-6 sm:px-6 sm:py-8">
       <header className="mb-6">
         <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
           Preferences
@@ -167,7 +186,7 @@ export default function SettingsPage(): JSX.Element {
           </Section>
 
           <Section id="account" title="Account" description="Connect an account to sync across devices and keep a copy off this browser.">
-            <AccountPanel />
+            <AccountSettings />
           </Section>
 
           <Section id="timer" title="Timer" description="Pomodoro rhythm, and what happens when a phase ends or the page reloads.">
@@ -232,7 +251,7 @@ function Section({
   children: ReactNode;
 }): JSX.Element {
   return (
-    <section id={id} className="scroll-mt-24 rounded-2xl border bg-card p-5 shadow-xs sm:p-6">
+    <section id={id} className="scroll-mt-32 rounded-2xl border bg-card p-5 shadow-xs sm:p-6 lg:scroll-mt-24">
       <div className="mb-5">
         <h2 className="text-base font-semibold tracking-tight">{title}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{description}</p>

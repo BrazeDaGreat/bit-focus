@@ -3,6 +3,8 @@ export const VERSION = "v0.23.0 (LTS)";
 const CHANGELOG = `
 ## \`v0.23.0 (LTS)\` (2026-09-29) — Settings, Commands & Review
 - Added: A Settings page. Profile, Account, Timer, Notifications, Data, Features, and Shortcuts each have their own section, with an index beside them that shows how each one is set up right now: your name, whether you're syncing, your Pomodoro rhythm, and when the last backup ran. On phones the index is a row of chips.
+- Changed: Account management now lives inside Settings, including the full sync record, manual sync controls, pre-sync backup, and account actions. Old /account links open the Account section in Settings.
+- Fixed: Settings now scrolls as one page, with section links and the active-section index following the document instead of a nested scroll area.
 - Changed: The profile card at the top of the Sidebar now opens Settings. The profile popover it used to open had grown too crowded to use comfortably. Settings is also under "More" in the Sidebar, and the S key opens it.
 - Added: Restore a backup and export one straight from Settings, next to the automatic backup switch.
 - Changed: The Discord webhook has its own place under Notifications and saves separately from your profile.
