@@ -20,7 +20,6 @@ import { FocusSession, useFocus } from "@/hooks/useFocus";
 import {
   cn,
   durationFromSeconds,
-  formatDate,
   formatTimeNew,
   getTagColor,
   reduceSessions,
@@ -35,12 +34,8 @@ import {
   FaArrowRightLong,
   FaArrowTrendDown,
   FaArrowTrendUp,
-  FaChevronDown,
-  FaChevronUp,
   FaPause,
   FaPlay,
-  FaRegCircle,
-  FaRegCircleCheck,
 } from "react-icons/fa6";
 import { Button } from "@/components/ui/button";
 import { useTag } from "@/hooks/useTag";
@@ -50,7 +45,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { type JSX, type ReactNode, useState, useEffect, useMemo } from "react";
-import { Issue, Milestone, Project, useProjects } from "@/hooks/useProjects";
+import { useProjects } from "@/hooks/useProjects";
+import { useTasks } from "@/hooks/useTasks";
+import { TaskRow } from "@/components/tasks/TaskRow";
+import { TaskWeeklyReview } from "@/components/tasks/TaskWeeklyReview";
+import { matchesTask, isTaskOverdue, taskDeadline, taskMinutes } from "@/lib/tasks";
 import { useRouter } from "next/navigation";
 import { useConfig } from "@/hooks/useConfig";
 import { usePomo } from "@/hooks/PomoContext";
@@ -132,11 +131,15 @@ function percentChange(current: number, baseline: number): number | null {
 
 export default function Dashboard(): JSX.Element {
   const { loadFocusSessions } = useFocus();
+  const { loadTasks } = useTasks();
+  const { loadProjects } = useProjects();
   const featureProjects = useConfig((s) => s.featureToggles.projects);
 
   useEffect(() => {
     loadFocusSessions();
-  }, [loadFocusSessions]);
+    loadTasks();
+    loadProjects();
+  }, [loadFocusSessions, loadTasks, loadProjects]);
 
   return (
     <>
@@ -573,6 +576,7 @@ function WeekReviewPanel(): JSX.Element {
         <Skeleton className="h-[260px] w-full rounded-xl" />
       ) : (
         <div className="flex flex-col gap-6">
+          <TaskWeeklyReview />
           {/* Numbers */}
           <div className="grid grid-cols-1 gap-px overflow-hidden rounded-xl bg-border sm:grid-cols-3">
             <ReviewStat
@@ -758,169 +762,22 @@ function DueBody({ children }: { children: ReactNode }): JSX.Element {
 }
 
 function DuePanel(): JSX.Element {
-  const { getUpcomingIssues, loadingProjects } = useProjects();
+  const { tasks, loading, updateTask, error } = useTasks();
+  const { projects } = useProjects();
+  const { focusSessions } = useFocus();
+  const { startTask, state } = usePomo();
   const router = useRouter();
-
-  const action = (
-    <button
-      onClick={() => router.push("/projects")}
-      className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-    >
-      All projects
-      <FaArrowRightLong className="size-2.5" />
-    </button>
-  );
-
-  if (loadingProjects) {
-    return (
-      <Panel title="Due" subtitle={NBSP} action={action}>
-        <DueBody>
-          <div className="flex flex-col gap-2">
-            <Skeleton className="h-7 w-full" />
-            <Skeleton className="h-7 w-full" />
-            <Skeleton className="h-7 w-3/4" />
-          </div>
-        </DueBody>
-      </Panel>
-    );
-  }
-
-  const { overdue, today, tomorrow, next7days } = getUpcomingIssues();
-  const total =
-    overdue.length + today.length + tomorrow.length + next7days.length;
-
-  return (
-    <Panel
-      title="Due"
-      subtitle={total === 0 ? NBSP : `${total} open this week`}
-      action={action}
-    >
-      <DueBody>
-        {total === 0 ? (
-          <div className="flex flex-1 flex-col items-start justify-center rounded-xl bg-muted/40 px-4 py-6">
-            <p className="text-sm font-medium">Nothing due this week</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Add an issue from a project to see it here.
-            </p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-4">
-            <IssueGroup label="Overdue" issues={overdue} urgent />
-            <IssueGroup label="Today" issues={today} urgent />
-            <IssueGroup label="Tomorrow" issues={tomorrow} />
-            <IssueGroup label="Next 7 days" issues={next7days} />
-          </div>
-        )}
-      </DueBody>
-    </Panel>
-  );
-}
-
-function IssueGroup({
-  label,
-  issues,
-  urgent = false,
-}: {
-  label: string;
-  issues: (Issue & { milestone: Milestone; project: Project })[];
-  urgent?: boolean;
-}): JSX.Element {
-  if (issues.length === 0) return <></>;
-
-  return (
-    <div>
-      <div className="mb-1.5 flex items-center gap-2">
-        <p
-          className={cn(
-            "text-[11px] font-semibold uppercase tracking-[0.1em]",
-            urgent ? "text-primary" : "text-muted-foreground/70"
-          )}
-        >
-          {label}
-        </p>
-        <span className="font-mono text-[11px] text-muted-foreground/50">
-          {issues.length}
-        </span>
-      </div>
-      <div className="flex flex-col gap-0.5">
-        {issues.map((issue) => (
-          <IssueRow key={issue.id} issue={issue} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function IssueRow({
-  issue,
-}: {
-  issue: Issue & { milestone: Milestone; project: Project };
-}): JSX.Element {
-  const { updateIssue } = useProjects();
-  const [showDescription, setShowDescription] = useState(false);
-
-  const handleToggle = async () => {
-    const newStatus = issue.status === "Open" ? "Close" : "Open";
-    try {
-      await updateIssue(issue.id!, { status: newStatus });
-    } catch {
-      toast.error("Failed to update issue");
-    }
-  };
-
-  return (
-    <div
-      className={cn(
-        "rounded-lg px-2 py-1.5 transition-colors hover:bg-muted/50",
-        issue.status === "Close" && "opacity-50"
-      )}
-    >
-      <div className="flex items-center gap-2">
-        <button
-          onClick={handleToggle}
-          className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
-          title={issue.status === "Open" ? "Mark as done" : "Reopen issue"}
-        >
-          {issue.status === "Open" ? (
-            <FaRegCircle className="size-3.5" />
-          ) : (
-            <FaRegCircleCheck className="size-3.5" />
-          )}
-        </button>
-        <span
-          className={cn(
-            "min-w-0 flex-1 truncate text-sm",
-            issue.status === "Close" && "line-through"
-          )}
-        >
-          {issue.title}
-        </span>
-        {issue.dueDate && (
-          <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
-            {formatDate(issue.dueDate)}
-          </span>
-        )}
-        {issue.description && (
-          <button
-            onClick={() => setShowDescription(!showDescription)}
-            className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
-            title={showDescription ? "Hide description" : "Show description"}
-          >
-            {showDescription ? (
-              <FaChevronUp className="size-2.5" />
-            ) : (
-              <FaChevronDown className="size-2.5" />
-            )}
-          </button>
-        )}
-      </div>
-      {showDescription && issue.description && (
-        <p className="pl-6 pt-1 text-xs text-muted-foreground">
-          {issue.description}
-        </p>
-      )}
-    </div>
-  );
+  const now = new Date();
+  const nextWeek = new Date(now); nextWeek.setHours(23, 59, 59, 999); nextWeek.setDate(nextWeek.getDate() + 7);
+  const due = tasks.filter((task) => !task.deletedAt && !task.completedAt && task.dueDate && taskDeadline(task)! <= nextWeek && !projects.some((p) => p.id === task.projectId && p.status === "Closed"));
+  const groups = [
+    { name: "Overdue", tasks: due.filter((t) => isTaskOverdue(t, now)) },
+    { name: "Today", tasks: due.filter((t) => !isTaskOverdue(t, now) && matchesTask(t, { date: "today" }, now)) },
+    { name: "Next 7 days", tasks: due.filter((t) => !isTaskOverdue(t, now) && !matchesTask(t, { date: "today" }, now)).sort((a,b) => taskDeadline(a)!.getTime() - taskDeadline(b)!.getTime()) },
+  ];
+  return <Panel title="Due" subtitle={due.length ? `${due.length} tasks need attention` : NBSP} action={<button onClick={() => router.push("/projects")} className="text-xs text-muted-foreground hover:text-foreground">All tasks <FaArrowRightLong className="ml-1 inline size-2.5" /></button>}>
+    <DueBody>{loading ? <Skeleton className="h-28 w-full rounded-xl" /> : error ? <p className="text-xs text-destructive">Could not load tasks. Open Projects to retry.</p> : due.length === 0 ? <div className="rounded-xl bg-muted/40 p-4"><p className="text-sm font-medium">Nothing due this week</p><p className="mt-1 text-xs text-muted-foreground">Add a task with a deadline in Projects.</p></div> : <div className="space-y-3">{groups.filter((g) => g.tasks.length).map((g) => <div key={g.name}><p className="mb-1 text-xs font-medium text-muted-foreground">{g.name}</p>{g.tasks.map((task) => <TaskRow key={task.id} task={task} project={projects.find((p) => p.id === task.projectId)?.title} actualMinutes={taskMinutes(task, focusSessions)} active={state.isRunning && state.task?.uid === task.uid} onSelect={() => router.push(`/projects?task=${encodeURIComponent(task.uid!)}`)} onComplete={() => void updateTask(task.id!, { completedAt: new Date() }).catch(() => toast.error("Could not complete task"))} onFocus={() => startTask({ uid: task.uid!, projectUid: projects.find((p) => p.id === task.projectId)?.uid, title: task.title, tag: task.primaryTag || task.tags[0] || "Focus" })} />)}</div>)}</div>}</DueBody>
+  </Panel>;
 }
 
 // ── Trend panel ───────────────────────────────────────────────────────────────

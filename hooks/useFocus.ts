@@ -48,6 +48,8 @@ import db from "@/lib/db";
  * analytics calculations.
  */
 export interface FocusSession {
+  taskUid?: string;
+  projectUid?: string;
   /** Unique session identifier (auto-generated) */
   id?: number;
   /** Category tag for session organization */
@@ -81,7 +83,8 @@ interface FocusState {
   addFocusSession: (
     tag: string,
     startTime: Date,
-    endTime: Date
+    endTime: Date,
+    attribution?: { taskUid?: string; projectUid?: string }
   ) => Promise<void>;
   /** Function to load all focus sessions from database */
   loadFocusSessions: () => Promise<void>;
@@ -201,13 +204,13 @@ export const useFocus = create<FocusState>((set) => ({
    * );
    * ```
    */
-  addFocusSession: async (tag, startTime, endTime) => {
+  addFocusSession: async (tag, startTime, endTime, attribution = {}) => {
     // Add to database and get generated ID
-    const id = await db.focus.add({ tag, startTime, endTime });
+    const id = await db.focus.add({ tag, startTime, endTime, ...attribution });
 
     // Insert and keep newest-first order (manual sessions can be in the past)
     set((state) => ({
-      focusSessions: [{ id, tag, startTime, endTime }, ...state.focusSessions].sort(byStartDesc),
+      focusSessions: [{ id, tag, startTime, endTime, ...attribution }, ...state.focusSessions].sort(byStartDesc),
     }));
   },
 

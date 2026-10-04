@@ -33,6 +33,8 @@
  */
 
 import Dexie from "dexie";
+import type { Task, TaskFilter } from "./tasks";
+import { migrateTasks } from "./task-migration";
 import type { ComponentProps } from "react";
 import type { Excalidraw as ExcalidrawComponent } from "@excalidraw/excalidraw";
 
@@ -94,6 +96,8 @@ export interface TimeBlock extends Syncable {
   startTime: Date;
   endTime: Date;
   title?: string;
+  taskUid?: string;
+  projectUid?: string;
 }
 
 export interface AIChat extends Syncable {
@@ -210,7 +214,7 @@ class BitFocusDB extends Dexie {
    * Focus Sessions Table
    */
   focus: Dexie.Table<
-    { id?: number; tag: string; startTime: Date; endTime: Date } & Syncable,
+    { id?: number; tag: string; startTime: Date; endTime: Date; taskUid?: string; projectUid?: string } & Syncable,
     number
   >;
 
@@ -299,6 +303,8 @@ class BitFocusDB extends Dexie {
   excalidraw: Dexie.Table<ExcalidrawScene, string | number>;
 
   timeblocks: Dexie.Table<TimeBlock, number>;
+  tasks: Dexie.Table<Task, number>;
+  taskFilters: Dexie.Table<TaskFilter, number>;
   aiChats: Dexie.Table<AIChat, string>;
   aiConfig: Dexie.Table<AIConfig, string>;
 
@@ -542,7 +548,25 @@ class BitFocusDB extends Dexie {
         }
       });
 
+    // Keep the deprecated `tasks` table intact; modern task records use a new
+    // table so old task data can be converted without changing primary keys.
+    this.version(13).stores({
+      task_items: "++id, &uid, projectId, dueDate, completedAt, deletedAt, *tags, order",
+      task_filters: "++id, &uid, name",
+      focus: "++id, tag, startTime, endTime, &uid, taskUid, projectUid",
+      timeblocks: "++id, tag, startTime, endTime, &uid, taskUid, projectUid",
+    }).upgrade(async (tx) => {
+      await tx.table("sync_backup").add({ createdAt: new Date(), label: "Before projects-to-tasks migration",
+        payload: JSON.stringify({ projects: await tx.table("projects").toArray(), milestones: await tx.table("milestones").toArray(), issues: await tx.table("issues").toArray(), tasks: await tx.table("tasks").toArray() }) });
+      await migrateTasks(tx);
+      // Older clients may have skipped unknown task collections while still
+      // advancing their cursor. Re-read history once when upgrading.
+      await tx.table("sync_meta").delete("cursor");
+    });
+
     // Table reference assignment
+    this.tasks = this.table("task_items");
+    this.taskFilters = this.table("task_filters");
     this.timeblocks = this.table("timeblocks");
     this.configuration = this.table("configuration");
     this.focus = this.table("focus");

@@ -24,6 +24,19 @@ const CHANGELOG = `
 - Security: Saving your profile no longer writes your name, date of birth, and webhook URL to the browser console.
 - Improved: Home loads faster. The page and greeting now appear straight away instead of waiting on the app to start, and the chart, heatmap, and command palette load only when needed.
 - Fixed: The Due panel on Home no longer jumps the page around as your issues load in.
+### \`v0.23.1-beta\` (2026-10-04) — Projects, Simplified
+- Changed: Projects is now one simple page. A row of project tabs sits at the top, with the task box and the task list below it. The second sidebar, the Inbox, Today, and Upcoming views, the sort and group menus, and the daily capacity bar are gone.
+- Changed: Milestones and issues are now plain tasks. Each issue becomes a task in its project, keeping its title, notes, and deadline. Milestone budgets and payment states stay in your data and backups but are no longer shown.
+- Added: Each project tab shows how many tasks are open, with a thin bar underneath that fills as you finish them. "All tasks" shows every open task. "No project" appears when you have tasks outside a project.
+- Added: Opening a project shows its name, how many tasks are done, how long you've focused on it, and its notes. The ⋯ menu edits or archives it, and archived projects are under "Archived" at the end of the tabs, where you can restore them.
+- Improved: Adding a task is type and press Enter. The task goes into the project you're looking at, and the box stays ready for the next one instead of opening the task each time.
+- Changed: Tasks with a deadline come first, soonest at the top, followed by the rest in the order you added them. Overdue deadlines are shown in red.
+- Changed: Completed and deleted tasks fold away at the bottom of the list instead of having their own views. Deleting a task has an Undo, and deleted tasks can be restored or removed for good from Trash.
+- Changed: Task details open in a side panel on every screen size, with only what you need: start focus, complete, project, deadline, estimate (15m, 30m, 1h, 2h, or your own), priority, tags, notes, and the time you've focused on it.
+- Changed: Picking a task's project uses the app's own menu instead of the browser's. It shows "No project", your open projects, and archived projects in their own group, with a check on the current one. Arrow keys move through it and typing a letter jumps to a project.
+- Changed: The deadline has its own date picker instead of the browser's. It offers Today, Tomorrow, and Next week with their dates, then a month calendar, and a "Clear deadline" button once one is set. The deadline reads as "Today", "Tomorrow", or a short date like "Fri, Oct 9", and turns red when overdue. Changing the date keeps any time already set on it.
+- Removed: Saved filters, selecting several tasks at once, reordering with arrows, sections, setting a time on deadlines, and the Markdown preview for notes. Anything you'd already set is kept in your data.
+- Changed: The New project dialog asks only for a name and optional notes, and opens the new project once it's created.
 ***
 
 ## \`v0.22.0-beta\` (2026-09-08) — Interface, Rebuilt

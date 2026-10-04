@@ -43,6 +43,11 @@ import { enUS } from "date-fns/locale/en-US";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 import { useFocus, FocusSession } from "@/hooks/useFocus";
+import { useRouter } from "next/navigation";
+import { useTasks } from "@/hooks/useTasks";
+import { useProjects } from "@/hooks/useProjects";
+import { taskDeadline } from "@/lib/tasks";
+import { toast } from "sonner";
 import { useTag } from "@/hooks/useTag";
 import { useTimeblocks } from "@/hooks/useTimeblocks";
 import {
@@ -121,7 +126,8 @@ const timeblocksFirstLayout: DayLayoutFunction<CalendarEvent> = ({
 };
 
 interface CalendarEvent {
-  id: number;
+  id: string;
+  sourceId: number;
   title: string;
   start: Date;
   end: Date;
@@ -129,6 +135,9 @@ interface CalendarEvent {
   color: string;
   textColor: string;
   isTimeblock: boolean;
+  isTask?: boolean;
+  taskUid?: string;
+  allDay?: boolean;
 }
 
 type CalView = "day" | "week" | "month";
@@ -282,6 +291,11 @@ function MiniCalendar({
 }
 
 export default function CalendarPage(): JSX.Element {
+  const router = useRouter();
+  const { tasks, loadTasks } = useTasks();
+  const { projects, loadProjects } = useProjects();
+  const [showTasks, setShowTasks] = useState(true);
+  const [pendingTaskUid, setPendingTaskUid] = useState("");
   const { focusSessions, loadFocusSessions, loadingFocusSessions } = useFocus();
   const { savedTags } = useTag();
   const {
@@ -320,7 +334,9 @@ export default function CalendarPage(): JSX.Element {
   useEffect(() => {
     loadFocusSessions();
     loadTimeblocks();
-  }, [loadFocusSessions, loadTimeblocks]);
+    loadTasks();
+    loadProjects();
+  }, [loadFocusSessions, loadTimeblocks, loadTasks, loadProjects]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -376,8 +392,9 @@ export default function CalendarPage(): JSX.Element {
       const tag = g[0].tag;
       const [color, white] = getTagColor(savedTags, tag);
       merged.push({
-        id: g[0].id!,
-        title: tag,
+        id: `focus:${g[0].uid || g[0].id}`,
+        sourceId: g[0].id!,
+        title: g[0].taskUid ? tasks.find((t) => t.uid === g[0].taskUid)?.title || tag : tag,
         start: new Date(g[0].startTime),
         end: new Date(g[g.length - 1].endTime),
         tag,
@@ -391,7 +408,7 @@ export default function CalendarPage(): JSX.Element {
       const prev = group[group.length - 1];
       const curr = sorted[i];
       const gap = new Date(curr.startTime).getTime() - new Date(prev.endTime).getTime();
-      if (curr.tag === prev.tag && gap >= 0 && gap <= GAP) {
+      if (curr.tag === prev.tag && curr.taskUid === prev.taskUid && gap >= 0 && gap <= GAP) {
         group.push(curr);
       } else {
         flush(group);
@@ -410,15 +427,15 @@ export default function CalendarPage(): JSX.Element {
       while (seg.toDateString() !== ev.end.toDateString()) {
         const dayEnd = new Date(seg);
         dayEnd.setHours(23, 59, 59, 999);
-        split.push({ ...ev, start: new Date(seg), end: dayEnd });
+        split.push({ ...ev, id: `${ev.id}:${seg.getTime()}`, start: new Date(seg), end: dayEnd });
         seg = new Date(seg);
         seg.setDate(seg.getDate() + 1);
         seg.setHours(0, 0, 0, 0);
       }
-      split.push({ ...ev, start: seg, end: new Date(ev.end) });
+      split.push({ ...ev, id: `${ev.id}:${seg.getTime()}`, start: seg, end: new Date(ev.end) });
     }
     return split;
-  }, [focusSessions, savedTags]);
+  }, [focusSessions, savedTags, tasks]);
 
   const focusEvents = useMemo(
     () => allFocusEvents.filter((e) => !hiddenTags.has(e.tag)),
@@ -430,8 +447,9 @@ export default function CalendarPage(): JSX.Element {
     return timeblocks.map((tb): CalendarEvent => {
       const [solidColor, white] = getTagColor(savedTags, tb.tag);
       return {
-        id: tb.id!,
-        title: tb.tag || "Time block",
+        id: `block:${tb.uid || tb.id}`,
+        sourceId: tb.id!,
+        title: tasks.find((t) => t.uid === tb.taskUid)?.title || tb.title || tb.tag || "Time block",
         start: new Date(tb.startTime),
         end: new Date(tb.endTime),
         tag: tb.tag,
@@ -440,11 +458,20 @@ export default function CalendarPage(): JSX.Element {
         isTimeblock: true,
       };
     });
-  }, [timeblocks, savedTags, showTimeblocks, currentView]);
+  }, [timeblocks, savedTags, showTimeblocks, currentView, tasks]);
+
+  const taskEvents = useMemo<CalendarEvent[]>(() => showTasks ? tasks.filter((task) => task.dueDate && !task.deletedAt && !task.completedAt && !projects.some((p) => p.id === task.projectId && p.status === "Closed")).map((task) => {
+    const deadline = taskDeadline(task)!;
+    const tag = task.primaryTag || task.tags[0] || "Tasks";
+    const [color, white] = getTagColor(savedTags, tag);
+    return { id: `task:${task.uid || task.id}`, sourceId: task.id!, title: `Due${task.dueTime ? ` ${format(deadline, "h:mm a")}` : ""} · ${task.title}`,
+      start: startOfDay(deadline), end: addDays(startOfDay(deadline), 1), tag, color,
+      textColor: white ? "#fff" : "#000", isTimeblock: false, isTask: true, taskUid: task.uid, allDay: true };
+  }).filter((event) => !hiddenTags.has(event.tag)) : [], [tasks, projects, savedTags, hiddenTags, showTasks]);
 
   const allCalEvents = useMemo(
-    () => [...focusEvents, ...timeblocksCalEvents],
-    [focusEvents, timeblocksCalEvents]
+    () => [...focusEvents, ...timeblocksCalEvents, ...taskEvents],
+    [focusEvents, timeblocksCalEvents, taskEvents]
   );
 
   const allTags = useMemo(() => {
@@ -510,7 +537,7 @@ export default function CalendarPage(): JSX.Element {
   const handleEventDrop = useCallback(
     ({ event, start, end }: EventInteractionArgs<CalendarEvent>) => {
       if (!event.isTimeblock) return;
-      editTimeblock(event.id, { startTime: new Date(start), endTime: new Date(end) });
+      editTimeblock(event.sourceId, { startTime: new Date(start), endTime: new Date(end) });
     },
     [editTimeblock]
   );
@@ -518,7 +545,7 @@ export default function CalendarPage(): JSX.Element {
   const handleEventResize = useCallback(
     ({ event, start, end }: EventInteractionArgs<CalendarEvent>) => {
       if (!event.isTimeblock) return;
-      editTimeblock(event.id, { startTime: new Date(start), endTime: new Date(end) });
+      editTimeblock(event.sourceId, { startTime: new Date(start), endTime: new Date(end) });
     },
     [editTimeblock]
   );
@@ -530,6 +557,7 @@ export default function CalendarPage(): JSX.Element {
       const { x, y } = clampPopupPos(lastMousePos.current.x, lastMousePos.current.y);
       setPendingSlot({ start: slot.start, end: slot.end, x, y });
       setPendingTag("");
+      setPendingTaskUid("");
     },
     [currentView, clampPopupPos]
   );
@@ -537,19 +565,25 @@ export default function CalendarPage(): JSX.Element {
   const handleCreateTimeblock = useCallback(
     (tagOverride?: string) => {
       if (!pendingSlot) return;
-      const tag = (tagOverride ?? pendingTag).trim();
+      const task = tasks.find((t) => t.uid === pendingTaskUid);
+      const tag = (tagOverride ?? (pendingTag || task?.primaryTag || task?.tags[0] || (task ? "Focus" : ""))).trim();
       if (!tag) return;
-      addTimeblock(tag, pendingSlot.start, pendingSlot.end);
+      const project = projects.find((p) => p.id === task?.projectId);
+      void addTimeblock(tag, pendingSlot.start, pendingSlot.end, task?.title, { taskUid: task?.uid, projectUid: project?.uid }).catch(() => toast.error("Could not create calendar block"));
       setPendingSlot(null);
       setPendingTag("");
     },
-    [pendingSlot, pendingTag, addTimeblock]
+    [pendingSlot, pendingTag, addTimeblock, pendingTaskUid, tasks, projects]
   );
 
   const handleSelectEvent = useCallback(
     (event: CalendarEvent) => {
+      if (event.isTask) {
+        router.push(`/projects?task=${encodeURIComponent(event.taskUid || "")}`);
+        return;
+      }
       if (event.isTimeblock) {
-        const tb = timeblocks.find((t) => t.id === event.id);
+        const tb = timeblocks.find((t) => t.id === event.sourceId);
         if (!tb) return;
         const { x, y } = clampPopupPos(lastMousePos.current.x, lastMousePos.current.y);
         setEditingTb({
@@ -562,14 +596,14 @@ export default function CalendarPage(): JSX.Element {
         });
         setEditTbTag(tb.tag);
       } else {
-        const session = focusSessions.find((s) => s.id === event.id);
+        const session = focusSessions.find((s) => s.id === event.sourceId);
         if (session) {
           setSelectedSession(session);
           setIsEditDialogOpen(true);
         }
       }
     },
-    [timeblocks, focusSessions, clampPopupPos]
+    [timeblocks, focusSessions, clampPopupPos, router]
   );
 
   const eventStyleGetter = useCallback((event: CalendarEvent) => {
@@ -603,13 +637,7 @@ export default function CalendarPage(): JSX.Element {
   const DayHeader = useCallback(({ date }: { date: Date }) => {
     const isToday = isSameDay(date, new Date());
     return (
-      <button
-        onClick={() => {
-          setCurrentDate(date);
-          setCurrentView("day");
-        }}
-        className="w-full flex flex-col items-center gap-0.5 py-2 group"
-      >
+      <span className="w-full flex flex-col items-center gap-0.5 py-2 group">
         <span
           className={cn(
             "text-[11px] font-medium uppercase tracking-wider",
@@ -628,7 +656,7 @@ export default function CalendarPage(): JSX.Element {
         >
           {format(date, "d")}
         </span>
-      </button>
+      </span>
     );
   }, []);
 
@@ -682,6 +710,12 @@ export default function CalendarPage(): JSX.Element {
     <div className="flex flex-col gap-5">
       <MiniCalendar value={currentDate} onPick={setCurrentDate} activeRange={periodRange} />
 
+      <div className="pt-3">
+        <button onClick={() => setShowTasks((v) => !v)} aria-pressed={showTasks} className="flex items-center gap-2 rounded-lg px-1 py-1 text-[13px] hover:bg-muted/50">
+          <span className={cn("size-3 rounded-sm border-2", showTasks ? "border-primary bg-primary/20" : "border-muted-foreground")} />Task deadlines
+        </button>
+        <p className="mt-1 pl-1 text-[11px] text-muted-foreground">Shown above the day. Select a task to edit it.</p>
+      </div>
       <div className="border-t pt-4">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
           My tags
@@ -931,6 +965,7 @@ export default function CalendarPage(): JSX.Element {
               events={allCalEvents}
               startAccessor="start"
               endAccessor="end"
+              allDayAccessor="allDay"
               view={currentView as View}
               onView={(v) => setCurrentView(v as CalView)}
               date={currentDate}
@@ -960,6 +995,7 @@ export default function CalendarPage(): JSX.Element {
               }}
               tooltipAccessor={(event) => {
                 const ev = event as CalendarEvent;
+                if (ev.isTask) return ev.title;
                 const prefix = ev.isTimeblock ? "Planned · " : "";
                 return `${prefix}${ev.tag}\n${format(ev.start, "h:mm a")} – ${format(
                   ev.end,
@@ -990,6 +1026,10 @@ export default function CalendarPage(): JSX.Element {
               <p className="text-xs text-muted-foreground mt-0.5 font-mono">
                 {format(pendingSlot.start, "h:mm a")} → {format(pendingSlot.end, "h:mm a")}
               </p>
+              <select aria-label="Task for calendar block" value={pendingTaskUid} onChange={(e) => setPendingTaskUid(e.target.value)} className="mt-2 h-8 w-full rounded-lg bg-muted/50 px-2 text-xs">
+                <option value="">No linked task</option>
+                {tasks.filter((t) => !t.deletedAt && !t.completedAt && !projects.some((p) => p.id === t.projectId && p.status === "Closed")).map((t) => <option key={t.uid} value={t.uid}>{t.title}</option>)}
+              </select>
             </div>
 
             <div className="p-3 flex flex-col gap-2.5">
@@ -1028,7 +1068,7 @@ export default function CalendarPage(): JSX.Element {
                   size="sm"
                   className="h-7 px-2.5 text-xs"
                   onClick={() => handleCreateTimeblock()}
-                  disabled={!pendingTag.trim()}
+                  disabled={!pendingTag.trim() && !pendingTaskUid}
                 >
                   Add
                 </Button>
@@ -1158,9 +1198,12 @@ export default function CalendarPage(): JSX.Element {
           height: 100%;
           background: transparent;
         }
-        .gcal .rbc-toolbar,
-        .gcal .rbc-allday-cell {
+        .gcal .rbc-toolbar {
           display: none;
+        }
+        .gcal .rbc-allday-cell {
+          min-height: 24px;
+          padding: 3px 0;
         }
         .gcal .rbc-time-view,
         .gcal .rbc-month-view {

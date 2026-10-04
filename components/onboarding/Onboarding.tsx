@@ -96,7 +96,7 @@ const FEATURES = [
   {
     icon: FaDiagramProject,
     title: "Projects",
-    desc: "Group work into projects, milestones, and issues.",
+    desc: "Organize tasks with projects, tags, deadlines, and estimates.",
   },
   {
     icon: FaTags,

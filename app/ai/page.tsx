@@ -91,6 +91,7 @@ import { useAITools } from "@/hooks/useAITools";
 import { useFocus } from "@/hooks/useFocus";
 import { useConfig } from "@/hooks/useConfig";
 import { useRewards } from "@/hooks/useRewards";
+import { useTasks } from "@/hooks/useTasks";
 import { useProjects } from "@/hooks/useProjects";
 import { useTag } from "@/hooks/useTag";
 import { useOnline } from "@/components/OfflineIndicator";
@@ -136,7 +137,7 @@ const QUICK_PROMPTS = [
   {
     label: "Plan tomorrow",
     prompt:
-      "Look at my open issues and due dates, then draft a realistic plan for tomorrow.",
+      "Look at my tasks and deadlines, then draft a realistic plan for tomorrow.",
   },
   {
     label: "Am I slipping?",
@@ -176,7 +177,8 @@ export default function AIPage(): JSX.Element {
   const { focusSessions, loadFocusSessions } = useFocus();
   const { name, dob, loadConfig } = useConfig();
   const { rewardPoints, loadRewards } = useRewards();
-  const { projects, milestones, issues, loadProjects } = useProjects();
+  const { projects, loadProjects } = useProjects();
+  const { tasks, loadTasks } = useTasks();
   const { state: timerState } = usePomo();
   const { tag: activeTag } = useTag();
 
@@ -195,6 +197,7 @@ export default function AIPage(): JSX.Element {
     loadConfig();
     loadRewards();
     loadProjects();
+    loadTasks();
   }, [
     restoreCachedModels,
     loadChats,
@@ -203,6 +206,7 @@ export default function AIPage(): JSX.Element {
     loadConfig,
     loadRewards,
     loadProjects,
+    loadTasks,
   ]);
 
   useEffect(() => {
@@ -221,14 +225,13 @@ export default function AIPage(): JSX.Element {
       rewardPoints,
       focusSessions,
       projects,
-      milestones,
-      issues,
+      tasks,
       timer: {
         mode: timerState.mode,
         phase: timerState.phase,
         isRunning: timerState.isRunning,
         elapsedSeconds: timerState.elapsedSeconds,
-        currentTag: activeTag || "",
+        currentTag: timerState.task?.tag || activeTag || "",
       },
     }),
     [
@@ -237,8 +240,7 @@ export default function AIPage(): JSX.Element {
       rewardPoints,
       focusSessions,
       projects,
-      milestones,
-      issues,
+      tasks,
       timerState,
       activeTag,
     ]

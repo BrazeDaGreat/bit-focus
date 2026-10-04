@@ -40,6 +40,7 @@ import db, { QuickLink } from "@/lib/db";
  * Project Data Interface
  */
 export interface Project {
+  uid?: string;
   /** Unique project identifier */
   id?: number;
   /** Project title */
@@ -277,7 +278,9 @@ export const useProjects = create<ProjectsState>((set, get) => ({
    */
   addProject: async (title, status, version, notes) => {
     const now = new Date();
+    const uid = crypto.randomUUID();
     const id = await db.projects.add({
+      uid,
       title,
       status,
       version,
@@ -292,6 +295,7 @@ export const useProjects = create<ProjectsState>((set, get) => ({
         ...state.projects,
         {
           id,
+          uid,
           title,
           status,
           version,

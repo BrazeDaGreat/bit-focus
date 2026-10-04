@@ -51,6 +51,7 @@ const DEVICE_LOCAL_KEYS: readonly string[] = [
   "pomoExtension",
   "pomoSegments",
   "pomoSegmentStart",
+  "pomoTask",
   "bitfocus.lastAutoBackup",
   "timerMode",
   // Picture-in-Picture mirror of the timer, rewritten several times a second.
@@ -92,6 +93,7 @@ export const PERSISTED_STORE_KEYS: readonly string[] = [
   "tag-storage",
   "ambience-storage",
   "notepad-storage",
+  "task-preferences",
 ];
 
 /** Every localStorage key currently eligible for sync. */

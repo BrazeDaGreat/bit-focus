@@ -22,8 +22,8 @@ export const CONFIRM_TOOLS = [
   "startTimer",
   "stopTimer",
   "logSession",
-  "createIssue",
-  "closeIssue",
+  "createTask",
+  "completeTask",
   "sendWebhookMessage",
   "appendToNotepad",
 ] as const;
@@ -76,13 +76,13 @@ export const AI_TOOLS = {
 
   getProjectsOverview: tool({
     description:
-      "All projects with their milestones, issue counts, open/closed status, budget, and version.",
+      "All projects and tasks with completion, tags, deadlines, estimates, and actual focus time.",
     inputSchema: z.object({}),
   }),
 
-  getUpcomingIssues: tool({
+  getUpcomingTasks: tool({
     description:
-      "Issues that are overdue or due today, tomorrow, or in the next seven days.",
+      "Tasks that are overdue or due today, tomorrow, or in the next seven days.",
     inputSchema: z.object({}),
   }),
 
@@ -118,23 +118,25 @@ export const AI_TOOLS = {
     }),
   }),
 
-  createIssue: tool({
+  createTask: tool({
     description:
-      "Add an issue to a milestone. Call getProjectsOverview first to find the milestone id.",
+      "Add a task to a project, or Inbox when no project is supplied. Call getProjectsOverview to find project ids.",
     inputSchema: z.object({
-      milestoneId: z.number().int(),
+      projectId: z.number().int().optional(),
       title: z.string(),
-      label: z.string().default("Task"),
+      tags: z.array(z.string()).default([]),
+      estimateMinutes: z.number().min(0).default(0),
+      priority: z.number().int().min(0).max(3).default(0),
       description: z.string().default(""),
       dueDateISO: z.string().optional(),
     }),
   }),
 
-  closeIssue: tool({
+  completeTask: tool({
     description:
-      "Mark an issue as done. Call getUpcomingIssues or getProjectsOverview first to find the issue id.",
+      "Mark a task as done. Call getUpcomingTasks or getProjectsOverview first to find the task id.",
     inputSchema: z.object({
-      issueId: z.number().int(),
+      taskId: z.number().int(),
     }),
   }),
 
@@ -169,12 +171,12 @@ export function describeToolCall(name: string, input: unknown): string {
       return "Pause the running timer.";
     case "logSession":
       return `Log a session tagged #${value.tag} from ${value.startISO} to ${value.endISO}.`;
-    case "createIssue":
-      return `Create the issue "${value.title}"${
+    case "createTask":
+      return `Create the task "${value.title}"${
         value.dueDateISO ? `, due ${value.dueDateISO}` : ""
       }.`;
-    case "closeIssue":
-      return `Mark issue #${value.issueId} as done.`;
+    case "completeTask":
+      return `Mark task #${value.taskId} as done.`;
     case "sendWebhookMessage":
       return `Send this to your webhook:\n\n${value.message}`;
     case "appendToNotepad":
@@ -190,13 +192,13 @@ export const TOOL_LABELS: Record<string, string> = {
   getTagBreakdown: "Reading tag breakdown",
   listSessions: "Reading sessions",
   getProjectsOverview: "Reading projects",
-  getUpcomingIssues: "Reading due issues",
+  getUpcomingTasks: "Reading due tasks",
   getTimerState: "Checking the timer",
   startTimer: "Start timer",
   stopTimer: "Pause timer",
   logSession: "Log session",
-  createIssue: "Create issue",
-  closeIssue: "Close issue",
+  createTask: "Create task",
+  completeTask: "Complete task",
   sendWebhookMessage: "Send webhook message",
   appendToNotepad: "Save to notepad",
 };

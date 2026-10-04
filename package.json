@@ -1,12 +1,14 @@
 {
   "name": "bit-focus",
-  "version": "0.23.0",
+  "version": "0.23.1",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "tsx --test tests/tasks.test.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.64",
@@ -99,6 +101,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -109,7 +112,9 @@
     "eslint-config-next": "15.2.8",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
+    "fake-indexeddb": "^6.2.5",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   }
 }

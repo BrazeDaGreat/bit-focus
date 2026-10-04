@@ -40,7 +40,10 @@
  * @updated v0.9.7-alpha
  */
 
+import Dexie from "dexie";
 import db, { type ExcalidrawSceneData, type AIConfig, QuickLink } from "./db";
+import { serializeTask, deserializeTask, deserializeTaskFilter, type SavedTask, type SavedTaskFilter } from "./task-backup";
+import { migrateTasks } from "./task-migration";
 import { PB_AUTH_STORAGE_KEY } from "./pocketbase";
 
 /**
@@ -59,7 +62,7 @@ const PROTECTED_LOCAL_KEYS: readonly string[] = [
 
 /** True when a localStorage key belongs to the device rather than the backup. */
 export function isProtectedLocalKey(key: string): boolean {
-  return PROTECTED_LOCAL_KEYS.includes(key);
+  return key.startsWith("bitfocus.sync.") || key === "pomoTask" || PROTECTED_LOCAL_KEYS.includes(key);
 }
 
 /**
@@ -69,7 +72,12 @@ export function isProtectedLocalKey(key: string): boolean {
  */
 function restoreLocalStorage(entries: Record<string, string>): void {
   const preserved = new Map<string, string>();
-  for (const key of PROTECTED_LOCAL_KEYS) {
+  const protectedKeys = [...PROTECTED_LOCAL_KEYS];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && isProtectedLocalKey(key)) protectedKeys.push(key);
+  }
+  for (const key of protectedKeys) {
     const value = localStorage.getItem(key);
     if (value !== null) preserved.set(key, value);
   }
@@ -98,6 +106,9 @@ type ExportedData = {
   localStorage: Record<string, string>;
   /** All IndexedDB table data with serialized dates */
   indexedDB: {
+    tasks?: SavedTask[];
+    taskFilters?: SavedTaskFilter[];
+    legacyTasks?: Record<string, unknown>[];
     /** User configuration data */
     configuration: {
       name: string;
@@ -109,6 +120,8 @@ type ExportedData = {
     focus: {
       id?: number;
       tag: string;
+      taskUid?: string;
+      projectUid?: string;
       startTime: string; // Serialized as ISO string
       endTime: string; // Serialized as ISO string
     }[];
@@ -200,6 +213,8 @@ type ExportedData = {
     timeblocks?: {
       id?: number;
       tag: string;
+      taskUid?: string;
+      projectUid?: string;
       startTime: string; // Serialized as ISO string
       endTime: string; // Serialized as ISO string
       title?: string;
@@ -252,6 +267,9 @@ class SaveManager {
     const data: ExportedData = {
       localStorage: {},
       indexedDB: {
+        tasks: (await db.tasks.toArray()).map(serializeTask),
+        taskFilters: (await db.taskFilters.toArray()).map((f) => ({ ...f, createdAt: f.createdAt.toISOString(), updatedAt: f.updatedAt.toISOString() })),
+        legacyTasks: await db.table("tasks").toArray(),
         // Serialize configuration data with date conversion
         configuration: (await db.configuration.toArray()).map((c) => ({
           ...c,
@@ -403,6 +421,9 @@ class SaveManager {
     }));
 
     // Deserialize projects with date conversion
+    const tasks = (data.indexedDB.tasks || []).map(deserializeTask);
+    const taskFilters = (data.indexedDB.taskFilters || []).map(deserializeTaskFilter);
+    const legacyTasks = data.indexedDB.legacyTasks || [];
     const projects = (data.indexedDB.projects || []).map((p) => ({
       ...p,
       createdAt: new Date(p.createdAt),
@@ -477,6 +498,10 @@ class SaveManager {
         db.aiChats,
         db.aiConfig,
         db.timeblocks,
+        db.tasks,
+        db.taskFilters,
+        db.table("tasks"),
+        db.syncState,
       ],
       async () => {
         // Clear existing data from all tables
@@ -492,6 +517,9 @@ class SaveManager {
         await db.aiChats.clear();
         await db.aiConfig.clear();
         await db.timeblocks.clear();
+        await db.tasks.clear();
+        await db.taskFilters.clear();
+        await db.table("tasks").clear();
 
         // Import new data with project management support
         await db.configuration.bulkAdd(configuration);
@@ -526,6 +554,10 @@ class SaveManager {
         if (timeblocks.length > 0) {
           await db.timeblocks.bulkAdd(timeblocks);
         }
+        await db.tasks.bulkAdd(tasks);
+        await db.taskFilters.bulkAdd(taskFilters);
+        await db.table("tasks").bulkAdd(legacyTasks);
+        if (!data.indexedDB.tasks) await migrateTasks(Dexie.currentTransaction!, true);
       },
     );
 
@@ -545,6 +577,9 @@ class SaveManager {
     const data: ExportedData = {
       localStorage: {},
       indexedDB: {
+        tasks: (await db.tasks.toArray()).map(serializeTask),
+        taskFilters: (await db.taskFilters.toArray()).map((f) => ({ ...f, createdAt: f.createdAt.toISOString(), updatedAt: f.updatedAt.toISOString() })),
+        legacyTasks: await db.table("tasks").toArray(),
         configuration: (await db.configuration.toArray()).map((c) => ({
           ...c,
           dob: c.dob ? c.dob.toISOString() : null,
@@ -645,6 +680,9 @@ class SaveManager {
       updatedAt: new Date(n.updatedAt),
     }));
 
+    const tasks = (data.indexedDB.tasks || []).map(deserializeTask);
+    const taskFilters = (data.indexedDB.taskFilters || []).map(deserializeTaskFilter);
+    const legacyTasks = data.indexedDB.legacyTasks || [];
     const projects = (data.indexedDB.projects || []).map((p) => ({
       ...p,
       createdAt: new Date(p.createdAt),
@@ -713,6 +751,10 @@ class SaveManager {
         db.aiChats,
         db.aiConfig,
         db.timeblocks,
+        db.tasks,
+        db.taskFilters,
+        db.table("tasks"),
+        db.syncState,
       ],
       async () => {
         await db.configuration.clear();
@@ -727,6 +769,9 @@ class SaveManager {
         await db.aiChats.clear();
         await db.aiConfig.clear();
         await db.timeblocks.clear();
+        await db.tasks.clear();
+        await db.taskFilters.clear();
+        await db.table("tasks").clear();
 
         await db.configuration.bulkAdd(configuration);
         await db.focus.bulkAdd(focus);
@@ -759,6 +804,10 @@ class SaveManager {
         if (timeblocks.length > 0) {
           await db.timeblocks.bulkAdd(timeblocks);
         }
+        await db.tasks.bulkAdd(tasks);
+        await db.taskFilters.bulkAdd(taskFilters);
+        await db.table("tasks").bulkAdd(legacyTasks);
+        if (!data.indexedDB.tasks) await migrateTasks(Dexie.currentTransaction!, true);
       },
     );
 

@@ -301,6 +301,9 @@ export async function rehydratePersistedStores(
   // Imported lazily and individually so the sync layer never becomes a
   // dependency of the feature stores it is refreshing.
   const rehydrations: Promise<unknown>[] = [];
+  if (relevant.includes("task-preferences")) {
+    rehydrations.push(import("@/hooks/useTaskPreferences").then((m) => m.useTaskPreferences.persist.rehydrate()));
+  }
 
   if (relevant.includes("tag-storage")) {
     rehydrations.push(

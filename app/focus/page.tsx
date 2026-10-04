@@ -106,6 +106,7 @@ export default function Focus(): JSX.Element {
 
   return (
     <div className="flex flex-1 flex-col">
+      {state.task && <div className="mx-auto mt-3 max-w-sm rounded-xl bg-primary/12 px-4 py-2 text-center text-sm"><p className="text-[11px] text-muted-foreground">Current task</p><p className="mt-1 font-medium">{state.task.title}</p><p className="mt-1 text-xs text-muted-foreground">Saved under #{state.task.tag}</p></div>}
       {/* ── Timer screen: ring centred, dock along the bottom edge ──────── */}
       <section className="flex min-h-[calc(100dvh-7rem)] flex-col lg:min-h-[calc(100dvh-3.5rem)]">
         {/* Ring takes the whole screen above the dock */}
@@ -469,7 +470,9 @@ function DockDivider({ className }: { className?: string }): JSX.Element {
 // ── Tag selector ──────────────────────────────────────────────────────────────
 
 function TagSelectorPill(): JSX.Element {
-  const { tag, setTag, removeTag, savedTags } = useTag();
+  const { tag: globalTag, setTag, removeTag, savedTags } = useTag();
+  const { state } = usePomo();
+  const tag = state.task?.tag || globalTag;
   const [open, setOpen] = useState(false);
   const [tempTag, setTempTag] = useState("");
   const isMobile = useIsMobile();
@@ -486,7 +489,8 @@ function TagSelectorPill(): JSX.Element {
 
   const trigger = (
     <button
-      title="Session tag"
+      title={state.task ? "Primary focus tag for current task" : "Session tag"}
+      disabled={!!state.task}
       className={cn(
         DOCK_BUTTON_BASE,
         "min-w-0 gap-2",
@@ -576,6 +580,7 @@ function TagSelectorPill(): JSX.Element {
     </div>
   );
 
+  if (state.task) return trigger;
   if (isMobile) {
     return (
       <MobileDrawer

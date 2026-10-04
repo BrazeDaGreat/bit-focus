@@ -258,6 +258,37 @@ export const COLLECTIONS: readonly SyncCollection[] = [
     order: 4,
   },
   {
+    key: "tasks",
+    table: () => db.tasks as unknown as Dexie.Table<LocalRow, string | number>,
+    pk: "id", autoKey: true, uidField: "uid",
+    dates: ["dueDate", "completedAt", "deletedAt", "createdAt", "updatedAt"],
+    refs: [{ field: "projectId", target: "projects" }], order: 4,
+  },
+  {
+    key: "taskFilters",
+    table: () => db.taskFilters as unknown as Dexie.Table<LocalRow, string | number>,
+    pk: "id", autoKey: true, uidField: "uid", dates: ["createdAt", "updatedAt"], order: 4,
+    encode: async (wire, cache) => {
+      const criteria = { ...(wire.criteria as Record<string, unknown>) };
+      if (typeof criteria.projectId === "number") {
+        criteria.projectUid = await cache.uidFor(COLLECTION_BY_KEY.get("projects")!, criteria.projectId);
+        delete criteria.projectId;
+      }
+      wire.criteria = criteria;
+    },
+    decode: async (row, cache) => {
+      const criteria = { ...(row.criteria as Record<string, unknown>) };
+      if (typeof criteria.projectUid === "string") {
+        const id = await cache.localIdFor(COLLECTION_BY_KEY.get("projects")!, criteria.projectUid);
+        if (id === null) return [criteria.projectUid];
+        criteria.projectId = id;
+        delete criteria.projectUid;
+      }
+      row.criteria = criteria;
+      return [];
+    },
+  },
+  {
     key: "issues",
     table: () => db.issues as unknown as Dexie.Table<LocalRow, string | number>,
     pk: "id",

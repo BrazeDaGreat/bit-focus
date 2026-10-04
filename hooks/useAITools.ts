@@ -15,6 +15,8 @@
 import { useCallback } from "react";
 import dayjs from "dayjs";
 import { useFocus } from "@/hooks/useFocus";
+import { useTasks } from "@/hooks/useTasks";
+import { isTaskOverdue, matchesTask, taskDeadline, taskMinutes, dateInput } from "@/lib/tasks";
 import { useProjects } from "@/hooks/useProjects";
 import { usePomo } from "@/hooks/PomoContext";
 import { useTag } from "@/hooks/useTag";
@@ -37,14 +39,8 @@ function str(input: ToolInput, key: string): string | undefined {
 
 export function useAITools() {
   const { focusSessions, addFocusSession } = useFocus();
-  const {
-    projects,
-    milestones,
-    issues,
-    addIssue,
-    updateIssue,
-    getUpcomingIssues,
-  } = useProjects();
+  const { projects } = useProjects();
+  const { tasks, addTask, updateTask } = useTasks();
   const { state: timerState, start, pause, setMode } = usePomo();
   const { tag: activeTag, setTag } = useTag();
   const { webhook } = useConfig();
@@ -123,59 +119,21 @@ export function useAITools() {
         }
 
         case "getProjectsOverview": {
-          return {
-            projects: projects.map((project) => {
-              const projectMilestones = milestones.filter(
-                (m) => m.projectId === project.id
-              );
-              return {
-                id: project.id,
-                title: project.title,
-                status: project.status,
-                version: project.version,
-                milestones: projectMilestones.map((milestone) => {
-                  const milestoneIssues = issues.filter(
-                    (i) => i.milestoneId === milestone.id
-                  );
-                  return {
-                    id: milestone.id,
-                    title: milestone.title,
-                    status: milestone.status,
-                    deadline: milestone.deadline
-                      ? dayjs(milestone.deadline).format("YYYY-MM-DD")
-                      : null,
-                    openIssues: milestoneIssues.filter(
-                      (i) => i.status === "Open"
-                    ).length,
-                    totalIssues: milestoneIssues.length,
-                  };
-                }),
-              };
-            }),
-          };
+          return { projects: projects.map((p) => ({ id: p.id, title: p.title, archived: p.status === "Closed" })),
+            tasks: tasks.filter((t) => !t.deletedAt).map((t) => ({ id: t.id, projectId: t.projectId ?? null,
+              title: t.title, completed: !!t.completedAt, tags: t.tags, deadline: taskDeadline(t)?.toISOString() ?? null,
+              estimateMinutes: t.estimateMinutes, actualMinutes: taskMinutes(t, focusSessions), priority: t.priority })) };
         }
-
-        case "getUpcomingIssues": {
-          const groups = getUpcomingIssues();
-          const shape = (
-            list: ReturnType<typeof getUpcomingIssues>["today"]
-          ) =>
-            list.map((issue) => ({
-              id: issue.id,
-              title: issue.title,
-              status: issue.status,
-              project: issue.project?.title,
-              milestone: issue.milestone?.title,
-              due: issue.dueDate
-                ? dayjs(issue.dueDate).format("YYYY-MM-DD")
-                : null,
-            }));
-          return {
-            overdue: shape(groups.overdue),
-            today: shape(groups.today),
-            tomorrow: shape(groups.tomorrow),
-            next7days: shape(groups.next7days),
-          };
+        case "getUpcomingTasks": {
+          const now = new Date();
+          const tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1);
+          const end = new Date(now); end.setDate(end.getDate() + 7); end.setHours(23, 59, 59, 999);
+          const due = tasks.filter((t) => !t.deletedAt && !t.completedAt && taskDeadline(t) && !projects.some((p) => p.id === t.projectId && p.status === "Closed"));
+          const shape = (list: typeof tasks) => list.map((t) => ({ id: t.id, title: t.title, project: projects.find((p) => p.id === t.projectId)?.title || "Inbox", due: taskDeadline(t)?.toISOString(), estimateMinutes: t.estimateMinutes }));
+          return { overdue: shape(due.filter((t) => isTaskOverdue(t, now))),
+            today: shape(due.filter((t) => matchesTask(t, { date: "today" }, now) && !isTaskOverdue(t, now))),
+            tomorrow: shape(due.filter((t) => matchesTask(t, { date: "today" }, tomorrow))),
+            next7days: shape(due.filter((t) => taskDeadline(t)! <= end && taskDeadline(t)! > tomorrow && !matchesTask(t, { date: "today" }, tomorrow))) };
         }
 
         case "getTimerState": {
@@ -184,7 +142,8 @@ export function useAITools() {
             phase: timerState.phase,
             isRunning: timerState.isRunning,
             elapsedMinutes: Math.round(timerState.elapsedSeconds / 60),
-            activeTag: activeTag || null,
+            activeTag: timerState.task?.tag || activeTag || null,
+            task: timerState.task || null,
             pomodoro: timerState.pomodoroSettings,
             completedPomodorosInCycle: timerState.completedPomodoros,
             onLongBreak: timerState.isLongBreak,
@@ -226,28 +185,26 @@ export function useAITools() {
           return { ok: true, message: "Session logged." };
         }
 
-        case "createIssue": {
-          const milestoneId = num(input, "milestoneId", -1);
+        case "createTask": {
           const title = str(input, "title");
-          if (milestoneId < 0 || !title) {
-            return { ok: false, message: "A milestone and a title are required." };
-          }
+          const projectId = typeof input.projectId === "number" ? input.projectId : null;
+          if (!title) return { ok: false, message: "A task title is required." };
+          if (projectId !== null && !projects.some((p) => p.id === projectId)) return { ok: false, message: "Project not found." };
           const dueISO = str(input, "dueDateISO");
-          await addIssue(
-            milestoneId,
-            title,
-            str(input, "label") ?? "Task",
-            dueISO ? new Date(dueISO) : undefined,
-            str(input, "description") ?? ""
-          );
+          const dateOnly = !!dueISO && /^\d{4}-\d{2}-\d{2}$/.test(dueISO);
+          const dueDate = dueISO ? new Date(dateOnly ? `${dueISO}T00:00:00` : dueISO) : null;
+          if (dueDate && !Number.isFinite(dueDate.getTime())) return { ok: false, message: "Invalid deadline." };
+          const tags = Array.isArray(input.tags) ? input.tags.filter((t): t is string => typeof t === "string" && useTag.getState().savedTags.some((saved) => saved.t === t)) : [];
+          await addTask(title, { projectId, description: str(input, "description") || "", tags, primaryTag: tags[0] || null,
+            dueDate, dueDay: dateOnly ? dateInput(dueDate) : null, dueTime: !!dueDate && !dateOnly,
+            estimateMinutes: Math.max(0, num(input, "estimateMinutes", 0)), priority: Math.max(0, Math.min(3, num(input, "priority", 0))) });
           return { ok: true, message: `Created "${title}".` };
         }
-
-        case "closeIssue": {
-          const issueId = num(input, "issueId", -1);
-          if (issueId < 0) return { ok: false, message: "An issue id is required." };
-          await updateIssue(issueId, { status: "Close" });
-          return { ok: true, message: "Issue closed." };
+        case "completeTask": {
+          const taskId = num(input, "taskId", -1);
+          if (!tasks.some((t) => t.id === taskId && !t.deletedAt)) return { ok: false, message: "Task not found." };
+          await updateTask(taskId, { completedAt: new Date() });
+          return { ok: true, message: "Task completed." };
         }
 
         case "sendWebhookMessage": {
@@ -280,11 +237,9 @@ export function useAITools() {
       focusSessions,
       addFocusSession,
       projects,
-      milestones,
-      issues,
-      addIssue,
-      updateIssue,
-      getUpcomingIssues,
+      tasks,
+      addTask,
+      updateTask,
       timerState,
       activeTag,
       start,
