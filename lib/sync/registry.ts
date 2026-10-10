@@ -123,9 +123,6 @@ export interface SyncCollection {
 /** Fixed uid used by singleton collections. */
 export const SINGLETON_UID = "singleton";
 
-/** The scratch scene Excalidraw rewrites continuously; never worth syncing. */
-export const AUTOSAVE_SCENE_ID = "__autosave__";
-
 /**
  * Every synced collection, in dependency order.
  *
@@ -297,16 +294,6 @@ export const COLLECTIONS: readonly SyncCollection[] = [
     dates: ["dueDate", "createdAt", "updatedAt"],
     refs: [{ field: "milestoneId", target: "milestones" }],
     order: 5,
-  },
-  {
-    key: "excalidraw",
-    table: () => db.excalidraw as unknown as Dexie.Table<LocalRow, string | number>,
-    pk: "id",
-    autoKey: false,
-    uidField: "uid",
-    dates: ["createdAt", "updatedAt"],
-    order: 6,
-    skipKeys: [AUTOSAVE_SCENE_ID],
   },
   {
     key: "aiChats",

@@ -58,7 +58,6 @@ BIT Focus is designed around a practical daily loop:
 ### Personal workspace
 
 - Custom rewards, discounts, point loans, and redemptions
-- Multi-scene Excalidraw whiteboard with automatic local saves
 - Context-aware AI chat using your own Groq or Google API key
 - `.bitf.json` export and import for portable backups
 - Optional accounts with two-way sync, conflict resolution, and manual upload/download controls
@@ -154,7 +153,7 @@ BIT Focus uses:
 - [Zustand](https://zustand.docs.pmnd.rs/) and React Context for application state
 - [PocketBase](https://pocketbase.io/) for optional authentication and sync
 - [Recharts](https://recharts.org/) and React Big Calendar for analytics and scheduling
-- [Excalidraw](https://excalidraw.com/) and TipTap for workspace tools
+- [TipTap](https://tiptap.dev/) for rich text notes
 - [Vercel AI SDK](https://ai-sdk.dev/) and assistant-ui for optional AI chat
 
 The main application routes live in `app/`, shared interface components in `components/`, state stores and contexts in `hooks/`, and persistence/integration code in `lib/`.

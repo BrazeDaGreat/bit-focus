@@ -41,7 +41,7 @@
  */
 
 import Dexie from "dexie";
-import db, { type ExcalidrawSceneData, type AIConfig, QuickLink } from "./db";
+import db, { type AIConfig, QuickLink } from "./db";
 import { serializeTask, deserializeTask, deserializeTaskFilter, type SavedTask, type SavedTaskFilter } from "./task-backup";
 import { migrateTasks } from "./task-migration";
 import { PB_AUTH_STORAGE_KEY } from "./pocketbase";
@@ -188,15 +188,6 @@ type ExportedData = {
       createdAt: string;
       updatedAt: string;
     }[];
-    /** Excalidraw scene records */
-    excalidraw: {
-      id?: number | string;
-      title: string;
-      sceneData: ExcalidrawSceneData | string;
-      thumbnail?: string;
-      createdAt: string;
-      updatedAt: string;
-    }[];
     /** AI chat records */
     aiChats: {
       id: string;
@@ -318,12 +309,6 @@ class SaveManager {
           ...d,
           createdAt: d.createdAt.toISOString(),
           updatedAt: d.updatedAt.toISOString(),
-        })),
-        // Serialize excalidraw scenes with date conversion
-        excalidraw: (await db.excalidraw.toArray()).map((e) => ({
-          ...e,
-          createdAt: e.createdAt.toISOString(),
-          updatedAt: e.updatedAt.toISOString(),
         })),
         aiChats: (await db.aiChats.toArray()).map((c) => ({
           ...c,
@@ -460,13 +445,6 @@ class SaveManager {
       updatedAt: new Date(d.updatedAt),
     }));
 
-    // Deserialize excalidraw scenes with date conversion
-    const excalidraw = (data.indexedDB.excalidraw || []).map((e) => ({
-      ...e,
-      createdAt: new Date(e.createdAt),
-      updatedAt: new Date(e.updatedAt),
-    }));
-
     const aiChats = (data.indexedDB.aiChats || []).map((c) => ({
       ...c,
       createdAt: new Date(c.createdAt),
@@ -494,7 +472,6 @@ class SaveManager {
         db.issues,
         db.rewards,
         db.discounts,
-        db.excalidraw,
         db.aiChats,
         db.aiConfig,
         db.timeblocks,
@@ -513,7 +490,6 @@ class SaveManager {
         await db.issues.clear();
         await db.rewards.clear();
         await db.discounts.clear();
-        await db.excalidraw.clear();
         await db.aiChats.clear();
         await db.aiConfig.clear();
         await db.timeblocks.clear();
@@ -541,9 +517,6 @@ class SaveManager {
         }
         if (discounts.length > 0) {
           await db.discounts.bulkAdd(discounts);
-        }
-        if (excalidraw.length > 0) {
-          await db.excalidraw.bulkAdd(excalidraw);
         }
         if (aiChats.length > 0) {
           await db.aiChats.bulkAdd(aiChats);
@@ -620,11 +593,6 @@ class SaveManager {
           ...d,
           createdAt: d.createdAt.toISOString(),
           updatedAt: d.updatedAt.toISOString(),
-        })),
-        excalidraw: (await db.excalidraw.toArray()).map((e) => ({
-          ...e,
-          createdAt: e.createdAt.toISOString(),
-          updatedAt: e.updatedAt.toISOString(),
         })),
         aiChats: (await db.aiChats.toArray()).map((c) => ({
           ...c,
@@ -715,12 +683,6 @@ class SaveManager {
       updatedAt: new Date(d.updatedAt),
     }));
 
-    const excalidraw = (data.indexedDB.excalidraw || []).map((e) => ({
-      ...e,
-      createdAt: new Date(e.createdAt),
-      updatedAt: new Date(e.updatedAt),
-    }));
-
     const aiChats = (data.indexedDB.aiChats || []).map((c) => ({
       ...c,
       createdAt: new Date(c.createdAt),
@@ -747,7 +709,6 @@ class SaveManager {
         db.issues,
         db.rewards,
         db.discounts,
-        db.excalidraw,
         db.aiChats,
         db.aiConfig,
         db.timeblocks,
@@ -765,7 +726,6 @@ class SaveManager {
         await db.issues.clear();
         await db.rewards.clear();
         await db.discounts.clear();
-        await db.excalidraw.clear();
         await db.aiChats.clear();
         await db.aiConfig.clear();
         await db.timeblocks.clear();
@@ -791,9 +751,6 @@ class SaveManager {
         }
         if (discounts.length > 0) {
           await db.discounts.bulkAdd(discounts);
-        }
-        if (excalidraw.length > 0) {
-          await db.excalidraw.bulkAdd(excalidraw);
         }
         if (aiChats.length > 0) {
           await db.aiChats.bulkAdd(aiChats);

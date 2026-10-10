@@ -25,6 +25,7 @@ const CHANGELOG = `
 - Improved: Home loads faster. The page and greeting now appear straight away instead of waiting on the app to start, and the chart, heatmap, and command palette load only when needed.
 - Fixed: The Due panel on Home no longer jumps the page around as your issues load in.
 ### \`v0.23.1-beta\` (2026-10-04) — Projects, Simplified
+- Added: A landscape timer for phones: open it from the Focus dock for a full-screen, pure-black AMOLED view with just the timer and a small close button.
 - Changed: Projects is now one simple page. A row of project tabs sits at the top, with the task box and the task list below it. The second sidebar, the Inbox, Today, and Upcoming views, the sort and group menus, and the daily capacity bar are gone.
 - Changed: Milestones and issues are now plain tasks. Each issue becomes a task in its project, keeping its title, notes, and deadline. Milestone budgets and payment states stay in your data and backups but are no longer shown.
 - Added: Each project tab shows how many tasks are open, with a thin bar underneath that fills as you finish them. "All tasks" shows every open task. "No project" appears when you have tasks outside a project.
@@ -37,6 +38,10 @@ const CHANGELOG = `
 - Changed: The deadline has its own date picker instead of the browser's. It offers Today, Tomorrow, and Next week with their dates, then a month calendar, and a "Clear deadline" button once one is set. The deadline reads as "Today", "Tomorrow", or a short date like "Fri, Oct 9", and turns red when overdue. Changing the date keeps any time already set on it.
 - Removed: Saved filters, selecting several tasks at once, reordering with arrows, sections, setting a time on deadlines, and the Markdown preview for notes. Anything you'd already set is kept in your data.
 - Changed: The New project dialog asks only for a name and optional notes, and opens the new project once it's created.
+### \`v0.23.2-beta\` (2026-10-10) — Offline, Fixed
+- Fixed: Opening BIT Focus without a connection crashed every page with "Application error". The app only kept the code each page needs on first load, so pieces that load later (the Home chart and heatmap, the command palette, sync) were missing offline. Every part of the app is now saved on your device when it installs, so all pages open offline.
+- Improved: After an update, the offline app downloads only the files that changed and clears out the previous version. Updates are picked up straight away instead of waiting on the browser's cache.
+- Removed: Excalidraw. Its page, the Sidebar and command palette entries, the E shortcut, and its switch under Settings → Features are gone, along with its saved drawings and their sync. This also makes the app smaller to download and install.
 ***
 
 ## \`v0.22.0-beta\` (2026-09-08) — Interface, Rebuilt

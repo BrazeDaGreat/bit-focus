@@ -61,7 +61,6 @@ const PAGES: { title: string; url: string; key?: string; feature?: FeatureKey }[
   { title: "Calendar", url: "/calendar", key: "C", feature: "calendar" },
   { title: "Projects", url: "/projects", key: "P", feature: "projects" },
   { title: "AI Chat", url: "/ai", key: "G", feature: "aiChat" },
-  { title: "Excalidraw", url: "/excalidraw", key: "E", feature: "excalidraw" },
   { title: "Rewards", url: "/rewards", key: "R", feature: "rewards" },
   { title: "Changelog", url: "/changelog", key: "L" },
   { title: "Settings", url: "/settings", key: "S" },

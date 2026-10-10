@@ -38,6 +38,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# generated after build by scripts/generate-sw-precache.mjs
+/public/sw-precache.js
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

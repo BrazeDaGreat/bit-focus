@@ -56,10 +56,6 @@ const RELOADERS: Record<string, Reloader> = {
     import("@/hooks/useProjects").then((m) =>
       m.useProjects.getState().loadProjects(),
     ),
-  excalidraw: () =>
-    import("@/hooks/useExcalidraw").then((m) =>
-      m.useExcalidraw.getState().loadScenes(),
-    ),
   aiChats: () =>
     import("@/hooks/useAIChat").then((m) => m.useAIChat.getState().loadChats()),
 };

@@ -49,7 +49,6 @@ const FEATURE_LIST: { key: FeatureKey; label: string; hint: string }[] = [
   { key: "calendar", label: "Calendar", hint: "Sessions and timeblocks on a calendar" },
   { key: "projects", label: "Projects", hint: "Projects, milestones and issues" },
   { key: "aiChat", label: "AI Chat", hint: "An assistant that can read and act on your data" },
-  { key: "excalidraw", label: "Excalidraw", hint: "Sketch boards" },
   { key: "rewards", label: "Rewards", hint: "Spend focus points on rewards" },
 ];
 

@@ -35,8 +35,6 @@
 import Dexie from "dexie";
 import type { Task, TaskFilter } from "./tasks";
 import { migrateTasks } from "./task-migration";
-import type { ComponentProps } from "react";
-import type { Excalidraw as ExcalidrawComponent } from "@excalidraw/excalidraw";
 
 /**
  * Globally Unique Row Identity
@@ -125,15 +123,6 @@ export interface AIConfig {
   defaultModelId: string;
 }
 
-type ExcalidrawInitialData = Awaited<
-  Exclude<
-    NonNullable<ComponentProps<typeof ExcalidrawComponent>["initialData"]>,
-    (...args: never[]) => unknown
-  >
->;
-
-export type ExcalidrawSceneData = ExcalidrawInitialData;
-
 /**
  * Quick Link Interface
  *
@@ -174,20 +163,6 @@ export interface SpecialDiscount extends Syncable {
   title: string;
   percentage: number; // 0-100
   active: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-/**
- * Excalidraw Scene Data Interface
- *
- * Defines the structure of saved Excalidraw drawings
- */
-export interface ExcalidrawScene extends Syncable {
-  id?: number | string;
-  title: string;
-  sceneData: ExcalidrawSceneData | string;
-  thumbnail?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -296,11 +271,6 @@ class BitFocusDB extends Dexie {
    * Special Discounts Table
    */
   discounts: Dexie.Table<SpecialDiscount, number>;
-
-  /**
-   * Excalidraw Scenes Table
-   */
-  excalidraw: Dexie.Table<ExcalidrawScene, string | number>;
 
   timeblocks: Dexie.Table<TimeBlock, number>;
   tasks: Dexie.Table<Task, number>;
@@ -564,6 +534,13 @@ class BitFocusDB extends Dexie {
       await tx.table("sync_meta").delete("cursor");
     });
 
+    // Excalidraw was removed in v0.23.2: drop its table and its sync records.
+    this.version(14).stores({
+      excalidraw_v2: null,
+    }).upgrade(async (tx) => {
+      await tx.table("sync_state").where("col").equals("excalidraw").delete();
+    });
+
     // Table reference assignment
     this.tasks = this.table("task_items");
     this.taskFilters = this.table("task_filters");
@@ -576,7 +553,6 @@ class BitFocusDB extends Dexie {
     this.issues = this.table("issues");
     this.rewards = this.table("rewards");
     this.discounts = this.table("discounts");
-    this.excalidraw = this.table("excalidraw_v2");
     this.aiChats = this.table("ai_chats");
     this.aiConfig = this.table("ai_config");
     this.syncState = this.table("sync_state");

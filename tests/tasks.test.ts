@@ -521,3 +521,43 @@ test("backup restores with sync hooks keep migrated tasks live and mark them as 
   assert.notEqual(stamp?.hlc, HLC_ZERO);
   Reflect.deleteProperty(globalThis, "window");
 });
+
+test("v14 upgrade drops the Excalidraw table and its sync records", async () => {
+  const old = new Dexie("BitFocusDB");
+  old.version(12).stores({
+    configuration: "name, &uid",
+    focus: "++id, tag, startTime, endTime, &uid",
+    tasks: "++id, task, duedate, tags, priority, completed",
+    notes: "++id, title, type, parentId, createdAt, updatedAt, &uid",
+    projects: "++id, title, status, createdAt, updatedAt, &uid",
+    milestones:
+      "++id, projectId, title, status, deadline, createdAt, updatedAt, &uid",
+    issues:
+      "++id, milestoneId, title, label, dueDate, status, createdAt, updatedAt, &uid",
+    rewards: "++id, title, cost, category, createdAt, updatedAt, &uid",
+    discounts: "++id, title, percentage, active, createdAt, updatedAt, &uid",
+    excalidraw_v2: "id, title, createdAt, updatedAt, &uid",
+    timeblocks: "++id, tag, startTime, endTime, &uid",
+    ai_chats: "id, createdAt, updatedAt",
+    ai_config: "key",
+    sync_state: "[col+uid], col, dirty",
+    sync_meta: "key",
+    sync_backup: "++id, createdAt",
+  });
+  await old.open();
+  await old.table("excalidraw_v2").add({
+    id: "scene-a",
+    uid: "scene-a",
+    title: "Sketch",
+    sceneData: "{}",
+    createdAt: at,
+    updatedAt: at,
+  });
+  await old.table("sync_state").add({ col: "excalidraw", uid: "scene-a", dirty: 1 });
+  await old.table("sync_state").add({ col: "focus", uid: "focus-a", dirty: 1 });
+  old.close();
+
+  await db.open();
+  assert.ok(!db.tables.some((t) => t.name === "excalidraw_v2"));
+  assert.deepEqual((await db.syncState.toArray()).map((s) => s.col), ["focus"]);
+});

@@ -6,4 +6,4 @@
  * `CHANGELOG.ts` dragged the entire release-notes string into the JavaScript
  * every page downloads. Bump it here when cutting a release.
  */
-export const VERSION = "v0.23.1-beta";
+export const VERSION = "v0.23.2-beta";

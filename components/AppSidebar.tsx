@@ -29,7 +29,6 @@ import {
   FaProjectDiagram,
   FaCoffee,
   FaCalendarAlt,
-  FaPenNib,
   FaTable,
 } from "react-icons/fa";
 import { BsStars } from "react-icons/bs";
@@ -71,7 +70,6 @@ const pinnedItems: NavItem[] = [
 const moreItems: NavItem[] = [
   { title: "Focus Table", url: "/focus-table", icon: <FaTable /> },
   { title: "AI Chat (BETA)", url: "/ai", icon: <BsStars />, feature: "aiChat" },
-  { title: "Excalidraw", url: "/excalidraw", icon: <FaPenNib />, feature: "excalidraw" },
   { title: "Rewards", url: "/rewards", icon: <FaCoffee />, feature: "rewards" },
   { title: "Changelog", url: "/changelog", icon: <FaReadme /> },
   { title: "Settings", url: "/settings", icon: <FaGear /> },

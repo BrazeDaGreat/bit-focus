@@ -45,7 +45,6 @@ const PAGE_TITLES: Record<string, string> = {
   "/calendar": "Calendar",
   "/projects": "Projects",
   "/rewards": "Rewards",
-  "/excalidraw": "Excalidraw",
   "/changelog": "Changelog",
   "/focus-table": "Focus Table",
   "/settings": "Settings",

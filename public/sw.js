@@ -10,11 +10,21 @@
  * - Other same-origin files: network first, cached copy when offline.
  * - API routes and other origins: never touched.
  *
- * On install every main page is fetched along with the build assets it
- * references, so pages you have not opened yet still work offline.
+ * On install every main page is fetched, plus every build asset listed in
+ * `/sw-precache.js` (written by `scripts/generate-sw-precache.mjs` after
+ * `next build`). Pages only reference their first-paint chunks, so without
+ * that list anything loaded through `next/dynamic` or `import()` is missing
+ * offline and the page crashes. Each build gets its own cache.
  */
 
-const CACHE = "bitfocus-v3";
+try {
+  importScripts("/sw-precache.js");
+} catch {
+  // No list (e.g. build ran without the script): fall back to scanning pages.
+}
+
+const PRECACHE = self.__BITFOCUS_PRECACHE || { version: "dev", assets: [] };
+const CACHE = `bitfocus-${PRECACHE.version}`;
 
 const PAGES = [
   "/",
@@ -24,7 +34,6 @@ const PAGES = [
   "/projects",
   "/rewards",
   "/changelog",
-  "/excalidraw",
   "/ai",
   "/settings",
 ];
@@ -46,13 +55,31 @@ function assetsIn(html) {
   return [...found];
 }
 
+/**
+ * Store hashed build assets, a batch at a time. Files kept from an earlier
+ * build are copied across instead of downloaded again — their names change
+ * whenever their contents do.
+ */
+async function precacheAssets(cache, urls) {
+  const BATCH = 24;
+  for (let i = 0; i < urls.length; i += BATCH) {
+    await Promise.allSettled(
+      urls.slice(i, i + BATCH).map(async (url) => {
+        const previous = await caches.match(url);
+        if (previous) await cache.put(url, previous);
+        else await cache.add(url);
+      })
+    );
+  }
+}
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
       const cache = await caches.open(CACHE);
       await Promise.allSettled(STATIC_ASSETS.map((url) => cache.add(url)));
 
-      const assets = new Set();
+      const assets = new Set(PRECACHE.assets);
       await Promise.allSettled(
         PAGES.map(async (url) => {
           const response = await fetch(url, { credentials: "same-origin" });
@@ -61,7 +88,7 @@ self.addEventListener("install", (event) => {
           for (const asset of assetsIn(await response.text())) assets.add(asset);
         })
       );
-      await Promise.allSettled([...assets].map((url) => cache.add(url)));
+      await precacheAssets(cache, [...assets]);
       await self.skipWaiting();
     })()
   );

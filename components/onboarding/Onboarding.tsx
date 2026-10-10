@@ -517,7 +517,6 @@ const RESTORED_LABELS: Record<string, [string, string]> = {
   milestones: ["milestone", "milestones"],
   issues: ["issue", "issues"],
   notes: ["note", "notes"],
-  excalidraw: ["drawing", "drawings"],
   aiChats: ["chat", "chats"],
   timeblocks: ["timeblock", "timeblocks"],
   rewards: ["reward", "rewards"],

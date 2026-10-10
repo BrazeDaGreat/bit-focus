@@ -54,7 +54,7 @@ import {
 } from "react-icons/fa6";
 import { IoIosTimer } from "react-icons/io";
 import { GiTomato } from "react-icons/gi";
-import { TbPictureInPicture } from "react-icons/tb";
+import { TbDeviceMobileRotated, TbPictureInPicture } from "react-icons/tb";
 import TagBadge from "@/components/TagBadge";
 import { EditFocusSession } from "./EditFocusSection";
 import GraphDialog from "./Graph";
@@ -63,6 +63,7 @@ import PomodoroSettings from "@/components/PomodoroSettings";
 import { pipSupported, usePipWindow } from "@/hooks/usePipWindow";
 import { toast } from "sonner";
 import YouTubePlayer from "@/components/YouTubePlayer";
+import LandscapeTimer from "@/components/LandscapeTimer";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useRouter } from "next/navigation";
 import {
@@ -87,6 +88,14 @@ export default function Focus(): JSX.Element {
 
   const [showSettings, setShowSettings] = useState(false);
   const [showYouTube, setShowYouTube] = useState(false);
+  const [showLandscape, setShowLandscape] = useState(false);
+  // Phones held sideways are wider than the mobile breakpoint, so touch input
+  // also counts when offering the landscape timer.
+  const [touchDevice] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(pointer: coarse)").matches
+  );
 
   useEffect(() => {
     loadFocusSessions();
@@ -217,7 +226,15 @@ export default function Focus(): JSX.Element {
                 />
               )}
 
-              {!isMobile && (
+              {(isMobile || touchDevice) && (
+                <DockButton
+                  onClick={() => setShowLandscape(true)}
+                  title="Open landscape timer"
+                  icon={<TbDeviceMobileRotated className="size-4" />}
+                />
+              )}
+
+              {!isMobile && !touchDevice && (
                 <DockButton
                   onClick={openPip}
                   title="Open picture in picture"
@@ -240,6 +257,10 @@ export default function Focus(): JSX.Element {
       >
         <RecentSessions sessions={focusSessions} />
       </section>
+
+      {showLandscape && (
+        <LandscapeTimer onClose={() => setShowLandscape(false)} />
+      )}
 
       {/* ── Pomodoro settings ───────────────────────────────────────────── */}
       <ResponsiveDialog
