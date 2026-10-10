@@ -60,7 +60,7 @@ export default function BITFdata(): JSX.Element {
    */
   const handleExport = async (): Promise<void> => {
     try {
-      await SaveManager.exportData();
+      await SaveManager.exportData({ includeAttachments: true });
       toast.success("Backup exported successfully!");
     } catch (err) {
       console.error(err);
@@ -133,7 +133,7 @@ export default function BITFdata(): JSX.Element {
       toast.info("Uploading BITF data to Discord...");
 
       // Get the exported data as JSON
-      const data = await SaveManager.exportJSON();
+      const data = await SaveManager.exportJSON({ includeAttachments: true });
 
       // Create a blob and file from the JSON data
       const jsonString = JSON.stringify(data, null, 2);

@@ -18,7 +18,7 @@ No installation or account is required. Complete onboarding, choose your tags an
 
 BIT Focus is designed around a practical daily loop:
 
-1. Plan work with projects, milestones, issues, and calendar timeblocks.
+1. Plan work with projects, tasks, deadlines, estimates, and calendar timeblocks.
 2. Start a standard or Pomodoro focus session from any page.
 3. Compare planned time with completed sessions and review trends by tag.
 4. Use earned points for self-defined rewards.
@@ -37,9 +37,12 @@ BIT Focus is designed around a practical daily loop:
 
 ### Planning and project work
 
-- Projects with statuses, semantic versions, notes, and quick links
-- Milestones with budgets, deadlines, and payment states
-- Issues with labels, due dates, descriptions, and completion states
+- Projects containing tasks directly, with Inbox, Today, Upcoming, tag views, saved filters, Completed, and Trash
+- Tasks with existing tags, primary focus tag, deadlines, priorities, estimates, notes, and optional sections
+- List search, sorting, grouping, manual ordering, bulk editing, restore, and project archiving
+- Task-linked standard/Pomodoro sessions, estimated versus actual time, and task results in Home's weekly review
+- Task deadlines on the existing calendar, plus multiple linked calendar blocks per task
+- Automatic migration of older issues and todo records, retaining milestone budgets/payment states and older backups
 - Day and week calendar views for planned timeblocks and actual focus sessions
 - Drag-to-create, move, resize, edit, and filter timeblocks
 
@@ -55,7 +58,6 @@ BIT Focus is designed around a practical daily loop:
 ### Personal workspace
 
 - Custom rewards, discounts, point loans, and redemptions
-- Multi-scene Excalidraw whiteboard with automatic local saves
 - Context-aware AI chat using your own Groq or Google API key
 - `.bitf.json` export and import for portable backups
 - Optional accounts with two-way sync, conflict resolution, and manual upload/download controls
@@ -97,6 +99,8 @@ Useful commands:
 | `pnpm dev` | Start the Turbopack development server |
 | `pnpm build` | Create a production build |
 | `pnpm start` | Serve the production build |
+| `pnpm test` | Task migration, backup, sync, and date regression tests |
+| `pnpm test:e2e` | Desktop/mobile task workflows (dev server on port 3001) |
 | `pnpm lint` | Run the configured Next.js lint command |
 
 No environment variables are required for local-only use. The AI providers use API keys entered in the app.
@@ -149,7 +153,7 @@ BIT Focus uses:
 - [Zustand](https://zustand.docs.pmnd.rs/) and React Context for application state
 - [PocketBase](https://pocketbase.io/) for optional authentication and sync
 - [Recharts](https://recharts.org/) and React Big Calendar for analytics and scheduling
-- [Excalidraw](https://excalidraw.com/) and TipTap for workspace tools
+- [TipTap](https://tiptap.dev/) for rich text notes
 - [Vercel AI SDK](https://ai-sdk.dev/) and assistant-ui for optional AI chat
 
 The main application routes live in `app/`, shared interface components in `components/`, state stores and contexts in `hooks/`, and persistence/integration code in `lib/`.
@@ -157,3 +161,12 @@ The main application routes live in `app/`, shared interface components in `comp
 ## License
 
 BIT Focus is available under the [MIT License](./LICENSE.md).
+### Projects-to-tasks upgrade
+
+Database version 13 converts issues into tasks with stable identities, preserving project notes and links, issue dates and completion, and milestone names as optional sections. Original milestone budgets, deadlines, payment states, and project versions remain available under Previous milestone details. Old issue labels can be mapped to existing tags in task details.
+
+Task deadlines, estimates, and focus time are distinct. Date-only deadlines retain their calendar day across time zones. Existing focus history is kept; only sessions started from a task gain task/project attribution. Calendar blocks can link to a task without adding scheduling fields to the task.
+
+The upgrade resets the sync pull cursor once, allowing previously unknown task records to be fetched. Use the updated app on each device; older clients still operate on the retained issue records and do not understand task edits. Tasks and saved filters use the existing generic sync collection. No backend collection is added. New backups include tasks, saved filters, and task links; older BIT Focus backups are converted when restored.
+
+Run `pnpm test` for persistence regressions. For browser checks, install Chromium with `pnpm exec playwright install chromium`, start `pnpm dev --port 3001`, then run `pnpm test:e2e`.

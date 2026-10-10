@@ -123,9 +123,6 @@ export interface SyncCollection {
 /** Fixed uid used by singleton collections. */
 export const SINGLETON_UID = "singleton";
 
-/** The scratch scene Excalidraw rewrites continuously; never worth syncing. */
-export const AUTOSAVE_SCENE_ID = "__autosave__";
-
 /**
  * Every synced collection, in dependency order.
  *
@@ -187,7 +184,7 @@ export const COLLECTIONS: readonly SyncCollection[] = [
     pk: "id",
     autoKey: true,
     uidField: "uid",
-    dates: ["createdAt", "updatedAt"],
+    dates: ["createdAt", "updatedAt", "deletedAt"],
     // Notes nest inside other notes, so the reference points back at itself.
     // Two passes on apply settle any ordering the server hands us.
     refs: [{ field: "parentId", target: "notes" }],
@@ -239,6 +236,15 @@ export const COLLECTIONS: readonly SyncCollection[] = [
     },
   },
   {
+    key: "noteAssets",
+    table: () => db.noteAssets as unknown as Dexie.Table<LocalRow, string | number>,
+    pk: "id",
+    autoKey: true,
+    uidField: "uid",
+    dates: ["createdAt", "updatedAt"],
+    order: 3,
+  },
+  {
     key: "projects",
     table: () => db.projects as unknown as Dexie.Table<LocalRow, string | number>,
     pk: "id",
@@ -258,6 +264,37 @@ export const COLLECTIONS: readonly SyncCollection[] = [
     order: 4,
   },
   {
+    key: "tasks",
+    table: () => db.tasks as unknown as Dexie.Table<LocalRow, string | number>,
+    pk: "id", autoKey: true, uidField: "uid",
+    dates: ["dueDate", "completedAt", "deletedAt", "createdAt", "updatedAt"],
+    refs: [{ field: "projectId", target: "projects" }, { field: "parentId", target: "tasks" }], order: 4,
+  },
+  {
+    key: "taskFilters",
+    table: () => db.taskFilters as unknown as Dexie.Table<LocalRow, string | number>,
+    pk: "id", autoKey: true, uidField: "uid", dates: ["createdAt", "updatedAt"], order: 4,
+    encode: async (wire, cache) => {
+      const criteria = { ...(wire.criteria as Record<string, unknown>) };
+      if (typeof criteria.projectId === "number") {
+        criteria.projectUid = await cache.uidFor(COLLECTION_BY_KEY.get("projects")!, criteria.projectId);
+        delete criteria.projectId;
+      }
+      wire.criteria = criteria;
+    },
+    decode: async (row, cache) => {
+      const criteria = { ...(row.criteria as Record<string, unknown>) };
+      if (typeof criteria.projectUid === "string") {
+        const id = await cache.localIdFor(COLLECTION_BY_KEY.get("projects")!, criteria.projectUid);
+        if (id === null) return [criteria.projectUid];
+        criteria.projectId = id;
+        delete criteria.projectUid;
+      }
+      row.criteria = criteria;
+      return [];
+    },
+  },
+  {
     key: "issues",
     table: () => db.issues as unknown as Dexie.Table<LocalRow, string | number>,
     pk: "id",
@@ -266,16 +303,6 @@ export const COLLECTIONS: readonly SyncCollection[] = [
     dates: ["dueDate", "createdAt", "updatedAt"],
     refs: [{ field: "milestoneId", target: "milestones" }],
     order: 5,
-  },
-  {
-    key: "excalidraw",
-    table: () => db.excalidraw as unknown as Dexie.Table<LocalRow, string | number>,
-    pk: "id",
-    autoKey: false,
-    uidField: "uid",
-    dates: ["createdAt", "updatedAt"],
-    order: 6,
-    skipKeys: [AUTOSAVE_SCENE_ID],
   },
   {
     key: "aiChats",

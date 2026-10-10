@@ -35,11 +35,13 @@
 
 import { create } from "zustand";
 import db, { QuickLink } from "@/lib/db";
+import { useTasks } from "@/hooks/useTasks";
 
 /**
  * Project Data Interface
  */
 export interface Project {
+  uid?: string;
   /** Unique project identifier */
   id?: number;
   /** Project title */
@@ -50,6 +52,8 @@ export interface Project {
   version: string;
   /** Markdown-enabled notes */
   notes: string;
+  /** lucide-react icon name (PascalCase, e.g. "GraduationCap"); unset = default icon */
+  icon?: string;
   /** Creation timestamp */
   createdAt: Date;
   /** Last update timestamp */
@@ -277,7 +281,9 @@ export const useProjects = create<ProjectsState>((set, get) => ({
    */
   addProject: async (title, status, version, notes) => {
     const now = new Date();
+    const uid = crypto.randomUUID();
     const id = await db.projects.add({
+      uid,
       title,
       status,
       version,
@@ -292,6 +298,7 @@ export const useProjects = create<ProjectsState>((set, get) => ({
         ...state.projects,
         {
           id,
+          uid,
           title,
           status,
           version,
@@ -322,26 +329,56 @@ export const useProjects = create<ProjectsState>((set, get) => ({
    * Delete Project and Associated Data
    */
   deleteProject: async (id) => {
-    // Get all milestones for this project
-    const projectMilestones = get().milestones.filter(
-      (m) => m.projectId === id
+    let milestoneIds: number[] = [];
+    const removedTasks = new Set<number>();
+    const removedIssues = new Set<number>();
+    await db.transaction(
+      "rw",
+      [
+        db.projects,
+        db.milestones,
+        db.issues,
+        db.tasks,
+        db.taskAttachments,
+        db.table("tasks"),
+      ],
+      async () => {
+        const projectMilestones = await db.milestones
+          .where("projectId").equals(id).toArray();
+        milestoneIds = projectMilestones.map((milestone) => milestone.id!);
+        const projectTasks = await db.tasks.where("projectId").equals(id).toArray();
+        for (const task of projectTasks) {
+          // Remove migration sources so a reload cannot recreate deleted tasks.
+          if (task.legacyIssueUid) {
+            const source = db.issues.where("uid").equals(task.legacyIssueUid);
+            for (const issueId of await source.primaryKeys())
+              removedIssues.add(issueId);
+            await source.delete();
+          }
+          if (task.uid?.startsWith("old-task:"))
+            await db.table("tasks")
+              .filter((row) => `old-task:${row.uid}` === task.uid).delete();
+          if (task.uid)
+            await db.taskAttachments.where("taskUid").equals(task.uid).delete();
+          removedTasks.add(task.id!);
+        }
+        await db.tasks.bulkDelete([...removedTasks]);
+        await db.issues.where("milestoneId").anyOf(milestoneIds).delete();
+        await db.milestones.where("projectId").equals(id).delete();
+        await db.projects.delete(id);
+      },
     );
-    const milestoneIds = projectMilestones.map((m) => m.id!);
-
-    // Delete all issues for these milestones
-    await db.issues.where("milestoneId").anyOf(milestoneIds).delete();
-
-    // Delete all milestones for this project
-    await db.milestones.where("projectId").equals(id).delete();
-
-    // Delete the project
-    await db.projects.delete(id);
 
     // Update state
     set((state) => ({
       projects: state.projects.filter((p) => p.id !== id),
       milestones: state.milestones.filter((m) => m.projectId !== id),
-      issues: state.issues.filter((i) => !milestoneIds.includes(i.milestoneId)),
+      issues: state.issues.filter(
+        (i) => !milestoneIds.includes(i.milestoneId) && !removedIssues.has(i.id!),
+      ),
+    }));
+    useTasks.setState((state) => ({
+      tasks: state.tasks.filter((task) => !removedTasks.has(task.id!)),
     }));
   },
 

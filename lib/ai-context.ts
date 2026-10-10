@@ -14,7 +14,8 @@
 
 import dayjs from "dayjs";
 import type { FocusSession } from "@/hooks/useFocus";
-import type { Issue, Milestone, Project } from "@/hooks/useProjects";
+import type { Project } from "@/hooks/useProjects";
+import { taskDeadline, taskMinutes, descriptionText, type Task } from "./tasks";
 import { reduceSessions } from "@/lib/utils";
 
 export type ContextSourceId =
@@ -38,7 +39,7 @@ export const CONTEXT_SOURCES: ContextSourceMeta[] = [
   { id: "focus7", label: "Last 7 days", description: "Daily focus totals" },
   { id: "focus30", label: "Last 30 days", description: "Weekly focus totals" },
   { id: "tags", label: "Tags", description: "Time per tag, last 30 days" },
-  { id: "projects", label: "Projects", description: "Open issues and due dates" },
+  { id: "projects", label: "Projects", description: "Tasks, deadlines, estimates and actual time" },
   { id: "rewards", label: "Points", description: "Reward point balance" },
 ];
 
@@ -49,8 +50,7 @@ export interface ContextInput {
   rewardPoints?: number;
   focusSessions: FocusSession[];
   projects?: Project[];
-  milestones?: Milestone[];
-  issues?: Issue[];
+  tasks?: Task[];
   timer?: {
     mode: string;
     phase: string;
@@ -156,18 +156,10 @@ export function buildContextBlock(
 
     case "projects": {
       const projects = input.projects ?? [];
-      const milestones = input.milestones ?? [];
-      const issues = input.issues ?? [];
-      if (projects.length === 0) return null;
-      const lines = projects.map((project) => {
-        const ms = milestones.filter((m) => m.projectId === project.id);
-        const open = issues.filter(
-          (i) =>
-            i.status === "Open" && ms.some((m) => m.id === i.milestoneId)
-        ).length;
-        return `${project.title} (${project.status}) — ${ms.length} milestones, ${open} open issues`;
-      });
-      return `## Projects\n${lines.join("\n")}`;
+      const tasks = (input.tasks ?? []).filter((t) => !t.deletedAt);
+      if (!projects.length && !tasks.length) return null;
+      const lines = tasks.slice(0, 150).map((task) => `${task.title} [${projects.find((p) => p.id === task.projectId)?.title || "Inbox"}] — ${task.completedAt ? "completed" : "active"}; parentId ${task.parentId ?? "none"}; notes ${descriptionText(task.description)}; priority ${task.priority}; tags ${task.tags.join(", ") || "none"}; deadline ${taskDeadline(task) ? dayjs(taskDeadline(task)).format(task.dueTime ? "YYYY-MM-DD HH:mm" : "YYYY-MM-DD") : "none"}; estimate ${task.estimateMinutes}m; actual ${Math.round(taskMinutes(task, input.focusSessions))}m`);
+      return `## Projects and tasks\n${projects.map((p) => `${p.title} (${p.status === "Closed" ? "archived" : "active"})`).join("\n")}\n${lines.join("\n")}`;
     }
 
     case "rewards":

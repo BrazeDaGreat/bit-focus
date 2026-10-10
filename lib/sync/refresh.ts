@@ -26,6 +26,8 @@ type Reloader = () => Promise<unknown>;
 
 /** Registry key to the store loaders that read it. */
 const RELOADERS: Record<string, Reloader> = {
+  tasks: () => import("@/hooks/useTasks").then((m) => m.useTasks.getState().loadTasks()),
+  taskFilters: () => import("@/hooks/useTasks").then((m) => m.useTasks.getState().loadTasks()),
   configuration: () =>
     import("@/hooks/useConfig").then((m) => m.useConfig.getState().loadConfig()),
   focus: () =>
@@ -54,10 +56,6 @@ const RELOADERS: Record<string, Reloader> = {
     import("@/hooks/useProjects").then((m) =>
       m.useProjects.getState().loadProjects(),
     ),
-  excalidraw: () =>
-    import("@/hooks/useExcalidraw").then((m) =>
-      m.useExcalidraw.getState().loadScenes(),
-    ),
   aiChats: () =>
     import("@/hooks/useAIChat").then((m) => m.useAIChat.getState().loadChats()),
 };
@@ -79,6 +77,9 @@ const KV_RELOADERS: Record<string, Reloader> = {
  * @param report - What the apply pass changed.
  */
 export async function refreshStores(report: ApplyReport): Promise<void> {
+  if (["projects", "milestones", "issues"].some((col) => report.touched.has(col))) {
+    await import("@/hooks/useTasks").then((m) => m.useTasks.getState().loadTasks());
+  }
   const pending = new Set<Reloader>();
 
   for (const col of report.touched) {

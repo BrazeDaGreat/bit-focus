@@ -7,7 +7,7 @@ export type { TimeBlock };
 interface TimeblocksState {
   timeblocks: TimeBlock[];
   loadingTimeblocks: boolean;
-  addTimeblock: (tag: string, startTime: Date, endTime: Date, title?: string) => Promise<void>;
+  addTimeblock: (tag: string, startTime: Date, endTime: Date, title?: string, attribution?: Pick<TimeBlock, "taskUid" | "projectUid">) => Promise<void>;
   loadTimeblocks: () => Promise<void>;
   removeTimeblock: (id: number) => Promise<void>;
   editTimeblock: (id: number, updates: Partial<TimeBlock>) => Promise<void>;
@@ -17,10 +17,10 @@ export const useTimeblocks = create<TimeblocksState>((set) => ({
   timeblocks: [],
   loadingTimeblocks: true,
 
-  addTimeblock: async (tag, startTime, endTime, title) => {
-    const id = await db.timeblocks.add({ tag, startTime, endTime, title });
+  addTimeblock: async (tag, startTime, endTime, title, attribution = {}) => {
+    const id = await db.timeblocks.add({ tag, startTime, endTime, title, ...attribution });
     set((state) => ({
-      timeblocks: [{ id, tag, startTime, endTime, title }, ...state.timeblocks],
+      timeblocks: [{ id, tag, startTime, endTime, title, ...attribution }, ...state.timeblocks],
     }));
   },
 

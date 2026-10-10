@@ -57,6 +57,7 @@ import {
   FaStopwatch,
   FaBullseye,
   FaDiagramProject,
+  FaFileLines,
   FaTags,
   FaGift,
   FaPlus,
@@ -96,12 +97,17 @@ const FEATURES = [
   {
     icon: FaDiagramProject,
     title: "Projects",
-    desc: "Group work into projects, milestones, and issues.",
+    desc: "Organize tasks with projects, tags, deadlines, and estimates.",
   },
   {
     icon: FaTags,
     title: "Tags",
     desc: "Label time by what you were actually doing.",
+  },
+  {
+    icon: FaFileLines,
+    title: "Notes",
+    desc: "Write rich pages and keep related ideas together in a tree.",
   },
   {
     icon: FaGift,
@@ -517,7 +523,7 @@ const RESTORED_LABELS: Record<string, [string, string]> = {
   milestones: ["milestone", "milestones"],
   issues: ["issue", "issues"],
   notes: ["note", "notes"],
-  excalidraw: ["drawing", "drawings"],
+  noteAssets: ["note image", "note images"],
   aiChats: ["chat", "chats"],
   timeblocks: ["timeblock", "timeblocks"],
   rewards: ["reward", "rewards"],

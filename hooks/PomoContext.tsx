@@ -109,6 +109,7 @@ export interface FocusSegment {
  * Manages both standard and Pomodoro timer functionality
  */
 export interface PomoState {
+  task?: { uid: string; projectUid?: string; title: string; tag: string } | null;
   /** Whether the timer is currently running */
   isRunning: boolean;
   /** Start timestamp for the current session */
@@ -230,7 +231,7 @@ function normalizeSettings(raw: Partial<PomodoroSettings> | null | undefined): P
  * Defines all possible state mutations for the timer
  */
 type Action =
-  | { type: "START"; payload: { startTime: number; now: number } }
+  | { type: "START"; payload: { startTime: number; now: number; task?: PomoState["task"] } }
   | { type: "PAUSE"; payload: { elapsedSeconds: number; now: number } }
   | { type: "RESET" }
   | { type: "UPDATE"; payload: { elapsedSeconds: number } }
@@ -261,6 +262,7 @@ function pomoReducer(state: PomoState, action: Action): PomoState {
         ...state,
         isRunning: true,
         startTime: action.payload.startTime,
+        task: action.payload.task === undefined ? state.task : action.payload.task,
         segments: continues ? state.segments.slice(0, -1) : state.segments,
         segmentStart: continues ? last.start : now,
       };
@@ -286,6 +288,7 @@ function pomoReducer(state: PomoState, action: Action): PomoState {
         ...state,
         isRunning: false,
         elapsedSeconds: 0,
+        task: null,
         startTime: null,
         phase: "focus",
         isLongBreak: false,
@@ -376,6 +379,7 @@ function pomoReducer(state: PomoState, action: Action): PomoState {
 const PomoContext = createContext<{
   state: PomoState;
   start: () => void;
+  startTask: (task: NonNullable<PomoState["task"]>) => void;
   pause: () => void;
   reset: () => void;
   setMode: (mode: TimerMode) => void;
@@ -399,7 +403,15 @@ const LS = {
   extension: "pomoExtension",
   segments: "pomoSegments",
   segmentStart: "pomoSegmentStart",
+  task: "pomoTask",
 } as const;
+
+function readTask(): PomoState["task"] {
+  try {
+    const task = JSON.parse(localStorage.getItem(LS.task) || "null");
+    return task && typeof task.uid === "string" && typeof task.title === "string" && typeof task.tag === "string" ? task : null;
+  } catch { return null; }
+}
 
 const INITIAL_STATE: PomoState = {
   isRunning: false,
@@ -514,10 +526,12 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const sessionTag = env.tag || "Focus";
+      const sessionTag = s.task?.tag || env.tag || "Focus";
       env.addPoints(Math.floor(elapsedSeconds / 60));
       for (const seg of sessionSegments(s, endTime)) {
-        void env.addFocusSession(sessionTag, new Date(seg.start), new Date(seg.end));
+        void env.addFocusSession(sessionTag, new Date(seg.start), new Date(seg.end), {
+          taskUid: s.task?.uid, projectUid: s.task?.projectUid,
+        }).catch(() => toast.error("Could not save your focus session. Check browser storage."));
       }
 
       toast(`${kind} completed: ${formatTime(elapsedSeconds / 60, 0, 1)} minutes.`, {
@@ -596,6 +610,7 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
     dispatch({
       type: "RESTORE_STATE",
       payload: {
+        task: readTask(),
         elapsedSeconds,
         mode,
         pomodoroSettings,
@@ -611,6 +626,11 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
     });
     setRestored(true);
   }, []);
+
+  useEffect(() => {
+    if (!restored) return;
+    try { localStorage.setItem(LS.task, JSON.stringify(state.task ?? null)); } catch {}
+  }, [restored, state.task]);
 
   // Persist timer state
   useEffect(() => {
@@ -840,6 +860,19 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
   // changes, not whenever an unrelated store this provider reads updates.
   const contextValue = useMemo(() => ({
     state,
+    startTask: (task: NonNullable<PomoState["task"]>) => {
+      const s = stateRef.current;
+      if (s.task?.uid === task.uid && s.isRunning) return;
+      const now = Date.now();
+      const elapsed = liveElapsed(s, now);
+      if ((s.mode === "standard" || s.phase === "focus") && elapsed >= 60) {
+        finishSession(s, now, elapsed, s.mode === "pomodoro" ? "Pomodoro session" : "Focus session", false);
+      }
+      useTag.getState().setTag(task.tag);
+      dispatch({ type: "RESET" });
+      dispatch({ type: "START", payload: { startTime: now, now, task } });
+      announce(`Started focusing on ${task.title}.`);
+    },
     start: () => {
       const s = stateRef.current;
       if (s.isRunning) return;

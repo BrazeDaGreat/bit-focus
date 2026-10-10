@@ -76,7 +76,8 @@ export default function MiniTimer({
     mode === "pomodoro"
       ? `${phaseLabel(state)} · ${cycle.current}/${cycle.total}`
       : "Standard";
-  const tagColor = savedTags.find((t) => t.t === tag)?.c;
+  const sessionTag = state.task?.tag || tag;
+  const tagColor = savedTags.find((t) => t.t === sessionTag)?.c;
 
   const applyCustomTag = () => {
     const t = customTag.trim();
@@ -98,6 +99,7 @@ export default function MiniTimer({
         </div>
       )}
 
+      {state.task && <button onClick={() => router.push(`/projects?task=${encodeURIComponent(state.task!.uid)}`)} className="mt-2 block w-full truncate rounded-lg bg-primary/12 px-2 py-2 text-left text-xs text-primary">{state.task.title}</button>}
       {/* Mode toggle */}
       <div className={cn("flex items-center gap-1 rounded-full bg-muted p-1", showStatus && "mt-3")}>
         <button
@@ -129,7 +131,7 @@ export default function MiniTimer({
       </div>
 
       {/* Tag selection */}
-      <div className="mt-5 md:mt-3">
+      {state.task ? <p className="mt-3 text-xs text-muted-foreground">Saved under #{sessionTag}. Choose another primary tag in task details before starting a new session.</p> : <div className="mt-5 md:mt-3">
         <label
           htmlFor="mini-timer-tag"
           className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground"
@@ -201,7 +203,7 @@ export default function MiniTimer({
             </button>
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Actions */}
       <div className="mt-5 grid grid-cols-2 gap-3 border-t pt-4 md:mt-3 md:flex md:items-center md:justify-between md:gap-2 md:pt-3">

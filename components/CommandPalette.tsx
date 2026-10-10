@@ -26,6 +26,9 @@ import { useTag } from "@/hooks/useTag";
 import { useFocusGoal, GOAL_PRESETS } from "@/hooks/useFocusGoal";
 import { useConfig, type FeatureKey } from "@/hooks/useConfig";
 import { useProjects } from "@/hooks/useProjects";
+import { useNotes } from "@/hooks/useNotes";
+import { isTrashed, noteHref, noteTitle } from "@/lib/notes";
+import { ProjectIcon } from "@/components/tasks/ProjectIcon";
 import { useNotepad } from "@/hooks/useNotepad";
 import { useCommandPalette, useShortcutsDialog } from "@/hooks/useShortcuts";
 import { pipSupported, usePipWindow } from "@/hooks/usePipWindow";
@@ -60,8 +63,8 @@ const PAGES: { title: string; url: string; key?: string; feature?: FeatureKey }[
   { title: "Focus Table", url: "/focus-table", key: "T" },
   { title: "Calendar", url: "/calendar", key: "C", feature: "calendar" },
   { title: "Projects", url: "/projects", key: "P", feature: "projects" },
+  { title: "Notes", url: "/notes", key: "O", feature: "notes" },
   { title: "AI Chat", url: "/ai", key: "G", feature: "aiChat" },
-  { title: "Excalidraw", url: "/excalidraw", key: "E", feature: "excalidraw" },
   { title: "Rewards", url: "/rewards", key: "R", feature: "rewards" },
   { title: "Changelog", url: "/changelog", key: "L" },
   { title: "Settings", url: "/settings", key: "S" },
@@ -77,10 +80,17 @@ export default function CommandPalette(): JSX.Element {
   const { goalMinutes, setGoal, clearGoal } = useFocusGoal();
   const { featureToggles } = useConfig();
   const { projects, loadProjects } = useProjects();
+  const { notes, loadNotes } = useNotes();
 
   useEffect(() => {
     if (paletteOpen && featureToggles.projects) loadProjects();
   }, [paletteOpen, featureToggles.projects, loadProjects]);
+
+  useEffect(() => {
+    if (paletteOpen && featureToggles.notes) {
+      void loadNotes().catch(() => toast.error("Could not load notes"));
+    }
+  }, [paletteOpen, featureToggles.notes, loadNotes]);
 
   useEffect(() => {
     if (!paletteOpen) setSearch("");
@@ -137,7 +147,7 @@ export default function CommandPalette(): JSX.Element {
         <Command.Input
           value={search}
           onValueChange={setSearch}
-          placeholder="Type a command, page, tag or project…"
+          placeholder="Type a command, page, tag, project or note…"
           className="h-12 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
         <Kbd className="shrink-0">Esc</Kbd>
@@ -290,6 +300,25 @@ export default function CommandPalette(): JSX.Element {
           </Command.Group>
         )}
 
+        {featureToggles.notes && (
+          <Command.Group heading="Notes">
+            <Item icon={<FaPlus />} onSelect={run(() => router.push("/notes?new=1"))} keywords={["notes", "create"]}>
+              New page
+            </Item>
+            {notes.filter((note) => !isTrashed(note)).map((note) => (
+              <Item
+                key={note.uid ?? note.id}
+                icon={<ProjectIcon name={note.icon ?? "FileText"} />}
+                onSelect={run(() => router.push(noteHref(note)))}
+                value={`note ${note.uid ?? note.id} ${noteTitle(note)}`}
+                keywords={["notes", "page", noteTitle(note)]}
+              >
+                {noteTitle(note)}
+              </Item>
+            ))}
+          </Command.Group>
+        )}
+
         {/* ── App ── */}
         <Command.Group heading="App">
           <Item
@@ -317,7 +346,7 @@ export default function CommandPalette(): JSX.Element {
           <Item
             icon={<FaFileExport />}
             onSelect={run(() => {
-              SaveManager.exportData()
+              SaveManager.exportData({ includeAttachments: true })
                 .then(() => toast.success("Backup exported."))
                 .catch(() => toast.error("Export failed. Try again from the data menu."));
             })}

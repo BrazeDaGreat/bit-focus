@@ -29,12 +29,11 @@ import {
   FaProjectDiagram,
   FaCoffee,
   FaCalendarAlt,
-  FaPenNib,
   FaTable,
 } from "react-icons/fa";
 import { BsStars } from "react-icons/bs";
 import { IoIosTimer } from "react-icons/io";
-import { FaReadme, FaUser, FaChevronRight, FaGear, FaMagnifyingGlass } from "react-icons/fa6";
+import { FaReadme, FaUser, FaChevronRight, FaGear, FaMagnifyingGlass, FaFileLines } from "react-icons/fa6";
 import { THEMES, type ThemeDefinition } from "@/lib/ThemeManager";
 import { useTheme } from "next-themes";
 import AccountAvatar from "./auth/AccountAvatar";
@@ -65,13 +64,13 @@ const pinnedItems: NavItem[] = [
   { title: "Focus", url: "/focus", icon: <IoIosTimer /> },
   { title: "Calendar", url: "/calendar", icon: <FaCalendarAlt />, feature: "calendar" },
   { title: "Projects", url: "/projects", icon: <FaProjectDiagram />, feature: "projects" },
+  { title: "Notes", url: "/notes", icon: <FaFileLines />, feature: "notes" },
 ];
 
 /** Occasional destinations: tucked under "More" until needed. */
 const moreItems: NavItem[] = [
   { title: "Focus Table", url: "/focus-table", icon: <FaTable /> },
   { title: "AI Chat (BETA)", url: "/ai", icon: <BsStars />, feature: "aiChat" },
-  { title: "Excalidraw", url: "/excalidraw", icon: <FaPenNib />, feature: "excalidraw" },
   { title: "Rewards", url: "/rewards", icon: <FaCoffee />, feature: "rewards" },
   { title: "Changelog", url: "/changelog", icon: <FaReadme /> },
   { title: "Settings", url: "/settings", icon: <FaGear /> },

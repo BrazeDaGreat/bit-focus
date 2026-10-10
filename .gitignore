@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
 
 # next.js
 /.next/
@@ -35,6 +37,9 @@ yarn-error.log*
 
 # vercel
 .vercel
+
+# generated after build by scripts/generate-sw-precache.mjs
+/public/sw-precache.js
 
 # typescript
 *.tsbuildinfo

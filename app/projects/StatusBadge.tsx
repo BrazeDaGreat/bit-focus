@@ -1,8 +1,7 @@
-import { Badge } from "@/components/ui/badge";
-import { Project } from "@/hooks/useProjects";
+import type { Project } from "@/hooks/useProjects";
 import { cn } from "@/lib/utils";
 import { type JSX } from "react";
-import { MdCheck, MdPlayArrow, MdSchedule } from "react-icons/md";
+import { Check, Play, Clock3 } from "lucide-react";
 
 /**
  * Status Badge Component
@@ -13,31 +12,37 @@ import { MdCheck, MdPlayArrow, MdSchedule } from "react-icons/md";
  * @param {Project["status"]} props.status - The project status
  * @returns {JSX.Element} Styled status badge
  */
-export default function StatusBadge({ status }: { status: Project["status"] }): JSX.Element {
+export default function StatusBadge({
+  status,
+}: {
+  status: Project["status"];
+}): JSX.Element {
   const configs = {
     Scheduled: {
-      icon: <MdSchedule />,
-      variant: "outline" as const,
-      color: "text-yellow-600",
+      icon: <Clock3 className="size-3" />,
+      color: "bg-muted/60 text-muted-foreground",
     },
     Active: {
-      icon: <MdPlayArrow />,
-      variant: "outline" as const,
-      color: "text-green-600",
+      icon: <Play className="size-3" />,
+      color: "bg-primary/12 text-primary",
     },
     Closed: {
-      icon: <MdCheck />,
-      variant: "outline" as const,
-      color: "text-gray-600",
+      icon: <Check className="size-3" />,
+      color: "bg-muted/60 text-muted-foreground",
     },
   };
 
   const config = configs[status];
 
   return (
-    <Badge variant={config.variant} className={cn("gap-1", config.color)}>
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs",
+        config.color,
+      )}
+    >
       {config.icon}
       {status}
-    </Badge>
+    </span>
   );
 }

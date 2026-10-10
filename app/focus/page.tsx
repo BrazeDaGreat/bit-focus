@@ -54,7 +54,7 @@ import {
 } from "react-icons/fa6";
 import { IoIosTimer } from "react-icons/io";
 import { GiTomato } from "react-icons/gi";
-import { TbPictureInPicture } from "react-icons/tb";
+import { TbDeviceMobileRotated, TbPictureInPicture } from "react-icons/tb";
 import TagBadge from "@/components/TagBadge";
 import { EditFocusSession } from "./EditFocusSection";
 import GraphDialog from "./Graph";
@@ -63,6 +63,7 @@ import PomodoroSettings from "@/components/PomodoroSettings";
 import { pipSupported, usePipWindow } from "@/hooks/usePipWindow";
 import { toast } from "sonner";
 import YouTubePlayer from "@/components/YouTubePlayer";
+import LandscapeTimer from "@/components/LandscapeTimer";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useRouter } from "next/navigation";
 import {
@@ -87,6 +88,14 @@ export default function Focus(): JSX.Element {
 
   const [showSettings, setShowSettings] = useState(false);
   const [showYouTube, setShowYouTube] = useState(false);
+  const [showLandscape, setShowLandscape] = useState(false);
+  // Phones held sideways are wider than the mobile breakpoint, so touch input
+  // also counts when offering the landscape timer.
+  const [touchDevice] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(pointer: coarse)").matches
+  );
 
   useEffect(() => {
     loadFocusSessions();
@@ -106,6 +115,7 @@ export default function Focus(): JSX.Element {
 
   return (
     <div className="flex flex-1 flex-col">
+      {state.task && <div className="mx-auto mt-3 max-w-sm rounded-xl bg-primary/12 px-4 py-2 text-center text-sm"><p className="text-[11px] text-muted-foreground">Current task</p><p className="mt-1 font-medium">{state.task.title}</p><p className="mt-1 text-xs text-muted-foreground">Saved under #{state.task.tag}</p></div>}
       {/* ── Timer screen: ring centred, dock along the bottom edge ──────── */}
       <section className="flex min-h-[calc(100dvh-7rem)] flex-col lg:min-h-[calc(100dvh-3.5rem)]">
         {/* Ring takes the whole screen above the dock */}
@@ -216,7 +226,15 @@ export default function Focus(): JSX.Element {
                 />
               )}
 
-              {!isMobile && (
+              {(isMobile || touchDevice) && (
+                <DockButton
+                  onClick={() => setShowLandscape(true)}
+                  title="Open landscape timer"
+                  icon={<TbDeviceMobileRotated className="size-4" />}
+                />
+              )}
+
+              {!isMobile && !touchDevice && (
                 <DockButton
                   onClick={openPip}
                   title="Open picture in picture"
@@ -239,6 +257,10 @@ export default function Focus(): JSX.Element {
       >
         <RecentSessions sessions={focusSessions} />
       </section>
+
+      {showLandscape && (
+        <LandscapeTimer onClose={() => setShowLandscape(false)} />
+      )}
 
       {/* ── Pomodoro settings ───────────────────────────────────────────── */}
       <ResponsiveDialog
@@ -469,7 +491,9 @@ function DockDivider({ className }: { className?: string }): JSX.Element {
 // ── Tag selector ──────────────────────────────────────────────────────────────
 
 function TagSelectorPill(): JSX.Element {
-  const { tag, setTag, removeTag, savedTags } = useTag();
+  const { tag: globalTag, setTag, removeTag, savedTags } = useTag();
+  const { state } = usePomo();
+  const tag = state.task?.tag || globalTag;
   const [open, setOpen] = useState(false);
   const [tempTag, setTempTag] = useState("");
   const isMobile = useIsMobile();
@@ -486,7 +510,8 @@ function TagSelectorPill(): JSX.Element {
 
   const trigger = (
     <button
-      title="Session tag"
+      title={state.task ? "Primary focus tag for current task" : "Session tag"}
+      disabled={!!state.task}
       className={cn(
         DOCK_BUTTON_BASE,
         "min-w-0 gap-2",
@@ -576,6 +601,7 @@ function TagSelectorPill(): JSX.Element {
     </div>
   );
 
+  if (state.task) return trigger;
   if (isMobile) {
     return (
       <MobileDrawer

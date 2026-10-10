@@ -8,7 +8,7 @@
  * Database Schema:
  * - Configuration: User settings including preferred currency
  * - Focus: Focus session tracking and analytics
- * - Notes: Document and board-style note storage
+ * - Notes: Hierarchical pages, trash, and compressed synced image assets
  * - Projects: Project management with markdown notes and quick links
  * - Milestones: Project milestones with budgets and deadlines
  * - Issues: Issue tracking within milestones
@@ -33,8 +33,9 @@
  */
 
 import Dexie from "dexie";
-import type { ComponentProps } from "react";
-import type { Excalidraw as ExcalidrawComponent } from "@excalidraw/excalidraw";
+import type { Task, TaskFilter } from "./tasks";
+import type { Note, NoteAsset } from "./notes";
+import { migrateTasks } from "./task-migration";
 
 /**
  * Globally Unique Row Identity
@@ -51,6 +52,18 @@ import type { Excalidraw as ExcalidrawComponent } from "@excalidraw/excalidraw";
 export interface Syncable {
   /** Stable cross-device identity for this row. */
   uid?: string;
+}
+
+/** Device-local files. Blob contents never enter cross-device sync. */
+export interface TaskAttachment {
+  id?: number;
+  uid: string;
+  taskUid: string;
+  name: string;
+  type: string;
+  size: number;
+  blob: Blob;
+  createdAt: Date;
 }
 
 /**
@@ -94,6 +107,8 @@ export interface TimeBlock extends Syncable {
   startTime: Date;
   endTime: Date;
   title?: string;
+  taskUid?: string;
+  projectUid?: string;
 }
 
 export interface AIChat extends Syncable {
@@ -120,15 +135,6 @@ export interface AIConfig {
   customPrompt: string;
   defaultModelId: string;
 }
-
-type ExcalidrawInitialData = Awaited<
-  Exclude<
-    NonNullable<ComponentProps<typeof ExcalidrawComponent>["initialData"]>,
-    (...args: never[]) => unknown
-  >
->;
-
-export type ExcalidrawSceneData = ExcalidrawInitialData;
 
 /**
  * Quick Link Interface
@@ -175,20 +181,6 @@ export interface SpecialDiscount extends Syncable {
 }
 
 /**
- * Excalidraw Scene Data Interface
- *
- * Defines the structure of saved Excalidraw drawings
- */
-export interface ExcalidrawScene extends Syncable {
-  id?: number | string;
-  title: string;
-  sceneData: ExcalidrawSceneData | string;
-  thumbnail?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-/**
  * BIT Focus Database Class with Project Management and Quick Links
  *
  * Extends Dexie to provide a type-safe database interface for the BIT Focus
@@ -210,26 +202,16 @@ class BitFocusDB extends Dexie {
    * Focus Sessions Table
    */
   focus: Dexie.Table<
-    { id?: number; tag: string; startTime: Date; endTime: Date } & Syncable,
+    { id?: number; tag: string; startTime: Date; endTime: Date; taskUid?: string; projectUid?: string } & Syncable,
     number
   >;
 
   /**
    * Notes Table
    */
-  notes: Dexie.Table<
-    {
-      id?: number;
-      title: string;
-      type: "document" | "board";
-      parentId?: number | null;
-      content?: string;
-      boardData?: { category: string; children: number[] }[];
-      createdAt: Date;
-      updatedAt: Date;
-    } & Syncable,
-    number
-  >;
+  notes: Dexie.Table<Note & Syncable, number>;
+  /** Compressed images referenced by asset uid from note content. */
+  noteAssets: Dexie.Table<NoteAsset, number>;
 
   /**
    * Projects Table (Enhanced with Quick Links)
@@ -240,6 +222,7 @@ class BitFocusDB extends Dexie {
       title: string;
       status: "Scheduled" | "Active" | "Closed";
       notes: string;
+      icon?: string;
       version: string;
       quickLinks: QuickLink[];
       createdAt: Date;
@@ -293,12 +276,10 @@ class BitFocusDB extends Dexie {
    */
   discounts: Dexie.Table<SpecialDiscount, number>;
 
-  /**
-   * Excalidraw Scenes Table
-   */
-  excalidraw: Dexie.Table<ExcalidrawScene, string | number>;
-
   timeblocks: Dexie.Table<TimeBlock, number>;
+  tasks: Dexie.Table<Task, number>;
+  taskAttachments: Dexie.Table<TaskAttachment, number>;
+  taskFilters: Dexie.Table<TaskFilter, number>;
   aiChats: Dexie.Table<AIChat, string>;
   aiConfig: Dexie.Table<AIConfig, string>;
 
@@ -542,17 +523,53 @@ class BitFocusDB extends Dexie {
         }
       });
 
+    // Keep the deprecated `tasks` table intact; modern task records use a new
+    // table so old task data can be converted without changing primary keys.
+    this.version(13).stores({
+      task_items: "++id, &uid, projectId, dueDate, completedAt, deletedAt, *tags, order",
+      task_filters: "++id, &uid, name",
+      focus: "++id, tag, startTime, endTime, &uid, taskUid, projectUid",
+      timeblocks: "++id, tag, startTime, endTime, &uid, taskUid, projectUid",
+    }).upgrade(async (tx) => {
+      await tx.table("sync_backup").add({ createdAt: new Date(), label: "Before projects-to-tasks migration",
+        payload: JSON.stringify({ projects: await tx.table("projects").toArray(), milestones: await tx.table("milestones").toArray(), issues: await tx.table("issues").toArray(), tasks: await tx.table("tasks").toArray() }) });
+      await migrateTasks(tx);
+      // Older clients may have skipped unknown task collections while still
+      // advancing their cursor. Re-read history once when upgrading.
+      await tx.table("sync_meta").delete("cursor");
+    });
+
+    // Excalidraw was removed in v0.23.2: drop its table and its sync records.
+    this.version(14).stores({
+      excalidraw_v2: null,
+    }).upgrade(async (tx) => {
+      await tx.table("sync_state").where("col").equals("excalidraw").delete();
+    });
+
+    this.version(15).stores({
+      task_items: "++id, &uid, projectId, parentId, dueDate, completedAt, deletedAt, *tags, order",
+      task_attachments: "++id, &uid, taskUid, createdAt",
+    });
+
+    this.version(16).stores({
+      notes: "++id, title, type, parentId, createdAt, updatedAt, &uid, deletedAt, order",
+      note_assets: "++id, &uid, noteUid, createdAt",
+    });
+
     // Table reference assignment
+    this.tasks = this.table("task_items");
+    this.taskAttachments = this.table("task_attachments");
+    this.taskFilters = this.table("task_filters");
     this.timeblocks = this.table("timeblocks");
     this.configuration = this.table("configuration");
     this.focus = this.table("focus");
     this.notes = this.table("notes");
+    this.noteAssets = this.table("note_assets");
     this.projects = this.table("projects");
     this.milestones = this.table("milestones");
     this.issues = this.table("issues");
     this.rewards = this.table("rewards");
     this.discounts = this.table("discounts");
-    this.excalidraw = this.table("excalidraw_v2");
     this.aiChats = this.table("ai_chats");
     this.aiConfig = this.table("ai_config");
     this.syncState = this.table("sync_state");

@@ -51,6 +51,7 @@ const DEVICE_LOCAL_KEYS: readonly string[] = [
   "pomoExtension",
   "pomoSegments",
   "pomoSegmentStart",
+  "pomoTask",
   "bitfocus.lastAutoBackup",
   "timerMode",
   // Picture-in-Picture mirror of the timer, rewritten several times a second.
@@ -68,8 +69,15 @@ const DEVICE_LOCAL_KEYS: readonly string[] = [
  * @param key - localStorage key being considered.
  */
 export function isDeviceLocalKey(key: string): boolean {
-  return key.startsWith(SYNC_KEY_PREFIX) || DEVICE_LOCAL_KEYS.includes(key);
+  return key.startsWith(SYNC_KEY_PREFIX) || key.startsWith(NOTES_LOCAL_PREFIX) || DEVICE_LOCAL_KEYS.includes(key);
 }
+
+/**
+ * Notes view state and unsaved-body recovery drafts. Drafts are rewritten on
+ * every keystroke and the tree's expanded set holds local ids; neither means
+ * anything on another device. Page content syncs through the notes table.
+ */
+const NOTES_LOCAL_PREFIX = "bitfocus.notes.";
 
 /**
  * Whether a key participates in sync.
@@ -92,6 +100,7 @@ export const PERSISTED_STORE_KEYS: readonly string[] = [
   "tag-storage",
   "ambience-storage",
   "notepad-storage",
+  "task-preferences",
 ];
 
 /** Every localStorage key currently eligible for sync. */
