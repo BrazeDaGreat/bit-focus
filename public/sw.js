@@ -32,6 +32,7 @@ const PAGES = [
   "/focus-table",
   "/calendar",
   "/projects",
+  "/notes",
   "/rewards",
   "/changelog",
   "/ai",

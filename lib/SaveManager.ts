@@ -42,7 +42,8 @@
 
 import Dexie from "dexie";
 import db, { type AIConfig, QuickLink } from "./db";
-import { serializeTask, deserializeTask, deserializeTaskFilter, type SavedTask, type SavedTaskFilter } from "./task-backup";
+import type { NoteAsset } from "./notes";
+import { serializeTasks, deserializeTasks, serializeAttachment, deserializeAttachment, deserializeTaskFilter, type SavedTask, type SavedTaskFilter, type SavedTaskAttachment } from "./task-backup";
 import { migrateTasks } from "./task-migration";
 import { PB_AUTH_STORAGE_KEY } from "./pocketbase";
 
@@ -107,6 +108,9 @@ type ExportedData = {
   /** All IndexedDB table data with serialized dates */
   indexedDB: {
     tasks?: SavedTask[];
+    taskAttachments?: SavedTaskAttachment[];
+    /** Images are included when a manual backup opts into attachments. */
+    noteAssets?: (Omit<NoteAsset, "createdAt" | "updatedAt"> & { createdAt: string; updatedAt: string })[];
     taskFilters?: SavedTaskFilter[];
     legacyTasks?: Record<string, unknown>[];
     /** User configuration data */
@@ -128,8 +132,12 @@ type ExportedData = {
     /** Note and document records */
     notes: {
       id?: number;
+      uid?: string;
       title: string;
       type: "document" | "board";
+      icon?: string;
+      order?: number;
+      deletedAt?: string | null;
       parentId?: number | null;
       content?: string;
       boardData?: { category: string; children: number[] }[];
@@ -144,6 +152,7 @@ type ExportedData = {
       notes: string;
       version: string;
       quickLinks: QuickLink[];
+      icon?: string;
       createdAt: string; // Serialized as ISO string
       updatedAt: string; // Serialized as ISO string
     }[];
@@ -253,87 +262,9 @@ class SaveManager {
    *
    * @see {@link ExportedData} for exported data structure
    */
-  static async exportData(): Promise<void> {
-    // Initialize export data structure
-    const data: ExportedData = {
-      localStorage: {},
-      indexedDB: {
-        tasks: (await db.tasks.toArray()).map(serializeTask),
-        taskFilters: (await db.taskFilters.toArray()).map((f) => ({ ...f, createdAt: f.createdAt.toISOString(), updatedAt: f.updatedAt.toISOString() })),
-        legacyTasks: await db.table("tasks").toArray(),
-        // Serialize configuration data with date conversion
-        configuration: (await db.configuration.toArray()).map((c) => ({
-          ...c,
-          dob: c.dob ? c.dob.toISOString() : null,
-        })),
-        // Serialize focus sessions with date conversion
-        focus: (await db.focus.toArray()).map((f) => ({
-          ...f,
-          startTime: f.startTime.toISOString(),
-          endTime: f.endTime.toISOString(),
-        })),
-        // Serialize notes with date conversion
-        notes: (await db.notes.toArray()).map((n) => ({
-          ...n,
-          createdAt: n.createdAt.toISOString(),
-          updatedAt: n.updatedAt.toISOString(),
-        })),
-        // Serialize projects with date conversion
-        projects: (await db.projects.toArray()).map((p) => ({
-          ...p,
-          createdAt: p.createdAt.toISOString(),
-          updatedAt: p.updatedAt.toISOString(),
-        })),
-        // Serialize milestones with date conversion (including optional deadline)
-        milestones: (await db.milestones.toArray()).map((m) => ({
-          ...m,
-          deadline: m.deadline ? m.deadline.toISOString() : undefined,
-          createdAt: m.createdAt.toISOString(),
-          updatedAt: m.updatedAt.toISOString(),
-        })),
-        // Serialize issues with date conversion (including optional dueDate)
-        issues: (await db.issues.toArray()).map((i) => ({
-          ...i,
-          dueDate: i.dueDate ? i.dueDate.toISOString() : undefined,
-          createdAt: i.createdAt.toISOString(),
-          updatedAt: i.updatedAt.toISOString(),
-        })),
-        // Serialize rewards with date conversion
-        rewards: (await db.rewards.toArray()).map((r) => ({
-          ...r,
-          createdAt: r.createdAt.toISOString(),
-          updatedAt: r.updatedAt.toISOString(),
-        })),
-        // Serialize discounts with date conversion
-        discounts: (await db.discounts.toArray()).map((d) => ({
-          ...d,
-          createdAt: d.createdAt.toISOString(),
-          updatedAt: d.updatedAt.toISOString(),
-        })),
-        aiChats: (await db.aiChats.toArray()).map((c) => ({
-          ...c,
-          createdAt: c.createdAt.toISOString(),
-          updatedAt: c.updatedAt.toISOString(),
-        })),
-        aiConfig: await db.aiConfig.toArray(),
-        // Serialize calendar timeblocks with date conversion
-        timeblocks: (await db.timeblocks.toArray()).map((t) => ({
-          ...t,
-          startTime: t.startTime.toISOString(),
-          endTime: t.endTime.toISOString(),
-        })),
-      },
-    };
-
-    // Export localStorage contents
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      // Session tokens and sync bookkeeping are device-owned: they never leave
-      // this browser, in a backup file or a cloud snapshot.
-      if (key && !isProtectedLocalKey(key)) {
-        data.localStorage[key] = localStorage.getItem(key) || "";
-      }
-    }
+  static async exportData(options: { includeAttachments?: boolean } = {}): Promise<void> {
+    // Manual export opts in; automatic downloads and cloud snapshots omit files.
+    const data = await SaveManager.exportJSON(options);
 
     // Create and download backup file
     const blob = new Blob([JSON.stringify(data, null, 2)], {
@@ -380,162 +311,7 @@ class SaveManager {
    * @see {@link ExportedData} for expected file structure
    */
   static async importData(file: File): Promise<void> {
-    // Parse and validate file contents
-    const text = await file.text();
-    const parsed = JSON.parse(text) as unknown;
-
-    // Type assertion - assume correct format (could add validation here)
-    const data = parsed as ExportedData;
-
-    // Deserialize dates and reconstruct data objects
-    const configuration = data.indexedDB.configuration.map((c) => ({
-      ...c,
-      dob: c.dob ? new Date(c.dob) : null,
-    }));
-
-    const focus = data.indexedDB.focus.map((f) => ({
-      ...f,
-      startTime: new Date(f.startTime),
-      endTime: new Date(f.endTime),
-    }));
-
-    const notes = data.indexedDB.notes.map((n) => ({
-      ...n,
-      createdAt: new Date(n.createdAt),
-      updatedAt: new Date(n.updatedAt),
-    }));
-
-    // Deserialize projects with date conversion
-    const tasks = (data.indexedDB.tasks || []).map(deserializeTask);
-    const taskFilters = (data.indexedDB.taskFilters || []).map(deserializeTaskFilter);
-    const legacyTasks = data.indexedDB.legacyTasks || [];
-    const projects = (data.indexedDB.projects || []).map((p) => ({
-      ...p,
-      createdAt: new Date(p.createdAt),
-      updatedAt: new Date(p.updatedAt),
-    }));
-
-    // Deserialize milestones with date conversion (including optional deadline)
-    const milestones = (data.indexedDB.milestones || []).map((m) => ({
-      ...m,
-      deadline: m.deadline ? new Date(m.deadline) : undefined,
-      createdAt: new Date(m.createdAt),
-      updatedAt: new Date(m.updatedAt),
-    }));
-
-    // Deserialize issues with date conversion (including optional dueDate)
-    const issues = (data.indexedDB.issues || []).map((i) => ({
-      ...i,
-      dueDate: i.dueDate ? new Date(i.dueDate) : undefined,
-      createdAt: new Date(i.createdAt),
-      updatedAt: new Date(i.updatedAt),
-    }));
-
-    // Deserialize rewards with date conversion
-    const rewards = (data.indexedDB.rewards || []).map((r) => ({
-      ...r,
-      createdAt: new Date(r.createdAt),
-      updatedAt: new Date(r.updatedAt),
-    }));
-
-    // Deserialize discounts with date conversion
-    const discounts = (data.indexedDB.discounts || []).map((d) => ({
-      ...d,
-      createdAt: new Date(d.createdAt),
-      updatedAt: new Date(d.updatedAt),
-    }));
-
-    const aiChats = (data.indexedDB.aiChats || []).map((c) => ({
-      ...c,
-      createdAt: new Date(c.createdAt),
-      updatedAt: new Date(c.updatedAt),
-    }));
-
-    const aiConfig = data.indexedDB.aiConfig || [];
-
-    // Deserialize timeblocks with date conversion
-    const timeblocks = (data.indexedDB.timeblocks || []).map((t) => ({
-      ...t,
-      startTime: new Date(t.startTime),
-      endTime: new Date(t.endTime),
-    }));
-
-    // Atomic database import operation including all tables
-    await db.transaction(
-      "rw",
-      [
-        db.configuration,
-        db.focus,
-        db.notes,
-        db.projects,
-        db.milestones,
-        db.issues,
-        db.rewards,
-        db.discounts,
-        db.aiChats,
-        db.aiConfig,
-        db.timeblocks,
-        db.tasks,
-        db.taskFilters,
-        db.table("tasks"),
-        db.syncState,
-      ],
-      async () => {
-        // Clear existing data from all tables
-        await db.configuration.clear();
-        await db.focus.clear();
-        await db.notes.clear();
-        await db.projects.clear();
-        await db.milestones.clear();
-        await db.issues.clear();
-        await db.rewards.clear();
-        await db.discounts.clear();
-        await db.aiChats.clear();
-        await db.aiConfig.clear();
-        await db.timeblocks.clear();
-        await db.tasks.clear();
-        await db.taskFilters.clear();
-        await db.table("tasks").clear();
-
-        // Import new data with project management support
-        await db.configuration.bulkAdd(configuration);
-        await db.focus.bulkAdd(focus);
-        await db.notes.bulkAdd(notes);
-
-        // Import project management data (only if present for backward compatibility)
-        if (projects.length > 0) {
-          await db.projects.bulkAdd(projects);
-        }
-        if (milestones.length > 0) {
-          await db.milestones.bulkAdd(milestones);
-        }
-        if (issues.length > 0) {
-          await db.issues.bulkAdd(issues);
-        }
-        if (rewards.length > 0) {
-          await db.rewards.bulkAdd(rewards);
-        }
-        if (discounts.length > 0) {
-          await db.discounts.bulkAdd(discounts);
-        }
-        if (aiChats.length > 0) {
-          await db.aiChats.bulkAdd(aiChats);
-        }
-        if (aiConfig.length > 0) {
-          await db.aiConfig.bulkAdd(aiConfig);
-        }
-        if (timeblocks.length > 0) {
-          await db.timeblocks.bulkAdd(timeblocks);
-        }
-        await db.tasks.bulkAdd(tasks);
-        await db.taskFilters.bulkAdd(taskFilters);
-        await db.table("tasks").bulkAdd(legacyTasks);
-        if (!data.indexedDB.tasks) await migrateTasks(Dexie.currentTransaction!, true);
-      },
-    );
-
-    // Restore localStorage contents, keeping the session and sync bookkeeping
-    restoreLocalStorage(data.localStorage);
+    await SaveManager.importJSON(JSON.parse(await file.text()) as ExportedData);
   }
 
   /**
@@ -546,11 +322,11 @@ class SaveManager {
    *
    * @returns {Promise<ExportedData>} All application data
    */
-  static async exportJSON(): Promise<ExportedData> {
+  static async exportJSON(options: { includeAttachments?: boolean } = {}): Promise<ExportedData> {
     const data: ExportedData = {
       localStorage: {},
       indexedDB: {
-        tasks: (await db.tasks.toArray()).map(serializeTask),
+        tasks: serializeTasks(await db.tasks.toArray()),
         taskFilters: (await db.taskFilters.toArray()).map((f) => ({ ...f, createdAt: f.createdAt.toISOString(), updatedAt: f.updatedAt.toISOString() })),
         legacyTasks: await db.table("tasks").toArray(),
         configuration: (await db.configuration.toArray()).map((c) => ({
@@ -564,6 +340,7 @@ class SaveManager {
         })),
         notes: (await db.notes.toArray()).map((n) => ({
           ...n,
+          deletedAt: n.deletedAt ? n.deletedAt.toISOString() : null,
           createdAt: n.createdAt.toISOString(),
           updatedAt: n.updatedAt.toISOString(),
         })),
@@ -618,6 +395,16 @@ class SaveManager {
       }
     }
 
+    // Automatic snapshots omit large files; note assets still sync per row.
+    if (options.includeAttachments) {
+      data.indexedDB.noteAssets = (await db.noteAssets.toArray()).map((asset) => ({
+        ...asset, createdAt: asset.createdAt.toISOString(), updatedAt: asset.updatedAt.toISOString(),
+      }));
+      data.indexedDB.taskAttachments = [];
+      // Encode one file at a time to avoid loading every blob into memory together.
+      for (const attachment of await db.taskAttachments.toArray())
+        data.indexedDB.taskAttachments.push(await serializeAttachment(attachment));
+    }
     return data;
   }
 
@@ -644,11 +431,17 @@ class SaveManager {
 
     const notes = data.indexedDB.notes.map((n) => ({
       ...n,
+      deletedAt: n.deletedAt ? new Date(n.deletedAt) : null,
       createdAt: new Date(n.createdAt),
       updatedAt: new Date(n.updatedAt),
     }));
 
-    const tasks = (data.indexedDB.tasks || []).map(deserializeTask);
+    const tasks = deserializeTasks(data.indexedDB.tasks || []);
+    // Validate blobs before starting the destructive part of the restore.
+    const attachments = data.indexedDB.taskAttachments?.map(deserializeAttachment);
+    const noteAssets = data.indexedDB.noteAssets?.map((asset) => ({
+      ...asset, createdAt: new Date(asset.createdAt), updatedAt: new Date(asset.updatedAt),
+    }));
     const taskFilters = (data.indexedDB.taskFilters || []).map(deserializeTaskFilter);
     const legacyTasks = data.indexedDB.legacyTasks || [];
     const projects = (data.indexedDB.projects || []).map((p) => ({
@@ -704,6 +497,7 @@ class SaveManager {
         db.configuration,
         db.focus,
         db.notes,
+        db.noteAssets,
         db.projects,
         db.milestones,
         db.issues,
@@ -714,6 +508,7 @@ class SaveManager {
         db.timeblocks,
         db.tasks,
         db.taskFilters,
+        db.taskAttachments,
         db.table("tasks"),
         db.syncState,
       ],
@@ -721,6 +516,8 @@ class SaveManager {
         await db.configuration.clear();
         await db.focus.clear();
         await db.notes.clear();
+        // Older backups and automatic snapshots leave existing note images intact.
+        if (noteAssets) await db.noteAssets.clear();
         await db.projects.clear();
         await db.milestones.clear();
         await db.issues.clear();
@@ -731,11 +528,14 @@ class SaveManager {
         await db.timeblocks.clear();
         await db.tasks.clear();
         await db.taskFilters.clear();
+        // Snapshots without files preserve local attachments for matching task UIDs.
+        if (attachments) await db.taskAttachments.clear();
         await db.table("tasks").clear();
 
         await db.configuration.bulkAdd(configuration);
         await db.focus.bulkAdd(focus);
         await db.notes.bulkAdd(notes);
+        if (noteAssets) await db.noteAssets.bulkAdd(noteAssets);
 
         if (projects.length > 0) {
           await db.projects.bulkAdd(projects);
@@ -762,9 +562,12 @@ class SaveManager {
           await db.timeblocks.bulkAdd(timeblocks);
         }
         await db.tasks.bulkAdd(tasks);
+        if (attachments) await db.taskAttachments.bulkAdd(attachments);
         await db.taskFilters.bulkAdd(taskFilters);
         await db.table("tasks").bulkAdd(legacyTasks);
         if (!data.indexedDB.tasks) await migrateTasks(Dexie.currentTransaction!, true);
+        const taskUids = new Set((await db.tasks.toArray()).map((task) => task.uid));
+        await db.taskAttachments.filter((attachment) => !taskUids.has(attachment.taskUid)).delete();
       },
     );
 

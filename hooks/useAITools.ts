@@ -16,7 +16,7 @@ import { useCallback } from "react";
 import dayjs from "dayjs";
 import { useFocus } from "@/hooks/useFocus";
 import { useTasks } from "@/hooks/useTasks";
-import { isTaskOverdue, matchesTask, taskDeadline, taskMinutes, dateInput } from "@/lib/tasks";
+import { isTaskOverdue, matchesTask, taskDeadline, taskMinutes, dateInput, descriptionText } from "@/lib/tasks";
 import { useProjects } from "@/hooks/useProjects";
 import { usePomo } from "@/hooks/PomoContext";
 import { useTag } from "@/hooks/useTag";
@@ -120,7 +120,7 @@ export function useAITools() {
 
         case "getProjectsOverview": {
           return { projects: projects.map((p) => ({ id: p.id, title: p.title, archived: p.status === "Closed" })),
-            tasks: tasks.filter((t) => !t.deletedAt).map((t) => ({ id: t.id, projectId: t.projectId ?? null,
+            tasks: tasks.filter((t) => !t.deletedAt).map((t) => ({ id: t.id, projectId: t.projectId ?? null, parentId: t.parentId ?? null, description: descriptionText(t.description),
               title: t.title, completed: !!t.completedAt, tags: t.tags, deadline: taskDeadline(t)?.toISOString() ?? null,
               estimateMinutes: t.estimateMinutes, actualMinutes: taskMinutes(t, focusSessions), priority: t.priority })) };
         }
@@ -129,7 +129,7 @@ export function useAITools() {
           const tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1);
           const end = new Date(now); end.setDate(end.getDate() + 7); end.setHours(23, 59, 59, 999);
           const due = tasks.filter((t) => !t.deletedAt && !t.completedAt && taskDeadline(t) && !projects.some((p) => p.id === t.projectId && p.status === "Closed"));
-          const shape = (list: typeof tasks) => list.map((t) => ({ id: t.id, title: t.title, project: projects.find((p) => p.id === t.projectId)?.title || "Inbox", due: taskDeadline(t)?.toISOString(), estimateMinutes: t.estimateMinutes }));
+          const shape = (list: typeof tasks) => list.map((t) => ({ id: t.id, title: t.title, parentId: t.parentId ?? null, description: descriptionText(t.description), project: projects.find((p) => p.id === t.projectId)?.title || "Inbox", due: taskDeadline(t)?.toISOString(), estimateMinutes: t.estimateMinutes }));
           return { overdue: shape(due.filter((t) => isTaskOverdue(t, now))),
             today: shape(due.filter((t) => matchesTask(t, { date: "today" }, now) && !isTaskOverdue(t, now))),
             tomorrow: shape(due.filter((t) => matchesTask(t, { date: "today" }, tomorrow))),
@@ -195,7 +195,7 @@ export function useAITools() {
           const dueDate = dueISO ? new Date(dateOnly ? `${dueISO}T00:00:00` : dueISO) : null;
           if (dueDate && !Number.isFinite(dueDate.getTime())) return { ok: false, message: "Invalid deadline." };
           const tags = Array.isArray(input.tags) ? input.tags.filter((t): t is string => typeof t === "string" && useTag.getState().savedTags.some((saved) => saved.t === t)) : [];
-          await addTask(title, { projectId, description: str(input, "description") || "", tags, primaryTag: tags[0] || null,
+          await addTask(title, { projectId, parentId: typeof input.parentId === "number" ? input.parentId : null, description: str(input, "description") || "", tags, primaryTag: tags[0] || null,
             dueDate, dueDay: dateOnly ? dateInput(dueDate) : null, dueTime: !!dueDate && !dateOnly,
             estimateMinutes: Math.max(0, num(input, "estimateMinutes", 0)), priority: Math.max(0, Math.min(3, num(input, "priority", 0))) });
           return { ok: true, message: `Created "${title}".` };

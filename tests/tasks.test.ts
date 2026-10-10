@@ -6,17 +6,22 @@ import db from "../lib/db";
 import SaveManager from "../lib/SaveManager";
 import { migrateTasks } from "../lib/task-migration";
 import { useTasks, ensureTaskMigration } from "../hooks/useTasks";
+import { useProjects } from "../hooks/useProjects";
 import {
   isTaskOverdue,
   matchesTask,
   taskDeadline,
   taskMinutes,
+  subtaskProgress,
+  descriptionText,
   type Task,
 } from "../lib/tasks";
 import {
   serializeTask,
   deserializeTask,
   deserializeTaskFilter,
+  serializeTasks,
+  deserializeTasks,
 } from "../lib/task-backup";
 import { COLLECTION_BY_KEY } from "../lib/sync/registry";
 import { IdCache, toWire, fromWire } from "../lib/sync/codec";
@@ -67,6 +72,7 @@ afterEach(async () => {
   await db.delete();
   storage.clear();
   useTasks.setState({ tasks: [], filters: [], loading: true, error: null });
+  useProjects.setState({ projects: [], milestones: [], issues: [], loadingProjects: true });
 });
 
 test("v12 upgrade preserves milestone metadata, converts closed and open issues, and resets the pull cursor", async () => {
@@ -560,4 +566,217 @@ test("v14 upgrade drops the Excalidraw table and its sync records", async () => 
   await db.open();
   assert.ok(!db.tables.some((t) => t.name === "excalidraw_v2"));
   assert.deepEqual((await db.syncState.toArray()).map((s) => s.col), ["focus"]);
+});
+
+test("v15 provides indexed parents and local blob attachments", async () => {
+  await db.open();
+  assert.equal(db.verno, 16);
+  assert.ok(db.tasks.schema.indexes.some((index) => index.name === "parentId"));
+  assert.deepEqual(db.taskAttachments.schema.indexes.map((index) => index.name), ["uid", "taskUid", "createdAt"]);
+  assert.equal(COLLECTION_BY_KEY.has("taskAttachments"), false);
+  const uid = "local-file";
+  const id = await db.taskAttachments.add({ uid, taskUid: "task-a", name: "notes.txt", type: "text/plain", size: 3, blob: new Blob(["abc"]), createdAt: at });
+  assert.equal(await (await db.taskAttachments.get(id))!.blob.text(), "abc");
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.equal((await db.syncState.toArray()).some((row) => row.uid === uid), false);
+});
+
+test("subtasks inherit project, stay one level deep, and move with their parent atomically", async () => {
+  await db.open();
+  const store = useTasks.getState();
+  const parent = await store.addTask("Parent", { projectId: 12 });
+  const child = await store.addTask("Child", { parentId: parent, projectId: 99 });
+  assert.equal((await db.tasks.get(child))!.projectId, 12);
+  await assert.rejects(store.addTask("Grandchild", { parentId: child }), /one level/);
+  await assert.rejects(store.addTask("Missing", { parentId: 12345 }), /not found/);
+  await assert.rejects(store.updateTask(parent, { parentId: child }), /one level/);
+  await assert.rejects(store.updateTask(child, { parentId: child }), /one level/);
+  await assert.rejects(store.updateTask(child, { projectId: 99 }), /parent's project/);
+  const other = await store.addTask("Other parent", { projectId: 99 });
+  await store.updateTask(child, { parentId: other });
+  assert.equal((await db.tasks.get(child))!.projectId, 99);
+  await assert.rejects(store.updateTask(child, { parentId: parent, projectId: 99 }), /parent's project/);
+  assert.equal((await db.tasks.get(child))!.parentId, other);
+  await store.updateTask(child, { parentId: parent });
+  await store.updateMany([parent], { projectId: null });
+  assert.equal((await db.tasks.get(parent))!.projectId, null);
+  assert.equal((await db.tasks.get(child))!.projectId, null);
+  assert.equal(useTasks.getState().tasks.find((task) => task.id === child)!.projectId, null);
+  await store.updateTask(parent, { completedAt: at });
+  assert.ok(!(await db.tasks.get(child))!.completedAt);
+  assert.deepEqual(subtaskProgress(await db.tasks.toArray(), parent), { done: 0, total: 1 });
+  await store.updateTask(child, { completedAt: at });
+  assert.deepEqual(subtaskProgress(await db.tasks.toArray(), parent), { done: 1, total: 1 });
+  await store.updateTask(child, { parentId: null, projectId: 99 });
+  assert.equal((await db.tasks.get(child))!.projectId, 99);
+});
+
+test("parent trash restores only co-trashed open children; permanent delete removes every child and file", async () => {
+  await db.open();
+  const store = useTasks.getState();
+  const parent = await store.addTask("Parent");
+  const open = await store.addTask("Open", { parentId: parent });
+  const done = await store.addTask("Done", { parentId: parent, completedAt: at });
+  const oldTrash = new Date(at.getTime() - 1000);
+  const trashed = await store.addTask("Already trashed", { parentId: parent, deletedAt: oldTrash });
+  for (const id of [parent, open, done, trashed]) {
+    const row = (await db.tasks.get(id))!;
+    await db.taskAttachments.add({ uid: `file-${id}`, taskUid: row.uid!, name: "notes.txt", type: "text/plain", size: 3, blob: new Blob(["abc"]), createdAt: at });
+  }
+  const unrelated = await store.addTask("Unrelated");
+  await store.updateTask(parent, { deletedAt: at });
+  assert.deepEqual((await db.tasks.get(open))!.deletedAt, at);
+  assert.ok(!(await db.tasks.get(done))!.deletedAt);
+  assert.deepEqual((await db.tasks.get(trashed))!.deletedAt, oldTrash);
+  await assert.rejects(store.addTask("Child of trash", { parentId: parent }), /not found/);
+  await store.updateTask(parent, { deletedAt: null });
+  assert.equal((await db.tasks.get(open))!.deletedAt, null);
+  assert.deepEqual((await db.tasks.get(trashed))!.deletedAt, oldTrash);
+  await store.removeForever(parent);
+  assert.deepEqual((await db.tasks.toArray()).map((task) => task.id), [unrelated]);
+  assert.equal(await db.taskAttachments.count(), 0);
+  assert.deepEqual(useTasks.getState().tasks.map((task) => task.id), [unrelated]);
+});
+
+test("sync resolves child-before-parent self references in one batch", async () => {
+  await db.open();
+  const col = COLLECTION_BY_KEY.get("tasks")!;
+  const parent = await db.tasks.add({ ...task, uid: "parent", id: 50 });
+  const wire = await toWire(col, { ...task, parentId: parent }, new IdCache());
+  assert.equal(wire.parentIdUid, "parent");
+  assert.equal(wire.parentId, undefined);
+  await db.tasks.clear();
+  const childRecord = { col: "tasks", uid: "child", hlc: hlcNow(), deleted: false, data: wire } as unknown as RemoteRecord;
+  const parentRecord = { ...childRecord, uid: "parent", hlc: hlcNow(), data: await toWire(col, task as unknown as Record<string, unknown>, new IdCache()) };
+  const result = await applyRecords([childRecord, parentRecord]);
+  assert.equal(result.deferred, 0);
+  const rows = await db.tasks.toArray();
+  assert.equal(rows.find((task) => task.uid === "child")!.parentId, rows.find((task) => task.uid === "parent")!.id);
+  assert.notEqual(rows.find((task) => task.uid === "parent")!.id, 50);
+  assert.equal((await applyRecords([childRecord, parentRecord])).applied, 0);
+  // A parent that never arrives must not stall sync: the child lands unlinked.
+  await db.tasks.clear();
+  await db.syncState.clear();
+  const orphan = await applyRecords([{ ...childRecord, hlc: hlcNow() }]);
+  assert.equal(orphan.applied, 1);
+  assert.equal((await db.tasks.toArray())[0].parentId ?? null, null);
+  const projectWire = await toWire(COLLECTION_BY_KEY.get("projects")!, { ...project, icon: "GraduationCap" }, new IdCache());
+  assert.equal(projectWire.icon, "GraduationCap");
+});
+
+test("parent backup references use UIDs, even when imported row IDs change", async () => {
+  const saved = serializeTasks([{ ...task, id: 12, uid: "parent" }, { ...task, id: 13, uid: "child", parentId: 12 }]);
+  assert.equal(saved[1].parentUid, "parent");
+  assert.equal(saved[1].parentId, undefined);
+  saved[0].id = 99;
+  saved[1].id = 100;
+  assert.equal(deserializeTasks(saved)[1].parentId, 99);
+  assert.throws(() => deserializeTasks([{ ...saved[1], parentUid: "missing" }]), /invalid task parent/);
+  await db.open();
+  await db.projects.add({ ...project, id: 1, icon: "GraduationCap" });
+  await db.tasks.bulkAdd(deserializeTasks(saved).map((task) => ({ ...task, projectId: 1 })));
+  const backup = await SaveManager.exportJSON();
+  await SaveManager.importJSON(JSON.parse(JSON.stringify(backup)));
+  assert.equal((await db.tasks.get(100))!.parentId, 99);
+  assert.equal((await db.projects.get(1))!.icon, "GraduationCap");
+});
+
+test("manual backups round-trip blobs; automatic snapshots omit files and preserve matching local files", async () => {
+  await db.open();
+  await db.tasks.add(task);
+  const blob = new Blob([new Uint8Array([0, 255, 128, 42])], { type: "image/png" });
+  await db.taskAttachments.add({ uid: "image-a", taskUid: task.uid!, name: "image.png", type: blob.type, size: blob.size, blob, createdAt: at });
+  const automatic = await SaveManager.exportJSON();
+  assert.equal(automatic.indexedDB.taskAttachments, undefined);
+  const manual = await SaveManager.exportJSON({ includeAttachments: true });
+  assert.equal(manual.indexedDB.taskAttachments![0].base64, "AP+AKg==");
+  await db.taskAttachments.clear();
+  await SaveManager.importJSON(JSON.parse(JSON.stringify(manual)));
+  const restored = (await db.taskAttachments.toArray())[0];
+  assert.deepEqual(new Uint8Array(await restored.blob.arrayBuffer()), new Uint8Array([0, 255, 128, 42]));
+  assert.ok(restored.createdAt instanceof Date);
+  await SaveManager.importJSON(automatic);
+  assert.equal(await db.taskAttachments.count(), 1);
+  manual.indexedDB.taskAttachments![0].size = 5;
+  await assert.rejects(SaveManager.importJSON(manual), /attachment size/);
+  assert.equal(await db.taskAttachments.count(), 1);
+});
+
+test("rich descriptions become readable plain text without exposing image URLs or markup", () => {
+  assert.equal(descriptionText("Legacy notes\nSecond line"), "Legacy notes\nSecond line");
+  assert.equal(descriptionText('<p>Read <strong>chapter &amp; notes</strong></p><ul><li>First&nbsp;step</li><li>Finish &#x1f4da;</li></ul><img data-attachment="local" /><script>hidden()</script>'), "Read chapter & notes\nFirst step\nFinish 📚");
+});
+
+test("project deletion removes tasks, files, and migration sources without touching other projects or focus history", async () => {
+  await db.open();
+  const projectId = await db.projects.add({ ...project, status: "Closed" });
+  const otherProject = await db.projects.add({ ...project, uid: "project-b" });
+  const milestoneId = await db.milestones.add({
+    uid: "milestone-a", projectId, title: "Launch", status: "Active",
+    budget: 250, createdAt: at, updatedAt: at,
+  });
+  await db.issues.add({
+    uid: "issue-a", milestoneId, title: "Migrated task", label: "Feature",
+    description: "", status: "Open", createdAt: at, updatedAt: at,
+  });
+  await db.table("tasks").add({ uid: "todo-a", task: "Legacy todo" });
+  const parentId = await db.tasks.add({ ...task, id: undefined, projectId, legacyIssueUid: "issue-a" });
+  await db.tasks.bulkAdd([
+    { ...task, id: undefined, uid: "child", projectId, parentId, completedAt: at },
+    { ...task, id: undefined, uid: "old-task:todo-a", projectId, deletedAt: at },
+    { ...task, id: undefined, uid: "unrelated", projectId: otherProject },
+  ]);
+  for (const taskUid of ["task-a", "child", "old-task:todo-a", "unrelated"]) {
+    await db.taskAttachments.add({
+      uid: `file-${taskUid}`, taskUid, name: "notes.txt", type: "text/plain",
+      size: 3, blob: new Blob(["abc"]), createdAt: at,
+    });
+  }
+  await db.focus.add({ uid: "focus-a", projectUid: project.uid, taskUid: task.uid, tag: "Work", startTime: at, endTime: at });
+  await useProjects.getState().loadProjects();
+  await useTasks.getState().loadTasks();
+  // Deletion must query persisted milestones even when the store has not loaded them.
+  useProjects.setState({ milestones: [], issues: [] });
+  await useProjects.getState().deleteProject(projectId);
+  assert.deepEqual((await db.projects.toArray()).map((row) => row.id), [otherProject]);
+  assert.deepEqual((await db.tasks.toArray()).map((row) => row.uid), ["unrelated"]);
+  assert.deepEqual((await db.taskAttachments.toArray()).map((row) => row.taskUid), ["unrelated"]);
+  assert.equal(await db.milestones.count(), 0);
+  assert.equal(await db.issues.count(), 0);
+  assert.equal(await db.table("tasks").count(), 0);
+  assert.equal(await db.focus.count(), 1);
+  assert.deepEqual(useProjects.getState().projects.map((row) => row.id), [otherProject]);
+  assert.deepEqual(useTasks.getState().tasks.map((row) => row.uid), ["unrelated"]);
+  await useTasks.getState().loadTasks();
+  assert.deepEqual((await db.tasks.toArray()).map((row) => row.uid), ["unrelated"]);
+  // Empty active projects can also be deleted.
+  await useProjects.getState().deleteProject(otherProject);
+  assert.equal(await db.projects.count(), 0);
+  assert.equal(await db.tasks.count(), 0);
+});
+
+test("failed project deletion rolls back persisted data and leaves both stores unchanged", async () => {
+  await db.open();
+  const projectId = await db.projects.add(project);
+  await db.tasks.add({ ...task, projectId });
+  await db.taskAttachments.add({
+    uid: "file-a", taskUid: task.uid!, name: "notes.txt", type: "text/plain",
+    size: 3, blob: new Blob(["abc"]), createdAt: at,
+  });
+  await useProjects.getState().loadProjects();
+  await useTasks.getState().loadTasks();
+  const beforeProjects = useProjects.getState().projects;
+  const beforeTasks = useTasks.getState().tasks;
+  const failDelete = () => { throw new Error("Delete failed"); };
+  db.projects.hook("deleting", failDelete);
+  try {
+    await assert.rejects(useProjects.getState().deleteProject(projectId), /Delete failed/);
+    assert.equal(await db.projects.count(), 1);
+    assert.equal(await db.tasks.count(), 1);
+    assert.equal(await db.taskAttachments.count(), 1);
+    assert.equal(useProjects.getState().projects, beforeProjects);
+    assert.equal(useTasks.getState().tasks, beforeTasks);
+  } finally {
+    db.projects.hook("deleting").unsubscribe(failDelete);
+  }
 });

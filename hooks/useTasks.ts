@@ -73,7 +73,15 @@ export const useTasks = create<TasksState>((set, get) => ({
       createdAt: now,
       updatedAt: now,
     };
-    const id = await db.tasks.add(task);
+    const id = await db.transaction("rw", db.tasks, async () => {
+      if (task.parentId != null) {
+        const parent = await db.tasks.get(task.parentId);
+        if (!parent || parent.deletedAt) throw new Error("Parent task not found");
+        if (parent.parentId != null) throw new Error("Subtasks can only be one level deep");
+        task.projectId = parent.projectId ?? null;
+      }
+      return db.tasks.add(task);
+    });
     set((state) => ({ tasks: [...state.tasks, { ...task, id }] }));
     return id;
   },
@@ -93,33 +101,76 @@ export const useTasks = create<TasksState>((set, get) => ({
     )
       throw new Error("Estimate must be zero or more minutes");
     changes.updatedAt = new Date();
+    const changed = new Map<number, Task>();
     await db.transaction("rw", db.tasks, async () => {
-      for (const id of ids) await db.tasks.update(id, changes);
+      const rows = await db.tasks.toArray();
+      const staged = new Map(rows.map((task) => [task.id!, { ...task }]));
+      const selected = new Set(ids);
+      for (const id of selected) {
+        const task = staged.get(id);
+        if (task) Object.assign(task, changes);
+      }
+      for (const before of rows.filter((task) => selected.has(task.id!))) {
+        const current = staged.get(before.id!)!;
+        if (changes.parentId != null) {
+          const parent = staged.get(changes.parentId);
+          if (!parent || parent.deletedAt) throw new Error("Parent task not found");
+          if (changes.projectId === undefined) current.projectId = parent.projectId ?? null;
+        }
+        for (const child of staged.values()) {
+          if (child.parentId !== before.id) continue;
+          if (changes.projectId !== undefined) child.projectId = current.projectId ?? null;
+          if (changes.deletedAt && !child.deletedAt && !child.completedAt)
+            child.deletedAt = changes.deletedAt;
+          if (changes.deletedAt === null && before.deletedAt && child.deletedAt &&
+              new Date(child.deletedAt).getTime() === new Date(before.deletedAt).getTime())
+            child.deletedAt = null;
+        }
+      }
+      for (const task of staged.values()) {
+        if (task.parentId == null) continue;
+        const parent = staged.get(task.parentId);
+        if (!parent || parent.id === task.id || parent.parentId != null)
+          throw new Error("Subtasks can only be one level deep");
+        if ((task.projectId ?? null) !== (parent.projectId ?? null))
+          throw new Error("Subtasks must stay in their parent's project");
+      }
+      for (const before of rows) {
+        const next = staged.get(before.id!)!;
+        if (selected.has(before.id!) || next.projectId !== before.projectId || next.deletedAt !== before.deletedAt) {
+          next.updatedAt = changes.updatedAt!;
+          await db.tasks.put(next);
+          changed.set(before.id!, next);
+        }
+      }
     });
     set((state) => ({
       tasks: state.tasks.map((task) =>
-        ids.includes(task.id!) ? { ...task, ...changes } : task,
+        changed.get(task.id!) ?? task,
       ),
     }));
   },
   removeForever: async (id) => {
+    const removed = new Set<number>();
     // Remove the source too: restoring an old issue must not recreate deleted tasks.
     await db.transaction(
       "rw",
-      [db.tasks, db.issues, db.table("tasks")],
+      [db.tasks, db.taskAttachments, db.issues, db.table("tasks")],
       async () => {
-        const task = await db.tasks.get(id);
-        if (task?.legacyIssueUid)
-          await db.issues.where("uid").equals(task.legacyIssueUid).delete();
-        if (task?.uid?.startsWith("old-task:"))
-          await db
-            .table("tasks")
-            .filter((row) => `old-task:${row.uid}` === task.uid)
-            .delete();
-        await db.tasks.delete(id);
+        const parent = await db.tasks.get(id);
+        const children = await db.tasks.where("parentId").equals(id).toArray();
+        for (const task of [...(parent ? [parent] : []), ...children]) {
+          if (task.legacyIssueUid)
+            await db.issues.where("uid").equals(task.legacyIssueUid).delete();
+          if (task.uid?.startsWith("old-task:"))
+            await db.table("tasks").filter((row) => `old-task:${row.uid}` === task.uid).delete();
+          if (task.uid) await db.taskAttachments.where("taskUid").equals(task.uid).delete();
+          await db.tasks.delete(task.id!);
+          removed.add(task.id!);
+        }
       },
     );
-    set((state) => ({ tasks: state.tasks.filter((t) => t.id !== id) }));
+    set((state) => ({ tasks: state.tasks.filter((t) => !removed.has(t.id!)) }));
   },
   saveFilter: async (name, criteria) => {
     const now = new Date();

@@ -123,6 +123,7 @@ export const AI_TOOLS = {
       "Add a task to a project, or Inbox when no project is supplied. Call getProjectsOverview to find project ids.",
     inputSchema: z.object({
       projectId: z.number().int().optional(),
+      parentId: z.number().int().optional().describe("Parent task ID; inherits its project. Only one level of subtasks."),
       title: z.string(),
       tags: z.array(z.string()).default([]),
       estimateMinutes: z.number().min(0).default(0),

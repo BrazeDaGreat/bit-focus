@@ -4,6 +4,8 @@ export interface Task {
   id?: number;
   uid?: string;
   projectId?: number | null;
+  /** Parent task (local id). Subtasks are one level deep: a subtask never has children. */
+  parentId?: number | null;
   title: string;
   description: string;
   tags: string[];
@@ -39,6 +41,26 @@ export interface TaskFilter {
   criteria: TaskCriteria;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export function subtaskProgress(tasks: Task[], parentId: number) {
+  const children = tasks.filter((task) => task.parentId === parentId && !task.deletedAt);
+  return { done: children.filter((task) => !!task.completedAt).length, total: children.length };
+}
+
+/** Plain text for search, previews and AI; works without a browser during SSR. */
+export function descriptionText(html: string) {
+  if (!html.trimStart().startsWith("<")) return html;
+  const text = html
+    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, "")
+    .replace(/<br\s*\/?\s*>|<\/(p|div|li|h[1-6]|blockquote)>/gi, "\n")
+    .replace(/<[^>]*>/g, "");
+  const entities: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+  return text.replace(/&(#x[\da-f]+|#\d+|amp|lt|gt|quot|apos|nbsp);/gi, (match, entity: string) => {
+    if (!entity.startsWith("#")) return entities[entity.toLowerCase()] ?? match;
+    const code = entity[1].toLowerCase() === "x" ? parseInt(entity.slice(2), 16) : Number(entity.slice(1));
+    return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : match;
+  }).replace(/\n{3,}/g, "\n\n").trim();
 }
 
 export function dayBounds(now = new Date()) {

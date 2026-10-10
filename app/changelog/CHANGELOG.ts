@@ -24,7 +24,7 @@ const CHANGELOG = `
 - Security: Saving your profile no longer writes your name, date of birth, and webhook URL to the browser console.
 - Improved: Home loads faster. The page and greeting now appear straight away instead of waiting on the app to start, and the chart, heatmap, and command palette load only when needed.
 - Fixed: The Due panel on Home no longer jumps the page around as your issues load in.
-### \`v0.23.1-beta\` (2026-10-04) — Projects, Simplified
+### \`v0.23.1-beta\` (2026-10-04) — Refactored Projects (1/2)
 - Added: A landscape timer for phones: open it from the Focus dock for a full-screen, pure-black AMOLED view with just the timer and a small close button.
 - Changed: Projects is now one simple page. A row of project tabs sits at the top, with the task box and the task list below it. The second sidebar, the Inbox, Today, and Upcoming views, the sort and group menus, and the daily capacity bar are gone.
 - Changed: Milestones and issues are now plain tasks. Each issue becomes a task in its project, keeping its title, notes, and deadline. Milestone budgets and payment states stay in your data and backups but are no longer shown.
@@ -38,10 +38,41 @@ const CHANGELOG = `
 - Changed: The deadline has its own date picker instead of the browser's. It offers Today, Tomorrow, and Next week with their dates, then a month calendar, and a "Clear deadline" button once one is set. The deadline reads as "Today", "Tomorrow", or a short date like "Fri, Oct 9", and turns red when overdue. Changing the date keeps any time already set on it.
 - Removed: Saved filters, selecting several tasks at once, reordering with arrows, sections, setting a time on deadlines, and the Markdown preview for notes. Anything you'd already set is kept in your data.
 - Changed: The New project dialog asks only for a name and optional notes, and opens the new project once it's created.
-### \`v0.23.2-beta\` (2026-10-10) — Offline, Fixed
+### \`v0.23.2-beta\` (2026-10-10) — Improved Offline
 - Fixed: Opening BIT Focus without a connection crashed every page with "Application error". The app only kept the code each page needs on first load, so pieces that load later (the Home chart and heatmap, the command palette, sync) were missing offline. Every part of the app is now saved on your device when it installs, so all pages open offline.
 - Improved: After an update, the offline app downloads only the files that changed and clears out the previous version. Updates are picked up straight away instead of waiting on the browser's cache.
 - Removed: Excalidraw. Its page, the Sidebar and command palette entries, the E shortcut, and its switch under Settings → Features are gone, along with its saved drawings and their sync. This also makes the app smaller to download and install.
+### \`v0.23.3-beta\` (2026-10-10) — Refactored Projects (2/2)
+- Changed: Projects now opens as a workspace. On desktop, a rail shows each project's icon, open tasks, progress, and next deadline or overdue count beside the task list. On a phone, you start with project tiles and open a project to see its tasks. The sideways-scrolling tabs are gone.
+- Added: A deadline runway shows the next 14 days (7 on small screens), with overdue tasks pinned at the start. Tap a day to see its tasks. Tasks are grouped as Overdue, Today, Tomorrow, This week, Later, and No date; completed and trashed tasks stay folded at the bottom.
+- Added: Quick add understands dates, times, tags, projects, priorities, and time estimates in plain text. For example, "Essay draft by Friday 5pm #uni @University !high ~2h" fills them in as you type. You can dismiss recognized parts to keep them as text, use quotes to keep a phrase literal, and open examples of every supported pattern from the sparkle button.
+- Added: Subtasks sit under their parent with a completion count. Each has its own deadline, completion, and focus, follows its parent to another project, and moves to and from Trash with it.
+- Added: Task notes support bold, italic, lists, checklists, and links. Paste or drop images into notes, or attach files up to 25 MB. Attachments stay on this device; manual backups include them, while automatic backups do not.
+- Added: Choose a searchable icon for each project. Icons appear in project tiles, the rail, task rows, and the project picker, and are included in sync and backups.
+- Added: Delete active or archived projects from the project options menu, with confirmation. Deleting a project permanently removes its tasks, subtasks, and attachments while keeping recorded focus sessions.
+- Improved: The task detail panel is wider.
+### \`v0.23.4-beta\` (2026-10-10) — Notes System
+- Added: Notes. A new page in the Sidebar (O key, or "Notes" in the command palette) for writing and organizing your notes. Your pages are listed on the left and the open page fills the right. Everything is saved on your device as you type, works offline, and syncs across your devices when you're signed in.
+- Added: Pages nest inside each other as deeply as you like. Drag a page in the list to put it before, after, or inside another page. On touch screens, or if you'd rather not drag, use Move to…, Move up, and Move down from the page menu. Folders remember whether they're open, and opening a page expands the pages above it.
+- Added: Every page can have its own icon, picked from the same searchable icon library as projects. Icons appear in the page list, the page header, the breadcrumb above the title, subpage links, and the command palette.
+- Added: The editor has headings, bold, italic, underline, strikethrough, inline code, highlight, links, text alignment, subscript and superscript, bulleted and numbered lists, checklists (which can nest), quotes, and dividers. Select text to open a formatting bar. Markdown shortcuts work as you type: #, -, 1., >, [ ], \`\`\`, and ---. Automatic typography (smart quotes, dashes) is on, but it never turns ^2 into ² or 1/2 into ½, so equations you type stay exact.
+- Added: Type "/" to insert a block: text, headings, lists, checklist, quote, divider, callout, toggle, code block, table, image, math equation, inline equation, or a 2, 3, or 4 column layout. Arrow keys and Enter pick an item, and typing filters the list.
+- Added: Columns put blocks side by side. Add, remove, or undo columns from the toolbar that appears while you're inside them; removing a column moves its content into the next one. On a phone, columns stack.
+- Added: Tables, with a header row, resizable columns, and controls to add or remove rows and columns, merge or split cells, and turn header rows or columns on and off. Wide tables scroll inside the page.
+- Added: Code blocks with syntax highlighting in the colours of your current theme. Pick the language and copy the code from the block, and Tab indents.
+- Added: Images. Paste, drop, or insert them with /image, then resize them by dragging the edge and align them left, centre, or right. Large images are shrunk to fit sync limits, so your images reach your other devices too.
+- Added: Math equations, written in LaTeX. A display equation sits centred on its own line: insert one with /math, or type $$ and a space at the start of a line. An inline equation sits inside a sentence: type it between single dollar signs (like $x^2$), choose "Inline equation" from the / menu, or press Ctrl + Shift + M (⌘ + Shift + M on Mac), which also turns selected text into an equation. Both show a live preview while you write, and a mistake shows what went wrong instead of breaking the page. Click an equation to edit it. Equations are drawn on your device, so they work offline, and they're included in PDF exports. A dollar sign followed by a space stays text, so prices like "$5 and $10" are left alone.
+- Added: Tables, columns, and callouts get a small floating toolbar while you're working inside them. It floats over the page instead of pushing your writing down, and every button names its action when you hover over it. Every menu in the editor, like the block type, text alignment, and code language, uses the app's own themed menus.
+- Added: Callouts in four styles (note, tip, warning, danger) and toggles that fold their content away and stay open or closed as you left them.
+- Added: Export any page to PDF from the page toolbar or the page menu. It opens your browser's print dialog with a clean, light layout, so choose "Save as PDF". The export includes the page icon and title, images, equations, highlighted code, side-by-side columns, and toggles printed open. It works offline.
+- Added: Search your pages by title from the top of the page list. Each result shows where the page sits.
+- Added: Trash. Deleted pages, along with their subpages, go to Trash with an Undo, and you can open them there to read. Restore them or delete them for good, one at a time or with Empty trash. A restored page whose parent is still in Trash returns to the top level.
+- Added: Keyboard support in the page list: arrow keys to move, expand, and collapse; Enter to open; F2 to rename; Delete to move to Trash. Ctrl + \\ (⌘ + \\ on Mac) shows or hides the page list, Ctrl + S saves right away, and Ctrl + K adds a link.
+- Added: Notes can be turned off under Settings → Features.
+- Improved: Your last keystrokes are kept even if the tab closes or reloads before a save finishes. They're restored the next time you open the page.
+- Improved: Moving between pages, creating subpages, and exporting PDFs work without a connection once Notes has loaded.
+- Changed: Manual backups now include your pages, their icons and Trash, and their images. Automatic backups leave images out to stay small. Restoring a backup that has no images keeps the ones already on your device.
+- Changed: Notes from the earlier notes feature open in the new editor as they were.
 ***
 
 ## \`v0.22.0-beta\` (2026-09-08) — Interface, Rebuilt

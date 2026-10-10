@@ -8,7 +8,7 @@
  * Database Schema:
  * - Configuration: User settings including preferred currency
  * - Focus: Focus session tracking and analytics
- * - Notes: Document and board-style note storage
+ * - Notes: Hierarchical pages, trash, and compressed synced image assets
  * - Projects: Project management with markdown notes and quick links
  * - Milestones: Project milestones with budgets and deadlines
  * - Issues: Issue tracking within milestones
@@ -34,6 +34,7 @@
 
 import Dexie from "dexie";
 import type { Task, TaskFilter } from "./tasks";
+import type { Note, NoteAsset } from "./notes";
 import { migrateTasks } from "./task-migration";
 
 /**
@@ -51,6 +52,18 @@ import { migrateTasks } from "./task-migration";
 export interface Syncable {
   /** Stable cross-device identity for this row. */
   uid?: string;
+}
+
+/** Device-local files. Blob contents never enter cross-device sync. */
+export interface TaskAttachment {
+  id?: number;
+  uid: string;
+  taskUid: string;
+  name: string;
+  type: string;
+  size: number;
+  blob: Blob;
+  createdAt: Date;
 }
 
 /**
@@ -196,19 +209,9 @@ class BitFocusDB extends Dexie {
   /**
    * Notes Table
    */
-  notes: Dexie.Table<
-    {
-      id?: number;
-      title: string;
-      type: "document" | "board";
-      parentId?: number | null;
-      content?: string;
-      boardData?: { category: string; children: number[] }[];
-      createdAt: Date;
-      updatedAt: Date;
-    } & Syncable,
-    number
-  >;
+  notes: Dexie.Table<Note & Syncable, number>;
+  /** Compressed images referenced by asset uid from note content. */
+  noteAssets: Dexie.Table<NoteAsset, number>;
 
   /**
    * Projects Table (Enhanced with Quick Links)
@@ -219,6 +222,7 @@ class BitFocusDB extends Dexie {
       title: string;
       status: "Scheduled" | "Active" | "Closed";
       notes: string;
+      icon?: string;
       version: string;
       quickLinks: QuickLink[];
       createdAt: Date;
@@ -274,6 +278,7 @@ class BitFocusDB extends Dexie {
 
   timeblocks: Dexie.Table<TimeBlock, number>;
   tasks: Dexie.Table<Task, number>;
+  taskAttachments: Dexie.Table<TaskAttachment, number>;
   taskFilters: Dexie.Table<TaskFilter, number>;
   aiChats: Dexie.Table<AIChat, string>;
   aiConfig: Dexie.Table<AIConfig, string>;
@@ -541,13 +546,25 @@ class BitFocusDB extends Dexie {
       await tx.table("sync_state").where("col").equals("excalidraw").delete();
     });
 
+    this.version(15).stores({
+      task_items: "++id, &uid, projectId, parentId, dueDate, completedAt, deletedAt, *tags, order",
+      task_attachments: "++id, &uid, taskUid, createdAt",
+    });
+
+    this.version(16).stores({
+      notes: "++id, title, type, parentId, createdAt, updatedAt, &uid, deletedAt, order",
+      note_assets: "++id, &uid, noteUid, createdAt",
+    });
+
     // Table reference assignment
     this.tasks = this.table("task_items");
+    this.taskAttachments = this.table("task_attachments");
     this.taskFilters = this.table("task_filters");
     this.timeblocks = this.table("timeblocks");
     this.configuration = this.table("configuration");
     this.focus = this.table("focus");
     this.notes = this.table("notes");
+    this.noteAssets = this.table("note_assets");
     this.projects = this.table("projects");
     this.milestones = this.table("milestones");
     this.issues = this.table("issues");

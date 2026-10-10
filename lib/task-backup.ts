@@ -1,4 +1,5 @@
 import type { Task, TaskFilter } from "./tasks";
+import type { TaskAttachment } from "./db";
 
 export interface SavedTask extends Omit<
   Task,
@@ -9,6 +10,7 @@ export interface SavedTask extends Omit<
   deletedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+  parentUid?: string | null;
 }
 export interface SavedTaskFilter extends Omit<
   TaskFilter,
@@ -63,6 +65,73 @@ export function deserializeTask(task: SavedTask): Task {
     createdAt: date(task.createdAt),
     updatedAt: date(task.updatedAt),
   };
+}
+
+/** Portable parent links; numeric IDs remain only as row keys in the backup. */
+export function serializeTasks(tasks: Task[]): SavedTask[] {
+  return tasks.map((task) => {
+    const saved = serializeTask(task);
+    delete saved.parentId;
+    if (task.parentId != null) {
+      const parent = tasks.find((row) => row.id === task.parentId);
+      if (!parent?.uid) throw new Error("Cannot back up a task with a missing parent");
+      saved.parentUid = parent.uid;
+    }
+    return saved;
+  });
+}
+
+export function deserializeTasks(saved: SavedTask[]): Task[] {
+  const tasks = saved.map(deserializeTask);
+  let nextId = Math.max(0, ...tasks.map((task) => task.id ?? 0)) + 1;
+  const byUid = new Map<string, Task>();
+  for (const task of tasks) {
+    task.id ??= nextId++;
+    if (task.uid) byUid.set(task.uid, task);
+  }
+  tasks.forEach((task, index) => {
+    const parentUid = saved[index].parentUid;
+    delete (task as Task & { parentUid?: string | null }).parentUid;
+    if (parentUid != null) {
+      const parent = byUid.get(parentUid);
+      if (!parent) throw new Error("Backup contains an invalid task parent");
+      task.parentId = parent.id;
+    }
+  });
+  for (const task of tasks) {
+    if (task.parentId == null) continue;
+    const parent = tasks.find((row) => row.id === task.parentId);
+    if (!parent || parent === task || parent.parentId != null ||
+        (task.projectId ?? null) !== (parent.projectId ?? null))
+      throw new Error("Backup contains an invalid task parent");
+  }
+  return tasks;
+}
+
+export interface SavedTaskAttachment extends Omit<TaskAttachment, "blob" | "createdAt"> {
+  base64: string;
+  createdAt: string;
+}
+
+export async function serializeAttachment(attachment: TaskAttachment): Promise<SavedTaskAttachment> {
+  const { blob, ...metadata } = attachment;
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const chunks: string[] = [];
+  for (let offset = 0; offset < bytes.length; offset += 8192)
+    chunks.push(String.fromCharCode(...bytes.subarray(offset, offset + 8192)));
+  return { ...metadata, createdAt: attachment.createdAt.toISOString(), base64: btoa(chunks.join("")) };
+}
+
+export function deserializeAttachment(saved: SavedTaskAttachment): TaskAttachment {
+  const { base64, ...metadata } = saved;
+  const createdAt = new Date(saved.createdAt);
+  if (!saved.uid || !saved.taskUid || typeof saved.name !== "string" || typeof saved.type !== "string" ||
+      !Number.isFinite(createdAt.getTime()) || !Number.isInteger(saved.size) || saved.size < 0 ||
+      saved.size > 25 * 1024 * 1024 || typeof base64 !== "string")
+    throw new Error("Backup contains an invalid task attachment");
+  const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+  if (bytes.length !== saved.size) throw new Error("Backup contains an invalid task attachment size");
+  return { ...metadata, createdAt, blob: new Blob([bytes], { type: saved.type }) };
 }
 
 export function deserializeTaskFilter(filter: SavedTaskFilter): TaskFilter {

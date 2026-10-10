@@ -40,7 +40,7 @@ import { create } from "zustand";
 import db from "@/lib/db";
 
 /** Toggleable app features. Pages for disabled features are hidden. */
-export type FeatureKey = "calendar" | "aiChat" | "projects" | "rewards";
+export type FeatureKey = "calendar" | "aiChat" | "projects" | "notes" | "rewards";
 
 export type FeatureToggles = Record<FeatureKey, boolean>;
 
@@ -48,6 +48,7 @@ export const DEFAULT_FEATURE_TOGGLES: FeatureToggles = {
   calendar: true,
   aiChat: true,
   projects: true,
+  notes: true,
   rewards: true,
 };
 

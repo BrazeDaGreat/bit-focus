@@ -184,7 +184,7 @@ export const COLLECTIONS: readonly SyncCollection[] = [
     pk: "id",
     autoKey: true,
     uidField: "uid",
-    dates: ["createdAt", "updatedAt"],
+    dates: ["createdAt", "updatedAt", "deletedAt"],
     // Notes nest inside other notes, so the reference points back at itself.
     // Two passes on apply settle any ordering the server hands us.
     refs: [{ field: "parentId", target: "notes" }],
@@ -236,6 +236,15 @@ export const COLLECTIONS: readonly SyncCollection[] = [
     },
   },
   {
+    key: "noteAssets",
+    table: () => db.noteAssets as unknown as Dexie.Table<LocalRow, string | number>,
+    pk: "id",
+    autoKey: true,
+    uidField: "uid",
+    dates: ["createdAt", "updatedAt"],
+    order: 3,
+  },
+  {
     key: "projects",
     table: () => db.projects as unknown as Dexie.Table<LocalRow, string | number>,
     pk: "id",
@@ -259,7 +268,7 @@ export const COLLECTIONS: readonly SyncCollection[] = [
     table: () => db.tasks as unknown as Dexie.Table<LocalRow, string | number>,
     pk: "id", autoKey: true, uidField: "uid",
     dates: ["dueDate", "completedAt", "deletedAt", "createdAt", "updatedAt"],
-    refs: [{ field: "projectId", target: "projects" }], order: 4,
+    refs: [{ field: "projectId", target: "projects" }, { field: "parentId", target: "tasks" }], order: 4,
   },
   {
     key: "taskFilters",

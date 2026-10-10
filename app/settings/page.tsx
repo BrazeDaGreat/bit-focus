@@ -48,6 +48,7 @@ const SECTION_IDS: SectionId[] = ["profile", "account", "timer", "notifications"
 const FEATURE_LIST: { key: FeatureKey; label: string; hint: string }[] = [
   { key: "calendar", label: "Calendar", hint: "Sessions and timeblocks on a calendar" },
   { key: "projects", label: "Projects", hint: "Projects, milestones and issues" },
+  { key: "notes", label: "Notes", hint: "Write pages and organize them in a tree" },
   { key: "aiChat", label: "AI Chat", hint: "An assistant that can read and act on your data" },
   { key: "rewards", label: "Rewards", hint: "Spend focus points on rewards" },
 ];

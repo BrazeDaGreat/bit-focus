@@ -5,7 +5,9 @@ import { format } from "date-fns";
 import { Play, X, Trash2, RotateCcw, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { TaskNotesEditor } from "./TaskNotesEditor";
+import { TaskSubtasks } from "./TaskSubtasks";
+import { useTaskAttachments } from "@/hooks/useAttachments";
 import { Button } from "@/components/ui/button";
 import { useTasks } from "@/hooks/useTasks";
 import { useProjects } from "@/hooks/useProjects";
@@ -28,21 +30,23 @@ export function TaskDetails({
   task,
   onClose,
   onFocus,
+  onOpenTask = () => {},
 }: {
   task: Task;
   onClose: () => void;
   onFocus: (task: Task) => void;
+  onOpenTask?: (task: Task) => void;
 }) {
-  const { updateTask, removeForever } = useTasks();
+  const { tasks, updateTask, removeForever } = useTasks();
+  const attachments = useTaskAttachments(task.uid);
+  const parent = task.parentId != null ? tasks.find((row) => row.id === task.parentId) : undefined;
   const { projects } = useProjects();
   const { savedTags } = useTag();
   const { focusSessions } = useFocus();
   const { timeblocks } = useTimeblocks();
   const [title, setTitle] = useState(task.title);
-  const [description, setDescription] = useState(task.description);
   const [busy, setBusy] = useState(false);
   useEffect(() => setTitle(task.title), [task.title]);
-  useEffect(() => setDescription(task.description), [task.description]);
   const sessions = focusSessions.filter((s) => s.taskUid === task.uid);
   const blocks = timeblocks.filter((b) => b.taskUid === task.uid);
   const deadline = taskDeadline(task);
@@ -97,6 +101,7 @@ export function TaskDetails({
 
   return (
     <div className="flex h-full flex-col gap-5 overflow-y-auto p-5">
+      {parent && <button type="button" onClick={() => onOpenTask(parent)} className="rounded-lg bg-muted/40 px-3 py-2 text-left text-xs text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Part of <span className="text-foreground">{parent.title}</span></button>}
       <div className="flex items-start gap-2">
         <Input
           aria-label="Task title"
@@ -108,7 +113,7 @@ export function TaskDetails({
                 if (!title.trim()) setTitle(task.title);
               });
           }}
-          className="h-auto flex-1 border-0 bg-transparent px-0 py-1 text-lg font-semibold shadow-none md:text-lg focus-visible:ring-0 dark:bg-transparent"
+          className="h-auto flex-1 border-0 bg-transparent px-0 py-1 text-lg font-semibold shadow-none md:text-lg focus-visible:ring-2"
           disabled={!!task.deletedAt}
         />
         <button
@@ -217,7 +222,7 @@ export function TaskDetails({
                   })
                 }
                 className={cn(
-                  "h-8 rounded-lg px-2.5 font-mono text-xs",
+                  "h-8 rounded-lg px-2.5 font-mono text-xs tabular-nums",
                   task.estimateMinutes === m
                     ? "bg-primary/12 text-primary"
                     : "bg-muted/50 hover:bg-muted",
@@ -238,7 +243,7 @@ export function TaskDetails({
               onBlur={(e) =>
                 void save({ estimateMinutes: Number(e.target.value) })
               }
-              className="h-8 w-20 font-mono text-xs"
+              className="h-8 w-20 font-mono text-xs tabular-nums"
             />
           </div>
         </div>
@@ -298,22 +303,12 @@ export function TaskDetails({
             </div>
           </div>
         )}
-
-        <label className="text-xs text-muted-foreground">
-          Notes
-          <Textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            onBlur={() => {
-              if (description !== task.description) void save({ description });
-            }}
-            placeholder="Anything worth remembering"
-            className="mt-1.5 min-h-28 text-sm text-foreground"
-          />
-        </label>
       </fieldset>
 
-      <div className="mt-auto space-y-1 border-t pt-4 text-xs text-muted-foreground">
+      <TaskNotesEditor key={task.uid ?? task.id} task={task} files={attachments} onSave={(description) => updateTask(task.id!, { description })} />
+      <TaskSubtasks key={`subtasks-${task.id}`} task={task} onOpen={onOpenTask} />
+
+      <div className="mt-auto space-y-1 rounded-xl bg-muted/40 p-3 text-xs text-muted-foreground">
         <p className="font-mono tabular-nums">
           <span className="text-foreground">
             {formatMinutes(taskMinutes(task, focusSessions))} /{" "}

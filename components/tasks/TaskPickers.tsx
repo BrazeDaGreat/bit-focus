@@ -13,7 +13,6 @@ import {
   Check,
   ChevronDown,
   CircleDashed,
-  Folder,
   X,
 } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
@@ -33,6 +32,7 @@ import {
 import type { Project } from "@/hooks/useProjects";
 import { cn } from "@/lib/utils";
 import { dateInput } from "@/lib/tasks";
+import { ProjectIcon } from "./ProjectIcon";
 
 const triggerClass =
   "mt-1.5 flex h-9 w-full items-center gap-2 rounded-lg bg-muted/50 px-2.5 text-left text-sm text-foreground transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-primary data-[state=open]:bg-muted disabled:pointer-events-none";
@@ -51,7 +51,7 @@ export function ProjectPicker({
   const archived = projects.filter((p) => p.status === "Closed");
   const item = (id: number | null, label: string, muted?: boolean) => {
     const selected = value === id;
-    const Icon = id === null ? CircleDashed : Folder;
+    const project = projects.find((p) => p.id === id);
     return (
       <DropdownMenuItem
         key={id ?? "none"}
@@ -62,7 +62,14 @@ export function ProjectPicker({
         }}
         className={cn("gap-2.5 py-2", muted && "text-muted-foreground")}
       >
-        <Icon className="text-muted-foreground" />
+        {id === null ? (
+          <CircleDashed className="size-4 text-muted-foreground" />
+        ) : (
+          <ProjectIcon
+            name={project?.icon}
+            className="size-4 text-muted-foreground"
+          />
+        )}
         <span className="min-w-0 flex-1 truncate">{label}</span>
         {selected && <Check className="text-primary" />}
       </DropdownMenuItem>
@@ -72,7 +79,10 @@ export function ProjectPicker({
     <DropdownMenu>
       <DropdownMenuTrigger aria-label="Task project" className={triggerClass}>
         {current ? (
-          <Folder className="size-4 shrink-0 text-muted-foreground" />
+          <ProjectIcon
+            name={current.icon}
+            className="size-4 shrink-0 text-muted-foreground"
+          />
         ) : (
           <CircleDashed className="size-4 shrink-0 text-muted-foreground" />
         )}

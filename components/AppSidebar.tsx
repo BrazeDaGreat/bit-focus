@@ -33,7 +33,7 @@ import {
 } from "react-icons/fa";
 import { BsStars } from "react-icons/bs";
 import { IoIosTimer } from "react-icons/io";
-import { FaReadme, FaUser, FaChevronRight, FaGear, FaMagnifyingGlass } from "react-icons/fa6";
+import { FaReadme, FaUser, FaChevronRight, FaGear, FaMagnifyingGlass, FaFileLines } from "react-icons/fa6";
 import { THEMES, type ThemeDefinition } from "@/lib/ThemeManager";
 import { useTheme } from "next-themes";
 import AccountAvatar from "./auth/AccountAvatar";
@@ -64,6 +64,7 @@ const pinnedItems: NavItem[] = [
   { title: "Focus", url: "/focus", icon: <IoIosTimer /> },
   { title: "Calendar", url: "/calendar", icon: <FaCalendarAlt />, feature: "calendar" },
   { title: "Projects", url: "/projects", icon: <FaProjectDiagram />, feature: "projects" },
+  { title: "Notes", url: "/notes", icon: <FaFileLines />, feature: "notes" },
 ];
 
 /** Occasional destinations: tucked under "More" until needed. */

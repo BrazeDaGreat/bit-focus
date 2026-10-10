@@ -15,7 +15,7 @@
 import dayjs from "dayjs";
 import type { FocusSession } from "@/hooks/useFocus";
 import type { Project } from "@/hooks/useProjects";
-import { taskDeadline, taskMinutes, type Task } from "./tasks";
+import { taskDeadline, taskMinutes, descriptionText, type Task } from "./tasks";
 import { reduceSessions } from "@/lib/utils";
 
 export type ContextSourceId =
@@ -158,7 +158,7 @@ export function buildContextBlock(
       const projects = input.projects ?? [];
       const tasks = (input.tasks ?? []).filter((t) => !t.deletedAt);
       if (!projects.length && !tasks.length) return null;
-      const lines = tasks.slice(0, 150).map((task) => `${task.title} [${projects.find((p) => p.id === task.projectId)?.title || "Inbox"}] — ${task.completedAt ? "completed" : "active"}; priority ${task.priority}; tags ${task.tags.join(", ") || "none"}; deadline ${taskDeadline(task) ? dayjs(taskDeadline(task)).format(task.dueTime ? "YYYY-MM-DD HH:mm" : "YYYY-MM-DD") : "none"}; estimate ${task.estimateMinutes}m; actual ${Math.round(taskMinutes(task, input.focusSessions))}m`);
+      const lines = tasks.slice(0, 150).map((task) => `${task.title} [${projects.find((p) => p.id === task.projectId)?.title || "Inbox"}] — ${task.completedAt ? "completed" : "active"}; parentId ${task.parentId ?? "none"}; notes ${descriptionText(task.description)}; priority ${task.priority}; tags ${task.tags.join(", ") || "none"}; deadline ${taskDeadline(task) ? dayjs(taskDeadline(task)).format(task.dueTime ? "YYYY-MM-DD HH:mm" : "YYYY-MM-DD") : "none"}; estimate ${task.estimateMinutes}m; actual ${Math.round(taskMinutes(task, input.focusSessions))}m`);
       return `## Projects and tasks\n${projects.map((p) => `${p.title} (${p.status === "Closed" ? "archived" : "active"})`).join("\n")}\n${lines.join("\n")}`;
     }
 
