@@ -11,12 +11,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Tooltip,
@@ -28,7 +28,6 @@ import {
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 const SIDEBAR_WIDTH = "16rem"
-const SIDEBAR_WIDTH_MOBILE = "min(20rem, calc(100vw - 1rem))"
 const SIDEBAR_WIDTH_ICON = "3rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 
@@ -180,34 +179,26 @@ function Sidebar({
     )
   }
 
+  // On phones the sidebar becomes the dock's "More" sheet: a bottom drawer
+  // that can be dragged away like any native sheet.
   if (isMobile) {
     return (
-      <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
-        <SheetContent
+      <Drawer open={openMobile} onOpenChange={setOpenMobile}>
+        <DrawerContent
           data-sidebar="sidebar"
           data-slot="sidebar"
           data-mobile="true"
-          className={cn(
-            "bg-sidebar text-sidebar-foreground h-dvh max-h-dvh w-(--sidebar-width) gap-0 overflow-hidden p-0 shadow-2xl",
-            side === "left" ? "rounded-r-[1.75rem]" : "rounded-l-[1.75rem]",
-            "[&>button]:top-[calc(env(safe-area-inset-top)+0.75rem)] [&>button]:right-3 [&>button]:z-20 [&>button]:grid [&>button]:size-11 [&>button]:place-items-center [&>button]:rounded-full [&>button]:bg-sidebar-accent [&>button]:opacity-100 [&>button]:transition-transform [&>button:active]:scale-95"
-          )}
-          style={
-            {
-              "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
-            } as React.CSSProperties
-          }
-          side={side}
+          className="bg-sidebar text-sidebar-foreground border-0 shadow-2xl [&>div:first-child]:mt-3 [&>div:first-child]:h-1.5 [&>div:first-child]:w-12 [&>div:first-child]:bg-sidebar-foreground/20 data-[vaul-drawer-direction=bottom]:max-h-[min(88dvh,48rem)] data-[vaul-drawer-direction=bottom]:rounded-t-[1.75rem]"
         >
-          <SheetHeader className="sr-only">
-            <SheetTitle>Sidebar</SheetTitle>
-            <SheetDescription>Displays the mobile sidebar.</SheetDescription>
-          </SheetHeader>
-          <div className="flex h-dvh min-h-0 w-full flex-col overflow-hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
+          <DrawerHeader className="sr-only">
+            <DrawerTitle>More</DrawerTitle>
+            <DrawerDescription>Profile, other pages, ambience and theme.</DrawerDescription>
+          </DrawerHeader>
+          <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden pt-1 pb-[env(safe-area-inset-bottom)]">
             {children}
           </div>
-        </SheetContent>
-      </Sheet>
+        </DrawerContent>
+      </Drawer>
     )
   }
 

@@ -117,7 +117,7 @@ export default function Focus(): JSX.Element {
     <div className="flex flex-1 flex-col">
       {state.task && <div className="mx-auto mt-3 max-w-sm rounded-xl bg-primary/12 px-4 py-2 text-center text-sm"><p className="text-[11px] text-muted-foreground">Current task</p><p className="mt-1 font-medium">{state.task.title}</p><p className="mt-1 text-xs text-muted-foreground">Saved under #{state.task.tag}</p></div>}
       {/* ── Timer screen: ring centred, dock along the bottom edge ──────── */}
-      <section className="flex min-h-[calc(100dvh-7rem)] flex-col lg:min-h-[calc(100dvh-3.5rem)]">
+      <section className="flex min-h-[calc(100dvh-7.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] flex-col md:min-h-[calc(100dvh-7rem)] lg:min-h-[calc(100dvh-3.5rem)]">
         {/* Ring takes the whole screen above the dock */}
         <div className="flex flex-1 items-center justify-center px-4 py-8">
           <TimerRing

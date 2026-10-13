@@ -110,7 +110,7 @@ export default function TopBar(): JSX.Element {
       title="Reward points"
       aria-label={`Reward points: ${(rewardPoints / 100).toFixed(2)}`}
       className={cn(
-        "h-11 touch-manipulation rounded-full bg-muted/70 px-3 font-mono text-sm tabular-nums transition-[background-color,color,transform] hover:bg-muted active:scale-95 motion-reduce:transition-none lg:h-10",
+        "h-9 touch-manipulation gap-1.5 rounded-full bg-muted/70 px-2.5 font-mono text-xs tabular-nums transition-[background-color,color,transform] hover:bg-muted active:scale-95 motion-reduce:transition-none md:h-11 md:gap-2 md:px-3 md:text-sm lg:h-10",
         rewardPoints < 0 && "bg-red-500/10 text-red-500 hover:bg-red-500/15"
       )}
     >
@@ -130,21 +130,24 @@ export default function TopBar(): JSX.Element {
         {/* Keep content clear of the Android status bar when installed as a PWA. */}
         <div className="h-[env(safe-area-inset-top)] lg:hidden" aria-hidden="true" />
 
-        <div className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 px-2 py-2 sm:px-4 lg:h-16 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:gap-x-3 lg:py-2">
+        {/* Phones get one compact row (navigation lives in the bottom dock);
+            tablets stack a command shelf under the title; desktops use one wide row. */}
+        <div className="flex h-14 items-center gap-1 pl-4 pr-2 md:grid md:h-auto md:min-h-14 md:grid-cols-[minmax(0,1fr)_auto] md:gap-x-2 md:gap-y-2 md:px-4 md:py-2 lg:h-16 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:gap-x-3">
           {/* Primary Android-style app bar: navigation, destination, balance. */}
-          <div className="col-start-1 row-start-1 flex min-w-0 items-center gap-1 sm:gap-2">
-            <SidebarTrigger className="size-11 touch-manipulation rounded-full text-muted-foreground transition-[background-color,color,transform] hover:bg-muted hover:text-foreground active:scale-95 motion-reduce:transition-none lg:size-10" />
-            <h1 className="truncate text-lg font-semibold leading-none tracking-tight sm:text-xl lg:text-lg">
+          <div className="flex min-w-0 flex-1 items-center gap-2 md:col-start-1 md:row-start-1">
+            <SidebarTrigger className="hidden size-11 touch-manipulation rounded-full text-muted-foreground transition-[background-color,color,transform] hover:bg-muted hover:text-foreground active:scale-95 motion-reduce:transition-none md:inline-flex lg:size-10" />
+            <h1 className="truncate text-lg font-semibold leading-none tracking-tight md:text-xl lg:text-lg">
               {pageTitle}
             </h1>
             <OfflineIndicator />
           </div>
 
           {/* A dedicated command shelf prevents tools competing with the title. */}
-          <div className="col-span-2 row-start-2 flex h-12 min-w-0 items-center gap-1.5 rounded-2xl bg-muted/70 p-1 ring-1 ring-border/40 sm:gap-2 lg:col-span-1 lg:col-start-2 lg:row-start-1 lg:h-10 lg:bg-transparent lg:p-0 lg:ring-0">
-            <MiniTimer className="h-10 w-fit max-w-40 flex-none border-0 bg-background shadow-sm ring-1 ring-border/70 [&_button]:size-9 [&_button]:touch-manipulation [&_button]:transition-transform [&_button:active]:scale-95 motion-reduce:[&_button]:transition-none lg:h-9 lg:max-w-none lg:border lg:shadow-none lg:ring-0 lg:[&_button]:size-7" />
+          <div className="flex shrink-0 items-center md:col-span-2 md:row-start-2 md:h-12 md:min-w-0 md:gap-2 md:rounded-2xl md:bg-muted/70 md:p-1 md:ring-1 md:ring-border/40 lg:col-span-1 lg:col-start-2 lg:row-start-1 lg:h-10 lg:bg-transparent lg:p-0 lg:ring-0">
+            {/* On phones the dock's Focus tab carries the live timer instead. */}
+            <MiniTimer className="hidden h-10 w-fit max-w-40 flex-none border-0 bg-background shadow-sm ring-1 ring-border/70 [&_button]:size-9 [&_button]:touch-manipulation [&_button]:transition-transform [&_button:active]:scale-95 motion-reduce:[&_button]:transition-none md:flex lg:h-9 lg:max-w-none lg:border lg:shadow-none lg:ring-0 lg:[&_button]:size-7" />
 
-            <div className="ml-auto flex shrink-0 items-center gap-0.5 rounded-xl bg-background p-0.5 shadow-sm ring-1 ring-border/70 lg:bg-muted/60 lg:shadow-none lg:ring-0 [&_button]:size-9 [&_button]:touch-manipulation [&_button]:rounded-[0.625rem] [&_button]:border-0 [&_button]:bg-transparent [&_button]:px-0 [&_button]:shadow-none [&_button]:transition-[background-color,color,transform] [&_button:active]:scale-95 [&_button:hover]:bg-muted sm:[&_button]:size-10 lg:[&_button]:size-8 motion-reduce:[&_button]:transition-none">
+            <div className="ml-auto flex shrink-0 items-center gap-0.5 text-muted-foreground md:text-foreground [&_button]:size-10 [&_button]:touch-manipulation [&_button]:rounded-full [&_button]:border-0 [&_button]:bg-transparent [&_button]:px-0 [&_button]:shadow-none [&_button]:transition-[background-color,color,transform] [&_button:active]:scale-95 [&_button:hover]:bg-muted md:rounded-xl md:bg-background md:p-0.5 md:shadow-sm md:ring-1 md:ring-border/70 md:[&_button]:rounded-[0.625rem] lg:bg-muted/60 lg:shadow-none lg:ring-0 lg:[&_button]:size-8 motion-reduce:[&_button]:transition-none">
               <SyncChip />
               <QuickMessageDialog />
               <FloatingNotepad />
@@ -153,7 +156,7 @@ export default function TopBar(): JSX.Element {
           </div>
 
           {/* The balance is a compact tonal action, like an Android status chip. */}
-          <div className="col-start-2 row-start-1 lg:col-start-3">
+          <div className="ml-1 shrink-0 md:col-start-2 md:row-start-1 md:ml-0 lg:col-start-3">
             {isMobile ? (
               <MobileDrawer
                 open={pointsDrawerOpen}

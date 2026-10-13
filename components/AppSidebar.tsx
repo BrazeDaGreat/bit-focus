@@ -51,7 +51,7 @@ import { useProjects } from "@/hooks/useProjects";
 import { cn } from "@/lib/utils";
 import dayjs from "dayjs";
 
-type NavItem = {
+export type NavItem = {
   title: string;
   url: string;
   icon: JSX.Element;
@@ -59,7 +59,7 @@ type NavItem = {
 };
 
 /** Everyday destinations: always on screen. */
-const pinnedItems: NavItem[] = [
+export const pinnedItems: NavItem[] = [
   { title: "Home", url: "/", icon: <FaHome /> },
   { title: "Focus", url: "/focus", icon: <IoIosTimer /> },
   { title: "Calendar", url: "/calendar", icon: <FaCalendarAlt />, feature: "calendar" },
@@ -68,7 +68,7 @@ const pinnedItems: NavItem[] = [
 ];
 
 /** Occasional destinations: tucked under "More" until needed. */
-const moreItems: NavItem[] = [
+export const moreItems: NavItem[] = [
   { title: "Focus Table", url: "/focus-table", icon: <FaTable /> },
   { title: "AI Chat (BETA)", url: "/ai", icon: <BsStars />, feature: "aiChat" },
   { title: "Rewards", url: "/rewards", icon: <FaCoffee />, feature: "rewards" },
@@ -78,12 +78,42 @@ const moreItems: NavItem[] = [
 
 const MORE_OPEN_KEY = "bitf.sidebar.more-open";
 
+/** How many destinations the mobile dock shows before "More" takes over. */
+const DOCK_SLOTS = 4;
+
+/**
+ * Navigation split shared by the sidebar and the mobile dock: which
+ * destinations are switched on, which ones earn a dock tab, and which are
+ * left for the "More" sheet.
+ */
+export function useNavItems() {
+  const pathname = usePathname();
+  const { featureToggles } = useConfig();
+
+  const visible = (list: NavItem[]) =>
+    list.filter((item) => !item.feature || featureToggles[item.feature]);
+
+  const pinned = visible(pinnedItems);
+  const more = visible(moreItems);
+
+  const isActive = (url: string) =>
+    url === "/"
+      ? pathname === "/"
+      : pathname === url || pathname.startsWith(`${url}/`);
+
+  const dock = pinned.slice(0, DOCK_SLOTS);
+  const overflow = [...pinned.slice(DOCK_SLOTS), ...more];
+
+  return { pinned, more, dock, overflow, isActive };
+}
+
 export function AppSidebar(): JSX.Element {
   const pathname = usePathname();
   const router = useRouter();
-  const { loadingConfig, featureToggles } = useConfig();
+  const { loadingConfig } = useConfig();
   const { loadProjects } = useProjects();
   const { state: sidebarState, isMobile, setOpenMobile } = useSidebar();
+  const { pinned, more, overflow, isActive } = useNavItems();
 
   // The configuration itself is loaded once by AppShell.
   useEffect(() => {
@@ -103,17 +133,6 @@ export function AppSidebar(): JSX.Element {
     },
     [isMobile, pathname, router, setOpenMobile]
   );
-
-  const visible = (list: NavItem[]) =>
-    list.filter((item) => !item.feature || featureToggles[item.feature]);
-
-  const pinned = visible(pinnedItems);
-  const more = visible(moreItems);
-
-  const isActive = (url: string) =>
-    url === "/"
-      ? pathname === "/"
-      : pathname === url || pathname.startsWith(`${url}/`);
 
   const activeInMore = more.some((item) => isActive(item.url));
 
@@ -181,22 +200,53 @@ export function AppSidebar(): JSX.Element {
     <Sidebar className="border-r-0">
       {/* ── Header: profile card ── */}
       <SidebarHeader className="p-3 pb-2">
-        <div className="flex h-11 items-center px-1 pr-12 md:hidden">
-          <span className="text-base font-semibold tracking-tight">BIT Focus</span>
-        </div>
         <UserConfigButton loadingConfig={loadingConfig} />
         <CommandButton />
       </SidebarHeader>
 
       {/* ── Navigation ── */}
       <SidebarContent className="gap-2 px-2 pb-2 md:px-3 md:pb-0">
-        <SidebarGroup className="p-0">
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-1 md:gap-0.5 md:pl-1">{pinned.map(renderItem)}</SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {/* On phones the dock already carries the everyday tabs, so the sheet
+            only lists what is left, as a launcher grid. */}
+        {isMobile ? (
+          overflow.length > 0 && (
+            <SidebarGroup className="p-0">
+              <SidebarGroupContent>
+                <ul className="grid grid-cols-3 gap-2">
+                  {overflow.map((item) => {
+                    const active = isActive(item.url);
+                    return (
+                      <li key={item.title}>
+                        <a
+                          href={item.url}
+                          onClick={(e) => handleNavigation(item.url, e)}
+                          aria-current={active ? "page" : undefined}
+                          className={cn(
+                            "flex h-20 touch-manipulation flex-col items-center justify-center gap-2 rounded-2xl px-2 text-center text-xs font-medium transition-[background-color,color,transform] active:scale-[0.97] motion-reduce:transition-none [&>svg]:size-5",
+                            active
+                              ? "bg-primary/12 text-foreground [&>svg]:text-primary"
+                              : "bg-sidebar-accent/50 text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          {item.icon}
+                          <span className="line-clamp-2 leading-tight">{item.title}</span>
+                        </a>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )
+        ) : (
+          <SidebarGroup className="p-0">
+            <SidebarGroupContent>
+              <SidebarMenu className="gap-1 md:gap-0.5 md:pl-1">{pinned.map(renderItem)}</SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
-        {more.length > 0 && (
+        {!isMobile && more.length > 0 && (
           <Collapsible open={moreOpen} onOpenChange={handleMoreOpenChange}>
             <SidebarGroup className="p-0">
               <CollapsibleTrigger className="flex min-h-11 w-full touch-manipulation items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground/70 transition-[background-color,color,transform] hover:bg-sidebar-accent/60 hover:text-foreground active:scale-[0.98] motion-reduce:transition-none md:min-h-0 md:gap-1.5 md:rounded-lg md:px-2.5 md:py-1.5 md:text-[11px] md:hover:bg-transparent">
@@ -221,7 +271,10 @@ export function AppSidebar(): JSX.Element {
         )}
 
         {/* ── Ambience mixer ── */}
-        <SidebarGroup className="mt-auto rounded-2xl bg-sidebar-accent/50 p-1.5 md:rounded-xl">
+        <SidebarGroup
+          data-vaul-no-drag
+          className="mt-auto rounded-2xl bg-sidebar-accent/50 p-1.5 md:rounded-xl"
+        >
           <SidebarGroupContent>
             <AmbienceMixer />
           </SidebarGroupContent>
@@ -233,7 +286,7 @@ export function AppSidebar(): JSX.Element {
         <div className="flex min-h-12 items-center justify-between rounded-2xl bg-sidebar-accent/50 px-2 py-1.5 md:min-h-0 md:rounded-xl">
           <div className="flex items-center gap-1">
             <ThemeIconButton />
-            <ShortcutsButton />
+            {!isMobile && <ShortcutsButton />}
           </div>
           <span className="select-none pr-1 font-mono text-[10px] tracking-wider text-muted-foreground/60">
             {VERSION}

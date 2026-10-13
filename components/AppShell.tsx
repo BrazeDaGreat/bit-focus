@@ -39,8 +39,10 @@ import GlobalShortcuts from "@/components/GlobalShortcuts";
 import SyncBridge from "@/components/auth/SyncBridge";
 import AutoBackup from "@/components/AutoBackup";
 import PipHost from "@/components/PipHost";
+import MobileDock, { DOCK_SPACER_CLASS } from "@/components/MobileDock";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { writeProfileHint } from "@/lib/profileHint";
 
 /**
@@ -51,6 +53,9 @@ const Onboarding = dynamic(() => import("@/components/onboarding/Onboarding"), {
   ssr: false,
   loading: () => <BootSplash />,
 });
+
+/** Bottom toast offset on phones: dock height, safe area, and a little air. */
+const DOCK_TOAST_OFFSET = "calc(4.75rem + env(safe-area-inset-bottom))";
 
 const noopSubscribe = () => () => {};
 
@@ -110,6 +115,7 @@ export default function AppShell({
   const { name, loadConfig } = useConfig();
   const { bootstrapping } = useSync();
   const pathname = usePathname();
+  const isMobile = useIsMobile();
 
   // Only the home page is prepared for server rendering (its data-dependent
   // parts sit behind fixed-size placeholders). Every other page keeps reading
@@ -200,8 +206,15 @@ export default function AppShell({
       >
         <TopBar />
         {showPage ? children : null}
+        {/* Keeps the end of every page clear of the mobile dock. */}
+        <div className={DOCK_SPACER_CLASS} aria-hidden="true" />
       </div>
-      {toaster}
+      <MobileDock />
+      {/* Toasts rise above the dock on phones instead of covering it. */}
+      <Toaster
+        mobileOffset={{ bottom: DOCK_TOAST_OFFSET }}
+        offset={isMobile ? { bottom: DOCK_TOAST_OFFSET } : undefined}
+      />
       {awaitingProfile && <BootSplash overlay />}
     </>
   );
