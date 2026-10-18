@@ -73,6 +73,8 @@ const CHANGELOG = `
 - Improved: Moving between pages, creating subpages, and exporting PDFs work without a connection once Notes has loaded.
 - Changed: Manual backups now include your pages, their icons and Trash, and their images. Automatic backups leave images out to stay small. Restoring a backup that has no images keeps the ones already on your device.
 - Changed: Notes from the earlier notes feature open in the new editor as they were.
+### \`v0.23.5-beta\` (2026-10-18) — Notes Shortcut Fix
+- Fixed: Ctrl + B (⌘ + B on Mac) toggles bold in notes without also toggling the Sidebar. The Sidebar shortcut now stays inactive while typing in editable fields and respects shortcuts already handled by the editor.
 ***
 
 ## \`v0.22.0-beta\` (2026-09-08) — Interface, Rebuilt
