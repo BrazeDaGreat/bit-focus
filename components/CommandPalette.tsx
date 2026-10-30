@@ -347,7 +347,7 @@ export default function CommandPalette(): JSX.Element {
             icon={<FaFileExport />}
             onSelect={run(() => {
               SaveManager.exportData({ includeAttachments: true })
-                .then(() => toast.success("Backup exported."))
+                .then(() => toast.success("Backup exported.", { id: "backup-export" }))
                 .catch(() => toast.error("Export failed. Try again from the data menu."));
             })}
             keywords={["backup", "download", "data"]}

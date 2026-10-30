@@ -14,6 +14,7 @@ import { FaFileCsv, FaFileExport, FaFileImport, FaUpload, FaTriangleExclamation 
 import { useConfig } from "@/hooks/useConfig";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { VERSION } from "@/app/changelog/version";
+import { useBackupRestore } from "./BackupRestore";
 
 /**
  * BITF Data Management Component
@@ -43,6 +44,7 @@ import { VERSION } from "@/app/changelog/version";
  */
 export default function BITFdata(): JSX.Element {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const { prepareRestore, restoreDialog, busy } = useBackupRestore();
   const [isOpen, setIsOpen] = useState(false);
   const { webhook } = useConfig();
   const isMobile = useIsMobile();
@@ -61,7 +63,7 @@ export default function BITFdata(): JSX.Element {
   const handleExport = async (): Promise<void> => {
     try {
       await SaveManager.exportData({ includeAttachments: true });
-      toast.success("Backup exported successfully!");
+      toast.success("Backup exported successfully!", { id: "backup-export" });
     } catch (err) {
       console.error(err);
       toast.error("Export failed.");
@@ -76,9 +78,11 @@ export default function BITFdata(): JSX.Element {
    *
    * @returns {void}
    */
-  const handleImportClick = (): void => {
+  const handleImportClick = useCallback((): void => {
+    if (busy) return;
+    setIsOpen(false);
     fileInputRef.current?.click();
-  };
+  }, [busy]);
 
   /**
    * Handles file selection and import process
@@ -95,21 +99,9 @@ export default function BITFdata(): JSX.Element {
     e: React.ChangeEvent<HTMLInputElement>
   ): Promise<void> => {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
-
-    try {
-      await SaveManager.importData(file);
-      toast.success("Backup imported successfully!");
-      toast.info("Reloading in 2 seconds to apply changes...");
-      setTimeout(() => {
-        window.location.reload();
-      }, 2000);
-    } catch (err) {
-      console.error(err);
-      toast.error("Import failed. Check file format.");
-    } finally {
-      e.target.value = "";
-    }
+    await prepareRestore(file);
   };
 
   /**
@@ -202,7 +194,7 @@ export default function BITFdata(): JSX.Element {
 
     window.addEventListener("keydown", listener);
     return () => window.removeEventListener("keydown", listener);
-  }, [isOpen, hasWebhook, handleUpload]);
+  }, [isOpen, hasWebhook, handleUpload, handleImportClick]);
 
   const trigger = (
     <Button
@@ -218,6 +210,7 @@ export default function BITFdata(): JSX.Element {
 
   return (
     <>
+      {restoreDialog}
       {/* Hidden File Input for Import */}
       <input
         type="file"

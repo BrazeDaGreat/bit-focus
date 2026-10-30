@@ -2,7 +2,7 @@
  * Automatic Backup
  *
  * When the "Automatic backup" preference is on, the app downloads a regular
- * `.bitf.json` backup (the same file as Export) whenever it is open and the
+ * lightweight `.bitf.json` backup without files whenever it is open and the
  * last automatic backup is at least 24 hours old.
  *
  * The timestamp lives in a device-local localStorage key: each browser keeps
@@ -46,7 +46,7 @@ export async function runAutoBackupIfDue(): Promise<boolean> {
   const previous = localStorage.getItem(LAST_BACKUP_KEY);
   localStorage.setItem(LAST_BACKUP_KEY, String(Date.now()));
   try {
-    await SaveManager.exportData();
+    await SaveManager.exportData({ includeAttachments: false });
     return true;
   } catch (error) {
     // Put the old timestamp back so the next check tries again.
