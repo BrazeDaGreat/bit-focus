@@ -52,6 +52,9 @@ const DEVICE_LOCAL_KEYS: readonly string[] = [
   "pomoSegments",
   "pomoSegmentStart",
   "pomoTask",
+  // Finished sessions this device has not confirmed saved. Replaying one on
+  // another device would grant its points twice.
+  "pomoPendingCompletions",
   "bitfocus.lastAutoBackup",
   "timerMode",
   // Picture-in-Picture mirror of the timer, rewritten several times a second.

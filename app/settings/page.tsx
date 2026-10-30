@@ -38,6 +38,7 @@ import { useCommandPalette, useShortcutsDialog } from "@/hooks/useShortcuts";
 import { notificationsSupported, requestNotificationPermission } from "@/lib/notify";
 import { lastAutoBackupAt } from "@/lib/autoBackup";
 import SaveManager from "@/lib/SaveManager";
+import { useBackupRestore } from "@/components/BackupRestore";
 import { cn } from "@/lib/utils";
 
 dayjs.extend(relativeTime);
@@ -214,8 +215,8 @@ export default function SettingsPage(): JSX.Element {
               label="Automatic backup"
               hint={
                 autoBackup && lastBackup
-                  ? `Downloads a backup every 24 hours while the app is open. Last one ${dayjs(lastBackup).format("MMM D, HH:mm")}.`
-                  : "Downloads a backup every 24 hours while the app is open."
+                  ? `Downloads a backup without files every 24 hours while the app is open. Last one ${dayjs(lastBackup).format("MMM D, HH:mm")}.`
+                  : "Downloads a backup without files every 24 hours while the app is open."
               }
               preference="autoBackup"
             />
@@ -469,11 +470,12 @@ function WebhookForm(): JSX.Element {
 
 function BackupActions(): JSX.Element {
   const fileRef = useRef<HTMLInputElement>(null);
+  const { prepareRestore, restoreDialog, busy } = useBackupRestore();
 
   const exportNow = async () => {
     try {
-      await SaveManager.exportData();
-      toast.success("Backup exported.");
+      await SaveManager.exportData({ includeAttachments: true });
+      toast.success("Backup exported with note images and task attachments.", { id: "backup-export" });
     } catch {
       toast.error("Export failed. Try again.");
     }
@@ -481,17 +483,9 @@ function BackupActions(): JSX.Element {
 
   const importFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
-    try {
-      await SaveManager.importData(file);
-      toast.success("Backup restored. Reloading to apply it…");
-      setTimeout(() => window.location.reload(), 1500);
-    } catch (err) {
-      console.error(err);
-      toast.error("That file couldn't be restored. Choose a .bitf.json backup.");
-    } finally {
-      e.target.value = "";
-    }
+    await prepareRestore(file);
   };
 
   return (
@@ -499,18 +493,19 @@ function BackupActions(): JSX.Element {
       <div className="flex min-w-0 flex-col gap-0.5">
         <span className="text-sm font-medium">Backup file</span>
         <span className="text-xs text-muted-foreground">
-          Restoring replaces everything on this device with the backup.
+          Manual exports include files. Review a backup before replacing saved data.
         </span>
       </div>
       <div className="flex gap-2">
         <input ref={fileRef} type="file" accept=".bitf.json,application/json" className="hidden" onChange={importFile} />
-        <Button variant="outline" onClick={() => fileRef.current?.click()} className="h-11 rounded-full px-4 md:h-9 md:rounded-md">
+        <Button variant="outline" disabled={busy} onClick={() => fileRef.current?.click()} className="h-11 rounded-full px-4 md:h-9 md:rounded-md">
           Restore…
         </Button>
         <Button onClick={() => void exportNow()} className="h-11 rounded-full px-4 md:h-9 md:rounded-md">
           Export now
         </Button>
       </div>
+      {restoreDialog}
     </div>
   );
 }

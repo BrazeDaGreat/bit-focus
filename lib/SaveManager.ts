@@ -46,6 +46,8 @@ import type { NoteAsset } from "./notes";
 import { serializeTasks, deserializeTasks, serializeAttachment, deserializeAttachment, deserializeTaskFilter, type SavedTask, type SavedTaskFilter, type SavedTaskAttachment } from "./task-backup";
 import { migrateTasks } from "./task-migration";
 import { PB_AUTH_STORAGE_KEY } from "./pocketbase";
+import { COMPLETION_JOURNAL_KEY } from "./timer-completion";
+import { validateBackup } from "./backup-validation";
 
 /**
  * localStorage keys that survive an import.
@@ -63,7 +65,8 @@ const PROTECTED_LOCAL_KEYS: readonly string[] = [
 
 /** True when a localStorage key belongs to the device rather than the backup. */
 export function isProtectedLocalKey(key: string): boolean {
-  return key.startsWith("bitfocus.sync.") || key === "pomoTask" || PROTECTED_LOCAL_KEYS.includes(key);
+  return key.startsWith("bitfocus.sync.") || key.startsWith("bitfocus.notes.") ||
+    key === "bitfocus.lastAutoBackup" || key === "pomoTask" || key === COMPLETION_JOURNAL_KEY || PROTECTED_LOCAL_KEYS.includes(key);
 }
 
 /**
@@ -103,13 +106,15 @@ function restoreLocalStorage(entries: Record<string, string>): void {
  * while maintaining backward compatibility.
  */
 type ExportedData = {
+  /** Absent in older backups. File coverage is also checked against the actual tables. */
+  backup?: { format: "bitfocus"; version: 1; createdAt: string; files: "included" | "omitted" };
   /** Complete localStorage contents as key-value pairs */
   localStorage: Record<string, string>;
   /** All IndexedDB table data with serialized dates */
   indexedDB: {
     tasks?: SavedTask[];
     taskAttachments?: SavedTaskAttachment[];
-    /** Images are included when a manual backup opts into attachments. */
+    /** Images are included in manual backups; lightweight snapshots omit them. */
     noteAssets?: (Omit<NoteAsset, "createdAt" | "updatedAt"> & { createdAt: string; updatedAt: string })[];
     taskFilters?: SavedTaskFilter[];
     legacyTasks?: Record<string, unknown>[];
@@ -263,8 +268,9 @@ class SaveManager {
    * @see {@link ExportedData} for exported data structure
    */
   static async exportData(options: { includeAttachments?: boolean } = {}): Promise<void> {
-    // Manual export opts in; automatic downloads and cloud snapshots omit files.
-    const data = await SaveManager.exportJSON(options);
+    // Downloads are complete by default. Automatic backups explicitly omit files.
+    const includeAttachments = options.includeAttachments ?? true;
+    const data = await SaveManager.exportJSON({ includeAttachments });
 
     // Create and download backup file
     const blob = new Blob([JSON.stringify(data, null, 2)], {
@@ -273,7 +279,7 @@ class SaveManager {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `data-${new Date().toISOString()}.bitf.json`;
+    a.download = `data-${includeAttachments ? "" : "without-files-"}${new Date().toISOString()}.bitf.json`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -311,19 +317,34 @@ class SaveManager {
    * @see {@link ExportedData} for expected file structure
    */
   static async importData(file: File): Promise<void> {
-    await SaveManager.importJSON(JSON.parse(await file.text()) as ExportedData);
+    await SaveManager.importJSON(await SaveManager.readBackup(file));
+  }
+
+  /** Parse and validate without changing any stored data, for the restore preview. */
+  static async readBackup(file: File): Promise<ExportedData> {
+    let data: unknown;
+    try {
+      data = JSON.parse(await file.text());
+    } catch {
+      // JSON parser messages can contain excerpts of credentials from the file.
+      throw new Error("This file could not be read as JSON.");
+    }
+    validateBackup(data);
+    return data;
   }
 
   /**
    * Export All Application Data as JSON Object (No Download)
    *
-   * Returns the complete application data as an `ExportedData` object.
-   * Useful for programmatic exports (e.g. API sync or cloud backup).
+   * Returns a lightweight snapshot by default for sync and recovery snapshots.
+   * Manual uploads must request `includeAttachments: true` to include files.
    *
-   * @returns {Promise<ExportedData>} All application data
+   * @returns {Promise<ExportedData>} Application data with explicit file coverage
    */
   static async exportJSON(options: { includeAttachments?: boolean } = {}): Promise<ExportedData> {
     const data: ExportedData = {
+      backup: { format: "bitfocus", version: 1, createdAt: new Date().toISOString(),
+        files: options.includeAttachments ? "included" : "omitted" },
       localStorage: {},
       indexedDB: {
         tasks: serializeTasks(await db.tasks.toArray()),
@@ -414,10 +435,12 @@ class SaveManager {
    * Restores application data from a parsed `ExportedData` object.
    * Useful for programmatic imports (e.g. API sync or cloud restore).
    *
-   * @param {ExportedData} data - Parsed export JSON object
+   * @param {unknown} data - Parsed export JSON object, validated before replacement
    * @returns {Promise<void>}
    */
-  static async importJSON(data: ExportedData): Promise<void> {
+  static async importJSON(data: unknown): Promise<void> {
+    // Validate every collection and file before opening the replacement transaction.
+    validateBackup(data);
     const configuration = data.indexedDB.configuration.map((c) => ({
       ...c,
       dob: c.dob ? new Date(c.dob) : null,
@@ -491,6 +514,12 @@ class SaveManager {
       endTime: new Date(t.endTime),
     }));
 
+    const previousStorage = new Map<string, string>();
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key !== null) previousStorage.set(key, localStorage.getItem(key) ?? "");
+    }
+    let storageRestoreStarted = false;
     await db.transaction(
       "rw",
       [
@@ -568,10 +597,18 @@ class SaveManager {
         if (!data.indexedDB.tasks) await migrateTasks(Dexie.currentTransaction!, true);
         const taskUids = new Set((await db.tasks.toArray()).map((task) => task.uid));
         await db.taskAttachments.filter((attachment) => !taskUids.has(attachment.taskUid)).delete();
+        // A settings write can fail (for example, at the browser storage limit).
+        // Throw inside the transaction so saved records roll back as well.
+        storageRestoreStarted = true;
+        restoreLocalStorage(data.localStorage);
       },
-    );
-
-    restoreLocalStorage(data.localStorage);
+    ).catch((error: unknown) => {
+      if (storageRestoreStarted) {
+        localStorage.clear();
+        for (const [key, value] of previousStorage) localStorage.setItem(key, value);
+      }
+      throw error;
+    });
   }
 }
 

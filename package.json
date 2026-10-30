@@ -1,13 +1,13 @@
 {
   "name": "bit-focus",
-  "version": "0.23.5",
+  "version": "0.24.0",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build && node scripts/generate-sw-precache.mjs",
     "start": "next start",
     "lint": "next lint",
-    "test": "tsx --test tests/tasks.test.ts tests/task-parse.test.ts tests/notes.test.ts",
+    "test": "tsx --test tests/tasks.test.ts tests/task-parse.test.ts tests/notes.test.ts tests/backup.test.ts tests/timer.test.ts tests/task-notes-drafts.test.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {

@@ -125,9 +125,9 @@ async function seedWorkspace(page: Page) {
     });
     db.close();
   });
-  await page.reload();
+  await page.goto("/projects?project=all");
   await expect(
-    page.getByRole("heading", { name: "Projects", exact: true }),
+    page.getByRole("banner").getByRole("heading", { name: "Projects", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByText("Review copy", { exact: true }).first(),
@@ -173,7 +173,7 @@ test("desktop task flow, migration, focus, calendar, and weekly review", async (
   await detail.getByRole("button", { name: "High", exact: true }).click();
   await detail.getByRole("button", { name: "Work", exact: true }).click();
   await detail.getByRole("button", { name: "Personal", exact: true }).click();
-  await page.getByLabel("Notes", { exact: true }).fill("Keep important notes");
+  await page.getByRole("textbox", { name: "Task notes", exact: true }).fill("Keep important notes");
   await page.screenshot({
     path: "test-results/tasks-desktop.png",
     fullPage: true,
@@ -220,7 +220,7 @@ test("desktop task flow, migration, focus, calendar, and weekly review", async (
   expect(saved?.estimateMinutes).toBe(60);
   expect(saved?.priority).toBe(3);
   expect(saved?.tags).toEqual(["Work", "Personal"]);
-  expect(saved?.description).toBe("Keep important notes");
+  expect(saved?.description).toBe("<p>Keep important notes</p>");
   await page
     .getByRole("button", { name: "Complete Ship new task flow" })
     .click();
@@ -238,11 +238,12 @@ test("desktop task flow, migration, focus, calendar, and weekly review", async (
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.getByRole("button", { name: "Project options" }).click();
   await page.getByRole("menuitem", { name: "Archive project" }).click();
-  await expect(page.getByText("Review copy", { exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "Archived" }).click();
-  await page.getByRole("menuitem", { name: "Website" }).click();
+  await expect(page.getByText("Archived project", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("New task title")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Archived/ })).toHaveAttribute("aria-expanded", "true");
   await page.getByRole("button", { name: "Project options" }).click();
   await page.getByRole("menuitem", { name: "Restore project" }).click();
+  await expect(page.getByLabel("New task title")).toBeVisible();
   await page.getByRole("button", { name: "New project" }).click();
   await page.getByLabel("Project name").fill("Garden");
   await page.getByRole("button", { name: "Create project" }).click();
@@ -360,10 +361,18 @@ test("timer saves multiple stretches against the task and its chosen primary tag
 test("calendar creates another block linked to the same task", async ({
   page,
 }) => {
+  // Vercel serves this optional script only on its hosting. Keep the local
+  // production workflow check independent of that third-party dependency.
+  await page.context().route("**/_vercel/insights/script.js", (route) =>
+    route.fulfill({ contentType: "application/javascript", body: "" }),
+  );
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("console", (message) => {
     if (message.type() === "error") errors.push(message.text());
+  });
+  page.on("response", (response) => {
+    if (response.status() >= 400) errors.push(`${response.status()} ${response.url()}`);
   });
   await seedWorkspace(page);
   await page.goto("/calendar");

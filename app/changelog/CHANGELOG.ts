@@ -3,6 +3,21 @@
 export { VERSION } from "./version";
 
 const CHANGELOG = `
+## \`v0.24.0 (LTS)\` (2026-10-30) — Save, Recover & Keep Working
+- Improved: Finished focus sessions save in one operation. Reward points, the saved-session message, and completion webhooks wait until focus history is stored.
+- Fixed: Changing timer modes while paused could discard accumulated focus. Switching modes now finishes eligible focus time first, then starts the new mode from zero, keeping the timer running or paused as it was. Break time is never carried into focus.
+- Fixed: Short pauses could inflate recorded session lengths. Saved durations now exclude pauses, and session records, completion messages, and earned points use the same active time.
+- Added: Failed focus saves stay on this device with a Retry action and are retried after reload. Stable session identities prevent retries from duplicating saved stretches or awarding their points twice. If browser storage cannot keep a recovery copy, the message asks you to keep the tab open.
+- Fixed: Finishing a session before opening Rewards could overwrite the existing points balance. Pomodoro review entries now wait for the focus session to save, including sessions recovered after reload.
+- Improved: Task notes show whether changes are saved, saving, or waiting for a retry. Saves run in order, so a slower earlier write cannot replace newer typing, and refreshing task data cannot overwrite pending local edits.
+- Added: Task-note recovery drafts are kept as you type and restored after reload. Notes flush when you leave a task, hide the app, or close the editor. Failed saves retain the latest draft with a Retry save button; trashed tasks keep their drafts until restored.
+- Fixed: Manual exports from Settings now include note images and task attachments, matching the data menu and command palette. Manual backup downloads include files by default.
+- Improved: Restoring a backup validates its contents and shows record counts, file coverage, and missing note images before asking you to replace saved data. Invalid files leave existing data untouched, and a failed settings write rolls back the database replacement and restores the previous local settings.
+- Changed: Automatic backups remain small by omitting note images and task attachments. Settings explains this, and their filenames include "without-files". Older backups still restore; the preview explains which existing files will be kept when file collections are absent.
+- Changed: Local note drafts and pending focus saves stay on their original device. They are excluded from backups and cannot be replaced by recovery state imported from another browser. Account session tokens remain excluded.
+- Technical: Added regression coverage for timer saves and retries, task-note recovery and task switching, complete backups, and restore confirmation. Updated the README to match the current workspace and explain backup coverage.
+***
+
 ## \`v0.23.0 (LTS)\` (2026-09-29) — Settings, Commands & Review
 - Added: A Settings page. Profile, Account, Timer, Notifications, Data, Features, and Shortcuts each have their own section, with an index beside them that shows how each one is set up right now: your name, whether you're syncing, your Pomodoro rhythm, and when the last backup ran. On phones the index is a row of chips.
 - Changed: Account management now lives inside Settings, including the full sync record, manual sync controls, pre-sync backup, and account actions. Old /account links open the Account section in Settings.

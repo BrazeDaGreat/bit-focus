@@ -86,6 +86,13 @@ interface FocusState {
     endTime: Date,
     attribution?: { taskUid?: string; projectUid?: string }
   ) => Promise<void>;
+  /**
+   * Insert sessions that carry their own uid, skipping any uid already
+   * stored. All-or-nothing; resolves with how many rows were inserted.
+   */
+  addFocusSessionsOnce: (
+    rows: (Omit<FocusSession, "id" | "uid"> & { uid: string })[]
+  ) => Promise<number>;
   /** Function to load all focus sessions from database */
   loadFocusSessions: () => Promise<void>;
   /** Function to delete a focus session by ID; resolves with the removed row */
@@ -212,6 +219,38 @@ export const useFocus = create<FocusState>((set) => ({
     set((state) => ({
       focusSessions: [{ id, tag, startTime, endTime, ...attribution }, ...state.focusSessions].sort(byStartDesc),
     }));
+  },
+
+  /**
+   * Add Focus Sessions Once
+   *
+   * Saves the stretches of a finished timer session in one transaction. The
+   * uids are chosen by the caller and stable across retries, so replaying the
+   * same save — after a failure or a reload — never duplicates a session.
+   *
+   * @async
+   * @param rows - Sessions to insert, each with a caller-chosen uid
+   * @returns {Promise<number>} How many rows were new
+   */
+  addFocusSessionsOnce: async (rows) => {
+    if (rows.length === 0) return 0;
+    const added = await db.transaction("rw", db.focus, async () => {
+      const uids = rows.map((row) => row.uid);
+      const existing = new Set(
+        (await db.focus.where("uid").anyOf(uids).toArray()).map((row) => row.uid)
+      );
+      const fresh = rows.filter((row) => !existing.has(row.uid));
+      if (fresh.length === 0) return [];
+      const ids = await db.focus.bulkAdd(fresh, { allKeys: true });
+      return fresh.map((row, i) => ({ ...row, id: ids[i] as number }));
+    });
+
+    if (added.length > 0) {
+      set((state) => ({
+        focusSessions: [...added, ...state.focusSessions].sort(byStartDesc),
+      }));
+    }
+    return added.length;
   },
 
   /**

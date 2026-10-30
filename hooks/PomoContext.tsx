@@ -53,327 +53,41 @@ import { usePomodoroLog } from "@/hooks/usePomodoroLog";
 import { useFocusGoal } from "@/hooks/useFocusGoal";
 import { playNotificationSound } from "@/lib/sound";
 import { showSystemNotification } from "@/lib/notify";
+import {
+  DEFAULT_POMODORO_SETTINGS,
+  EXTEND_STEP_SECONDS,
+  INITIAL_STATE,
+  SHORT_PAUSE_MS,
+  cyclePosition,
+  displaySeconds,
+  isFocusTime,
+  liveElapsed,
+  normalizeSettings,
+  phaseLabel,
+  phaseTargetSeconds,
+  pomoReducer,
+  segmentsSeconds,
+  sessionSegments,
+  type FocusSegment,
+  type PomoAction,
+  type PomodoroPhase,
+  type PomodoroSettings,
+  type PomoState,
+  type TimerMode,
+} from "@/lib/timer-state";
+import { CompletionQueue, createCompletion, type PendingCompletion } from "@/lib/timer-completion";
 
-/**
- * Timer Mode Enumeration
- * Defines the available timer operation modes
- */
-export type TimerMode = "standard" | "pomodoro";
-
-/**
- * Pomodoro Phase Enumeration
- * Defines the current phase when in Pomodoro mode
- */
-export type PomodoroPhase = "focus" | "break";
-
-/**
- * Pomodoro Settings Interface
- * Configuration for Pomodoro timer durations
- */
-export interface PomodoroSettings {
-  /** Focus duration in minutes */
-  focusDuration: number;
-  /** Break duration in minutes */
-  breakDuration: number;
-  /** Long break duration in minutes */
-  longBreakDuration: number;
-  /** A long break replaces the short one after this many focus blocks */
-  longBreakInterval: number;
-}
-
-export const DEFAULT_POMODORO_SETTINGS: PomodoroSettings = {
-  focusDuration: 25,
-  breakDuration: 5,
-  longBreakDuration: 15,
-  longBreakInterval: 4,
+export {
+  DEFAULT_POMODORO_SETTINGS,
+  EXTEND_STEP_SECONDS,
+  SHORT_PAUSE_MS,
+  sessionSegments,
+  phaseTargetSeconds,
+  displaySeconds,
+  cyclePosition,
+  phaseLabel,
 };
-
-/** Seconds added by one press of "+5 min" */
-export const EXTEND_STEP_SECONDS = 5 * 60;
-
-/**
- * Pauses shorter than this stay inside one saved session. Longer pauses end
- * one session and start the next, so the calendar never shows a break as
- * focus time.
- */
-export const SHORT_PAUSE_MS = 5 * 60 * 1000;
-
-/** One uninterrupted stretch of a session, in wall-clock milliseconds */
-export interface FocusSegment {
-  start: number;
-  end: number;
-}
-
-/**
- * Enhanced Timer State Interface
- * Manages both standard and Pomodoro timer functionality
- */
-export interface PomoState {
-  task?: { uid: string; projectUid?: string; title: string; tag: string } | null;
-  /** Whether the timer is currently running */
-  isRunning: boolean;
-  /** Start timestamp for the current session */
-  startTime: number | null;
-  /** Total elapsed seconds from start (always counts up) */
-  elapsedSeconds: number;
-  /** Current timer mode */
-  mode: TimerMode;
-  /** Current Pomodoro phase (only relevant in Pomodoro mode) */
-  phase: PomodoroPhase;
-  /** Whether the current break is the long one */
-  isLongBreak: boolean;
-  /** Focus blocks completed in the current cycle */
-  completedPomodoros: number;
-  /** Seconds added to the current phase with "+5 min" */
-  extensionSeconds: number;
-  /** Pomodoro configuration settings */
-  pomodoroSettings: PomodoroSettings;
-  /** Finished stretches of the current session, split at long pauses */
-  segments: FocusSegment[];
-  /** Wall-clock start of the stretch running now (null while paused) */
-  segmentStart: number | null;
-}
-
-/**
- * The stretches a session should be saved as.
- *
- * Adjacent stretches separated by a short pause are joined into one. When
- * some stretches are a minute or longer, shorter ones are dropped as noise.
- *
- * @param state - Timer state at the end of the session.
- * @param endTime - When the session ends (ms).
- */
-export function sessionSegments(state: PomoState, endTime: number): FocusSegment[] {
-  const raw = [...state.segments];
-  if (state.segmentStart !== null) raw.push({ start: state.segmentStart, end: endTime });
-  // State restored from before segments existed: one stretch ending now.
-  if (raw.length === 0 && state.elapsedSeconds > 0) {
-    raw.push({ start: endTime - state.elapsedSeconds * 1000, end: endTime });
-  }
-
-  const merged: FocusSegment[] = [];
-  for (const seg of raw.sort((a, b) => a.start - b.start)) {
-    const last = merged[merged.length - 1];
-    if (last && seg.start - last.end < SHORT_PAUSE_MS) {
-      last.end = Math.max(last.end, seg.end);
-    } else if (seg.end > seg.start) {
-      merged.push({ ...seg });
-    }
-  }
-
-  const substantial = merged.filter((seg) => seg.end - seg.start >= 60_000);
-  return substantial.length > 0 ? substantial : merged;
-}
-
-/**
- * Length of the current Pomodoro phase in seconds, including any extension.
- *
- * @param state - Timer state.
- * @returns Phase length in seconds (0 in standard mode).
- */
-export function phaseTargetSeconds(state: PomoState): number {
-  if (state.mode !== "pomodoro") return 0;
-  const { focusDuration, breakDuration, longBreakDuration } = state.pomodoroSettings;
-  const minutes =
-    state.phase === "focus"
-      ? focusDuration
-      : state.isLongBreak
-      ? longBreakDuration
-      : breakDuration;
-  return minutes * 60 + state.extensionSeconds;
-}
-
-/**
- * Seconds to show on a clock: remaining time in Pomodoro, elapsed otherwise.
- *
- * @param state - Timer state.
- */
-export function displaySeconds(state: PomoState): number {
-  if (state.mode !== "pomodoro") return state.elapsedSeconds;
-  return Math.max(0, phaseTargetSeconds(state) - state.elapsedSeconds);
-}
-
-/**
- * Where the current phase sits in the long-break cycle, e.g. 2 of 4.
- *
- * During focus this is the block being worked on; during a break it is the
- * block that was just finished.
- *
- * @param state - Timer state.
- */
-export function cyclePosition(state: PomoState): { current: number; total: number } {
-  const total = Math.max(1, state.pomodoroSettings.longBreakInterval);
-  const done = state.completedPomodoros;
-  const current =
-    state.phase === "focus" ? (done % total) + 1 : done % total || total;
-  return { current, total };
-}
-
-/** Human label for the current Pomodoro phase. */
-export function phaseLabel(state: PomoState): string {
-  if (state.phase === "focus") return "Focus";
-  return state.isLongBreak ? "Long break" : "Break";
-}
-
-/** Fill in fields missing from settings saved by older versions. */
-function normalizeSettings(raw: Partial<PomodoroSettings> | null | undefined): PomodoroSettings {
-  const merged = { ...DEFAULT_POMODORO_SETTINGS, ...(raw ?? {}) };
-  return {
-    focusDuration: Math.max(1, Number(merged.focusDuration) || DEFAULT_POMODORO_SETTINGS.focusDuration),
-    breakDuration: Math.max(1, Number(merged.breakDuration) || DEFAULT_POMODORO_SETTINGS.breakDuration),
-    longBreakDuration: Math.max(1, Number(merged.longBreakDuration) || DEFAULT_POMODORO_SETTINGS.longBreakDuration),
-    longBreakInterval: Math.max(1, Number(merged.longBreakInterval) || DEFAULT_POMODORO_SETTINGS.longBreakInterval),
-  };
-}
-
-/**
- * Timer Action Types
- * Defines all possible state mutations for the timer
- */
-type Action =
-  | { type: "START"; payload: { startTime: number; now: number; task?: PomoState["task"] } }
-  | { type: "PAUSE"; payload: { elapsedSeconds: number; now: number } }
-  | { type: "RESET" }
-  | { type: "UPDATE"; payload: { elapsedSeconds: number } }
-  | { type: "SET_MODE"; payload: { mode: TimerMode } }
-  | { type: "SET_POMODORO_SETTINGS"; payload: PomodoroSettings }
-  | { type: "ADVANCE_PHASE"; payload: { completedFocus: boolean; autoStartAt: number | null } }
-  | { type: "EXTEND"; payload: { seconds: number } }
-  | { type: "RESET_CYCLE" }
-  | { type: "RESTORE_STATE"; payload: PomoState };
-
-/**
- * Timer State Reducer
- * Handles all state transitions for both standard and Pomodoro modes.
- * Pure: no saving, sounds or network calls happen here.
- *
- * @param state - Current timer state
- * @param action - Action to perform on the state
- * @returns Updated state
- */
-function pomoReducer(state: PomoState, action: Action): PomoState {
-  switch (action.type) {
-    case "START": {
-      // Resuming after a short pause continues the previous stretch.
-      const { now } = action.payload;
-      const last = state.segments[state.segments.length - 1];
-      const continues = !!last && now - last.end < SHORT_PAUSE_MS;
-      return {
-        ...state,
-        isRunning: true,
-        startTime: action.payload.startTime,
-        task: action.payload.task === undefined ? state.task : action.payload.task,
-        segments: continues ? state.segments.slice(0, -1) : state.segments,
-        segmentStart: continues ? last.start : now,
-      };
-    }
-
-    case "PAUSE":
-      return {
-        ...state,
-        isRunning: false,
-        elapsedSeconds: action.payload.elapsedSeconds,
-        // Keep startTime for resume calculations
-        segments:
-          state.segmentStart !== null
-            ? [...state.segments, { start: state.segmentStart, end: action.payload.now }]
-            : state.segments,
-        segmentStart: null,
-      };
-
-    case "RESET": {
-      // Resetting a break skips it. Skipping the long break closes the cycle.
-      const closesCycle = state.phase === "break" && state.isLongBreak;
-      return {
-        ...state,
-        isRunning: false,
-        elapsedSeconds: 0,
-        task: null,
-        startTime: null,
-        phase: "focus",
-        isLongBreak: false,
-        extensionSeconds: 0,
-        completedPomodoros: closesCycle ? 0 : state.completedPomodoros,
-        segments: [],
-        segmentStart: null,
-      };
-    }
-
-    case "UPDATE":
-      return { ...state, elapsedSeconds: action.payload.elapsedSeconds };
-
-    case "SET_MODE": {
-      if (action.payload.mode === state.mode) return state;
-      // When switching modes, preserve elapsed time if timer is running
-      const shouldPreserveTime = state.isRunning && state.elapsedSeconds > 0;
-      return {
-        ...state,
-        mode: action.payload.mode,
-        elapsedSeconds: shouldPreserveTime ? state.elapsedSeconds : 0,
-        isRunning: shouldPreserveTime ? state.isRunning : false,
-        startTime: shouldPreserveTime ? state.startTime : null,
-        phase: "focus",
-        isLongBreak: false,
-        extensionSeconds: 0,
-        completedPomodoros: 0,
-        segments: shouldPreserveTime ? state.segments : [],
-        segmentStart: shouldPreserveTime ? state.segmentStart : null,
-      };
-    }
-
-    case "SET_POMODORO_SETTINGS":
-      return { ...state, pomodoroSettings: normalizeSettings(action.payload) };
-
-    case "ADVANCE_PHASE": {
-      if (state.mode !== "pomodoro") return state;
-      const { completedFocus, autoStartAt } = action.payload;
-      const running = autoStartAt !== null;
-
-      if (state.phase === "focus") {
-        const completed = state.completedPomodoros + (completedFocus ? 1 : 0);
-        const interval = Math.max(1, state.pomodoroSettings.longBreakInterval);
-        return {
-          ...state,
-          phase: "break",
-          isLongBreak: completed > 0 && completed % interval === 0,
-          completedPomodoros: completed,
-          elapsedSeconds: 0,
-          extensionSeconds: 0,
-          isRunning: running,
-          startTime: autoStartAt,
-          segments: [],
-          segmentStart: autoStartAt,
-        };
-      }
-
-      return {
-        ...state,
-        phase: "focus",
-        isLongBreak: false,
-        completedPomodoros: state.isLongBreak ? 0 : state.completedPomodoros,
-        elapsedSeconds: 0,
-        extensionSeconds: 0,
-        isRunning: running,
-        startTime: autoStartAt,
-        segments: [],
-        segmentStart: autoStartAt,
-      };
-    }
-
-    case "EXTEND":
-      if (state.mode !== "pomodoro") return state;
-      return { ...state, extensionSeconds: state.extensionSeconds + action.payload.seconds };
-
-    case "RESET_CYCLE":
-      return { ...state, completedPomodoros: 0 };
-
-    case "RESTORE_STATE":
-      return { ...action.payload };
-
-    default:
-      return state;
-  }
-}
+export type { TimerMode, PomodoroPhase, PomodoroSettings, FocusSegment, PomoState };
 
 // Create Context
 const PomoContext = createContext<{
@@ -406,35 +120,36 @@ const LS = {
   task: "pomoTask",
 } as const;
 
+/** Persist control transitions before another navigation can unload the page. */
+function persistTimerState(state: PomoState) {
+  try {
+    const values: Record<string, string> = {
+      [LS.time]: String(state.elapsedSeconds),
+      [LS.mode]: state.mode,
+      [LS.settings]: JSON.stringify(state.pomodoroSettings),
+      [LS.phase]: state.phase,
+      [LS.longBreak]: state.isLongBreak ? "1" : "0",
+      [LS.cycle]: String(state.completedPomodoros),
+      [LS.extension]: String(state.extensionSeconds),
+      [LS.running]: state.isRunning ? "1" : "0",
+      [LS.segments]: JSON.stringify(state.segments),
+      [LS.task]: JSON.stringify(state.task ?? null),
+    };
+    for (const [key, value] of Object.entries(values)) localStorage.setItem(key, value);
+    if (state.startTime) localStorage.setItem(LS.startTime, String(state.startTime));
+    else localStorage.removeItem(LS.startTime);
+    if (state.segmentStart) localStorage.setItem(LS.segmentStart, String(state.segmentStart));
+    else localStorage.removeItem(LS.segmentStart);
+  } catch {
+    // A blocked or full localStorage must not prevent saving to IndexedDB.
+  }
+}
+
 function readTask(): PomoState["task"] {
   try {
     const task = JSON.parse(localStorage.getItem(LS.task) || "null");
     return task && typeof task.uid === "string" && typeof task.title === "string" && typeof task.tag === "string" ? task : null;
   } catch { return null; }
-}
-
-const INITIAL_STATE: PomoState = {
-  isRunning: false,
-  startTime: null,
-  elapsedSeconds: 0,
-  mode: "standard",
-  phase: "focus",
-  isLongBreak: false,
-  completedPomodoros: 0,
-  extensionSeconds: 0,
-  pomodoroSettings: DEFAULT_POMODORO_SETTINGS,
-  segments: [],
-  segmentStart: null,
-};
-
-/**
- * Focused seconds right now. While running this is computed from the clock,
- * since the per-second tick is a transition and may not have landed yet.
- */
-function liveElapsed(s: PomoState, now: number): number {
-  return s.isRunning && s.startTime
-    ? Math.max(0, Math.floor((now - s.startTime) / 1000))
-    : s.elapsedSeconds;
 }
 
 /** Read saved segments, ignoring anything malformed. */
@@ -459,10 +174,8 @@ function readSegments(): FocusSegment[] {
  * @returns Provider component with timer state and controls
  */
 export function PomoProvider({ children }: { children: React.ReactNode }) {
-  const { addFocusSession } = useFocus();
   const { tag } = useTag();
   const { name, webhook, sendWebhookUpdates } = useConfig();
-  const { addPoints } = useRewards();
   const originalTitleRef = useRef<string | null>(null);
   // Persistence waits for the restore so defaults never overwrite saved state.
   const [restored, setRestored] = useState(false);
@@ -472,11 +185,55 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
   // Latest values for callbacks that outlive a render (interval ticks).
   const stateRef = useRef(state);
   stateRef.current = state;
-  const envRef = useRef({ addFocusSession, addPoints, tag, name, webhook, sendWebhookUpdates });
-  envRef.current = { addFocusSession, addPoints, tag, name, webhook, sendWebhookUpdates };
+  const envRef = useRef({ tag, name, webhook, sendWebhookUpdates });
+  envRef.current = { tag, name, webhook, sendWebhookUpdates };
+
+  /**
+   * Dispatch, and move the ref to the resulting state at once. The reducer
+   * is pure, so React lands on the same state; a second press before the
+   * re-render then sees the first one's effect — a double-tapped Reset can
+   * never save the same session twice.
+   */
+  const send = useCallback((action: PomoAction) => {
+    stateRef.current = pomoReducer(stateRef.current, action);
+    if (action.type !== "UPDATE") persistTimerState(stateRef.current);
+    dispatch(action);
+  }, []);
 
   // Guards a phase from being completed twice by overlapping ticks.
   const completingRef = useRef<number | null>(null);
+
+  // Finished sessions waiting for a confirmed save. Created on the client.
+  const queueRef = useRef<CompletionQueue | null>(null);
+  const getQueue = useCallback(() => {
+    if (!queueRef.current) {
+      let storage: Storage | null = null;
+      try { storage = window.localStorage; } catch {}
+      queueRef.current = new CompletionQueue({
+        storage,
+        save: (rows) => useFocus.getState().addFocusSessionsOnce(rows),
+        award: (points) => {
+          // Re-read the stored balance first: the rewards store starts at 0
+          // until its page loads, and adding to that would overwrite it.
+          const rewards = useRewards.getState();
+          try {
+            rewards.initializePoints();
+            rewards.addPoints(points);
+          } catch (error) {
+            toast.error(`Focus saved, but ${points} reward points could not be stored. Check browser storage.`);
+            throw error;
+          }
+        },
+        onSaved: (completion) => {
+          if (completion.pomodoro) {
+            usePomodoroLog.getState().record({ at: completion.createdAt,
+              completed: completion.pomodoro.completed, seconds: completion.seconds });
+          }
+        },
+      });
+    }
+    return queueRef.current;
+  }, []);
 
   // Screen-reader feedback for timer events that never raise a toast
   // (start, pause, resume, break skipped, goal reached). Completed phases
@@ -493,68 +250,119 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
   // changes with the session start or when the goal itself is edited.
   const goalAnnouncedRef = useRef<string | null>(null);
 
+  /** Tell the user a session is not saved yet, with a way to try again. */
+  const retryRef = useRef<() => void>(() => {});
+  const reportSaveFailure = useCallback(() => {
+    toast.error(getQueue().isDurable()
+      ? "Could not save your focus session. It is kept on this device and will be retried."
+      : "Could not save your focus session or recovery copy. Keep this tab open and retry.", {
+      id: "focus-save-failed",
+      action: { label: "Retry", onClick: () => retryRef.current() },
+    });
+  }, [getQueue]);
+
   /**
-   * Save a finished focus block, award points, and report it to the webhook.
+   * Retry every session still waiting to be saved. A failure leaves them in
+   * the journal and offers another try.
+   */
+  const retryPending = useCallback(async () => {
+    const { saved, failed } = await getQueue().flush();
+    if (saved.length > 0) {
+      const minutes = saved.reduce((sum, c) => sum + c.seconds, 0) / 60;
+      const what = saved.length === 1 ? "a waiting focus session" : `${saved.length} waiting focus sessions`;
+      toast(`Saved ${what}: ${formatTime(minutes, 0, 1)} minutes.`, {
+        icon: <IoIosTimer />,
+      });
+    }
+    if (failed.length > 0) reportSaveFailure();
+  }, [getQueue, reportSaveFailure]);
+  retryRef.current = () => void retryPending();
+
+  /**
+   * Save a finished focus block, then award points and report it.
    * Sessions under a minute are rejected — and not reported.
+   *
+   * The session is journalled synchronously, before the caller clears the
+   * timer, then written to the database in one transaction. Points, the
+   * success toast and the webhook wait for that write. A failed write stays
+   * in the journal and is retried on request or on the next load; it can
+   * never be saved or rewarded twice.
    *
    * A session paused for {@link SHORT_PAUSE_MS} or longer is saved as one
    * record per stretch, so the calendar shows when you actually focused.
-   * Everything the user sees — toast, points, webhook — still describes the
-   * session as a whole.
+   * Only time the clock was running counts — toast, points and records agree.
    *
    * @param s - Timer state at the end of the session.
    * @param endTime - When the session ended (ms).
-   * @param elapsedSeconds - Focused seconds, used for points and the toast.
    * @param kind - Wording for the completion toast.
    * @param completed - True only when the session ended on its own terms
    *   (a phase ran its full length); false when the user stopped it early.
+   * @returns Focused seconds saved, or 0 when the session was too short.
    */
   const finishSession = useCallback(
     (
       s: PomoState,
       endTime: number,
-      elapsedSeconds: number,
       kind: "Focus session" | "Pomodoro session",
       completed: boolean
-    ) => {
-      const env = envRef.current;
+    ): number => {
+      const env = { ...envRef.current };
+      const segments = sessionSegments(s, endTime);
+      const seconds = segmentsSeconds(segments);
 
-      if (elapsedSeconds < 60) {
+      if (seconds < 60) {
         toast("You need to focus for at least 1 minute.", {
           icon: <IoIosTimer />,
         });
-        return;
+        return 0;
       }
 
-      const sessionTag = s.task?.tag || env.tag || "Focus";
-      env.addPoints(Math.floor(elapsedSeconds / 60));
-      for (const seg of sessionSegments(s, endTime)) {
-        void env.addFocusSession(sessionTag, new Date(seg.start), new Date(seg.end), {
-          taskUid: s.task?.uid, projectUid: s.task?.projectUid,
-        }).catch(() => toast.error("Could not save your focus session. Check browser storage."));
-      }
-
-      toast(`${kind} completed: ${formatTime(elapsedSeconds / 60, 0, 1)} minutes.`, {
-        icon: <IoIosTimer />,
+      const completion: PendingCompletion = createCompletion({
+        tag: s.task?.tag || env.tag || "Focus",
+        segments,
+        seconds,
+        taskUid: s.task?.uid,
+        projectUid: s.task?.projectUid,
+        createdAt: endTime,
+        ...(s.mode === "pomodoro" ? { pomodoro: { completed } } : {}),
       });
 
-      if (env.name && env.webhook && env.tag && env.sendWebhookUpdates) {
-        const formattedTime = formatTimeNew(durationFromSeconds(elapsedSeconds), "H:M:S", "text");
-        const headline = completed
-          ? `🎉 **Focus Session Completed!**`
-          : `⏹️ **Focus Session Ended**`;
-        const message = [
-          headline,
-          `👤 **User:** ${env.name}`,
-          `🏷️ **Tag:** \`#${env.tag}\``,
-          `⏱️ **Duration:** \`${formattedTime}\``
-        ].join("\n");
+      void getQueue().submit(completion).then((outcome) => {
+        if (outcome === "failed") {
+          reportSaveFailure();
+          return;
+        }
+        if (outcome !== "saved") return;
 
-        sendMessage(message, env.webhook).then((s) => console.log("Submitted", s));
-      }
+        toast(`${kind} completed: ${formatTime(seconds / 60, 0, 1)} minutes.`, {
+          icon: <IoIosTimer />,
+        });
+
+        if (env.name && env.webhook && env.tag && env.sendWebhookUpdates) {
+          const formattedTime = formatTimeNew(durationFromSeconds(seconds), "H:M:S", "text");
+          const headline = completed
+            ? `🎉 **Focus Session Completed!**`
+            : `⏹️ **Focus Session Ended**`;
+          const message = [
+            headline,
+            `👤 **User:** ${env.name}`,
+            `🏷️ **Tag:** \`#${env.tag}\``,
+            `⏱️ **Duration:** \`${formattedTime}\``
+          ].join("\n");
+
+          sendMessage(message, env.webhook).then((s) => console.log("Submitted", s));
+        }
+      });
+      return seconds;
     },
-    []
+    [getQueue, reportSaveFailure]
   );
+
+  // Sessions a previous visit could not save (or did not get to) go in now.
+  useEffect(() => {
+    if (!restored) return;
+    if (getQueue().list().length > 0) void retryPending();
+  }, [restored, getQueue, retryPending]);
 
   /**
    * Initialize state from localStorage on component mount
@@ -607,7 +415,7 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
       segments.push({ start: now - elapsedSeconds * 1000, end: now });
     }
 
-    dispatch({
+    send({
       type: "RESTORE_STATE",
       payload: {
         task: readTask(),
@@ -625,7 +433,7 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
       },
     });
     setRestored(true);
-  }, []);
+  }, [send]);
 
   useEffect(() => {
     if (!restored) return;
@@ -636,25 +444,14 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!restored) return;
     const timeoutId = setTimeout(() => {
-      localStorage.setItem(LS.time, String(state.elapsedSeconds));
+      try { localStorage.setItem(LS.time, String(stateRef.current.elapsedSeconds)); } catch {}
     }, 100);
     return () => clearTimeout(timeoutId);
   }, [restored, state.elapsedSeconds]);
 
   useEffect(() => {
     if (!restored) return;
-    localStorage.setItem(LS.mode, state.mode);
-    localStorage.setItem(LS.settings, JSON.stringify(state.pomodoroSettings));
-    localStorage.setItem(LS.phase, state.phase);
-    localStorage.setItem(LS.longBreak, state.isLongBreak ? "1" : "0");
-    localStorage.setItem(LS.cycle, String(state.completedPomodoros));
-    localStorage.setItem(LS.extension, String(state.extensionSeconds));
-    localStorage.setItem(LS.running, state.isRunning ? "1" : "0");
-    if (state.startTime) localStorage.setItem(LS.startTime, String(state.startTime));
-    else localStorage.removeItem(LS.startTime);
-    localStorage.setItem(LS.segments, JSON.stringify(state.segments));
-    if (state.segmentStart) localStorage.setItem(LS.segmentStart, String(state.segmentStart));
-    else localStorage.removeItem(LS.segmentStart);
+    persistTimerState(state);
   }, [
     restored,
     state.mode,
@@ -731,8 +528,7 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
         // End at the moment the phase ran out, not "now" — a tab that slept
         // through the end must not stretch the session.
         const endTime = s.startTime + target * 1000;
-        finishSession(s, endTime, target, "Pomodoro session", true);
-        usePomodoroLog.getState().record({ at: endTime, completed: true, seconds: target });
+        finishSession(s, endTime, "Pomodoro session", true);
       }
 
       if (completed) {
@@ -758,12 +554,12 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
       }
 
       const autoStart = wasFocus ? prefs.autoStartBreaks : prefs.autoStartFocus;
-      dispatch({
+      send({
         type: "ADVANCE_PHASE",
         payload: { completedFocus: wasFocus && completed, autoStartAt: completed && autoStart ? Date.now() : null },
       });
     },
-    [finishSession]
+    [finishSession, send]
   );
 
   /**
@@ -806,7 +602,7 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
       // interrupting and restarting them, so links seemed to do nothing while
       // the timer ran. As a transition the tick batches with the navigation.
       startTransition(() => {
-        dispatch({ type: "UPDATE", payload: { elapsedSeconds: newElapsedSeconds } });
+        send({ type: "UPDATE", payload: { elapsedSeconds: newElapsedSeconds } });
       });
 
       // Update document title with current timer value
@@ -838,7 +634,7 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
       clearInterval(intervalId);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [state.isRunning, state.startTime, state.mode, state.phase, advancePhase, announce]);
+  }, [state.isRunning, state.startTime, state.mode, state.phase, advancePhase, announce, send]);
 
   /**
    * Restore document title when timer stops or component unmounts
@@ -864,13 +660,12 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
       const s = stateRef.current;
       if (s.task?.uid === task.uid && s.isRunning) return;
       const now = Date.now();
-      const elapsed = liveElapsed(s, now);
-      if ((s.mode === "standard" || s.phase === "focus") && elapsed >= 60) {
-        finishSession(s, now, elapsed, s.mode === "pomodoro" ? "Pomodoro session" : "Focus session", false);
+      if (isFocusTime(s) && liveElapsed(s, now) >= 60) {
+        finishSession(s, now, s.mode === "pomodoro" ? "Pomodoro session" : "Focus session", false);
       }
       useTag.getState().setTag(task.tag);
-      dispatch({ type: "RESET" });
-      dispatch({ type: "START", payload: { startTime: now, now, task } });
+      send({ type: "RESET" });
+      send({ type: "START", payload: { startTime: now, now, task } });
       announce(`Started focusing on ${task.title}.`);
     },
     start: () => {
@@ -899,46 +694,56 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
         sendMessage(message, env.webhook).then((s) => console.log("Submitted", s));
       }
 
-      dispatch({ type: "START", payload: { startTime, now } });
+      send({ type: "START", payload: { startTime, now } });
       announce(s.elapsedSeconds === 0 ? "Session started." : "Timer resumed.");
     },
     pause: () => {
       const s = stateRef.current;
       if (s.isRunning) {
         const now = Date.now();
-        dispatch({ type: "PAUSE", payload: { elapsedSeconds: liveElapsed(s, now), now } });
+        send({ type: "PAUSE", payload: { elapsedSeconds: liveElapsed(s, now), now } });
         announce("Timer paused.");
       }
     },
     reset: () => {
       const s = stateRef.current;
       // Breaks are never saved; any focus time is.
-      const isFocus = s.mode === "standard" || s.phase === "focus";
       const endTime = Date.now();
-      const elapsed = liveElapsed(s, endTime);
-      if (isFocus && elapsed > 0) {
+      if (isFocusTime(s) && liveElapsed(s, endTime) > 0) {
         finishSession(
           s,
           endTime,
-          elapsed,
           s.mode === "pomodoro" ? "Pomodoro session" : "Focus session",
           false
         );
-        if (s.mode === "pomodoro" && elapsed >= 60) {
-          usePomodoroLog.getState().record({ at: endTime, completed: false, seconds: elapsed });
-        }
       } else if (s.phase === "break") {
         announce("Break skipped.");
       } else {
         announce("Timer reset.");
       }
-      dispatch({ type: "RESET" });
+      send({ type: "RESET" });
     },
+    /**
+     * Switch modes. Focus on the clock is finished and saved first — never
+     * carried into the other mode, where a Pomodoro could cut it short — and
+     * break time is dropped. A running timer keeps running, from zero.
+     */
     setMode: (mode: TimerMode) => {
-      dispatch({ type: "SET_MODE", payload: { mode } });
+      const s = stateRef.current;
+      if (s.mode === mode) return;
+      const now = Date.now();
+      if (isFocusTime(s) && liveElapsed(s, now) >= 60) {
+        finishSession(
+          s,
+          now,
+          s.mode === "pomodoro" ? "Pomodoro session" : "Focus session",
+          false
+        );
+      }
+      send({ type: "SET_MODE", payload: { mode, startAt: s.isRunning ? now : null } });
     },
     setPomodoroSettings: (settings: PomodoroSettings) => {
-      dispatch({ type: "SET_POMODORO_SETTINGS", payload: settings });
+      send({ type: "SET_POMODORO_SETTINGS", payload: settings });
     },
     /** Skip to the next phase without saving or counting the current one. */
     nextPhase: () => {
@@ -949,30 +754,27 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
       const s = stateRef.current;
       if (s.mode !== "pomodoro") return;
       const endTime = Date.now();
-      const elapsed = liveElapsed(s, endTime);
-      if (s.phase === "focus" && elapsed > 0) {
-        finishSession(s, endTime, elapsed, "Pomodoro session", false);
-        if (elapsed >= 60) {
-          usePomodoroLog.getState().record({ at: endTime, completed: false, seconds: elapsed });
-        }
+      let saved = 0;
+      if (s.phase === "focus" && liveElapsed(s, endTime) > 0) {
+        saved = finishSession(s, endTime, "Pomodoro session", false);
       }
       const prefs = usePreferences.getState();
       const autoStart = s.phase === "focus" ? prefs.autoStartBreaks : prefs.autoStartFocus;
-      dispatch({
+      send({
         type: "ADVANCE_PHASE",
         payload: {
-          completedFocus: s.phase === "focus" && elapsed >= 60,
+          completedFocus: s.phase === "focus" && saved >= 60,
           autoStartAt: autoStart ? Date.now() : null,
         },
       });
     },
     extend: (seconds: number = EXTEND_STEP_SECONDS) => {
-      dispatch({ type: "EXTEND", payload: { seconds } });
+      send({ type: "EXTEND", payload: { seconds } });
     },
     resetCycle: () => {
-      dispatch({ type: "RESET_CYCLE" });
+      send({ type: "RESET_CYCLE" });
     },
-  }), [state, finishSession, advancePhase, announce]);
+  }), [state, finishSession, advancePhase, announce, send]);
 
   return (
     <PomoContext.Provider value={contextValue}>

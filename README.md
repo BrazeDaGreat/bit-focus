@@ -4,9 +4,9 @@ Your local-first workspace for focused work, planning, and personal productivity
 
 [Use BIT Focus](https://focus.uziraze.com) | [View changelog](https://focus.uziraze.com/changelog) | [Report an issue](https://github.com/BrazeDaGreat/bit-focus/issues)
 
-BIT Focus combines a focus timer, time tracking, project planning, calendar timeblocking, rewards, notes, whiteboarding, ambient sound, and optional AI in one day-to-day workspace. Core features work without an account, and app data stays in your browser unless you explicitly connect an account or use an integration.
+BIT Focus combines a focus timer, time tracking, project planning, calendar timeblocking, rich text notes, rewards, ambient sound, and optional AI in one day-to-day workspace. Core features work without an account, and app data stays in your browser unless you explicitly connect an account or use an integration.
 
-> **Project status:** BIT Focus is under active development. Export a `.bitf.json` backup regularly, especially before upgrading a self-hosted instance.
+> **Current release: v0.24.0 (LTS).** This release strengthens focus-session saving, task-note recovery, and complete manual backups. Export a `.bitf.json` backup regularly, especially before upgrading a self-hosted instance.
 
 ## Use BIT Focus
 
@@ -29,7 +29,9 @@ BIT Focus is designed around a practical daily loop:
 ### Focus and time tracking
 
 - Standard count-up and configurable Pomodoro timers
-- Global mini timer, document-title timer, and Picture-in-Picture timer
+- Global mini timer, document-title timer, Picture-in-Picture timer, and landscape timer for phones
+- Session goals, configurable breaks, and optional timer recovery after reload
+- Active-time accounting, atomic session saves, and retry/reload recovery for failed saves
 - Manual session entry for time tracked elsewhere
 - Searchable focus table with filtering, sorting, pagination, bulk editing, deletion, and CSV export
 - Focus charts, tag breakdowns, yearly heatmap, and streak tracking
@@ -37,13 +39,16 @@ BIT Focus is designed around a practical daily loop:
 
 ### Planning and project work
 
-- Projects containing tasks directly, with Inbox, Today, Upcoming, tag views, saved filters, Completed, and Trash
-- Tasks with existing tags, primary focus tag, deadlines, priorities, estimates, notes, and optional sections
-- List search, sorting, grouping, manual ordering, bulk editing, restore, and project archiving
+- Project rail on desktop and project tiles on phones, with searchable project icons
+- Tasks and subtasks with tags, primary focus tag, deadlines, priorities, and estimates
+- Quick add that recognizes dates, times, tags, projects, priorities, and estimates, with a preview you can correct
+- Deadline runway and tasks grouped by due date, with completed tasks and Trash folded away
+- Rich task notes with save status, retry controls, local draft recovery, pasted images, and local file attachments up to 25 MB each
+- Task restoration and project archiving
 - Task-linked standard/Pomodoro sessions, estimated versus actual time, and task results in Home's weekly review
 - Task deadlines on the existing calendar, plus multiple linked calendar blocks per task
 - Automatic migration of older issues and todo records, retaining milestone budgets/payment states and older backups
-- Day and week calendar views for planned timeblocks and actual focus sessions
+- Calendar views for planned timeblocks, task deadlines, and actual focus sessions
 - Drag-to-create, move, resize, edit, and filter timeblocks
 
 ### Focus environment
@@ -55,18 +60,36 @@ BIT Focus is designed around a practical daily loop:
 - Multiple light, dark, AMOLED, pastel, and themed color schemes
 - Feature toggles for hiding tools you do not use
 
-### Personal workspace
+### Notes and personal workspace
 
+- Nested note pages with search, project-style icons, move controls, Trash, and restoration
+- Rich text editing with slash commands, tables, code, equations, callouts, columns, and images
+- Note autosave, local recovery drafts, and PDF export
 - Custom rewards, discounts, point loans, and redemptions
-- Context-aware AI chat using your own Groq or Google API key
-- `.bitf.json` export and import for portable backups
+- Context-aware AI chat with a configurable OpenAI-compatible endpoint, including local endpoints
+- Command palette for timer controls, navigation, tags, themes, and backups
+- Complete manual `.bitf.json` backups and a preview before restoring
 - Optional accounts with two-way sync, conflict resolution, and manual upload/download controls
+
+## Backups and recovery
+
+Export a backup from Settings → Data, the data menu, or the command palette. Manual exports include note images and task attachments. Restoring first validates the file and shows its contents and file coverage; saved data is replaced only after you confirm.
+
+Automatic backups download every 24 hours while the app is open, when enabled. They omit note images and task attachments to stay small, and their filenames include `without-files`. Make a manual export before moving devices or upgrading a self-hosted instance.
+
+Older `.bitf.json` backups remain supported. If a backup omits files, restoring keeps existing note images and keeps local task attachments only for tasks present in the restored data. A backup without files cannot recover files on an empty device. Task attachments stay on the device and do not sync; note images participate in account sync.
+
+Account session tokens and device recovery drafts are excluded from backups. Backups can contain saved API keys and webhook URLs, so store them privately.
+
+Finished focus sessions are saved before completion messages and reward points are issued. Failed saves offer Retry and are recovered on reload when browser storage is available. Switching timer modes finishes the current focus session if it meets the one-minute minimum, then starts the selected mode from zero. Pauses and breaks do not earn focus time.
+
+Task notes keep unsaved drafts on this device and show save status. If saving fails, retry from the editor. Reload recovery needs working local storage; when storage is blocked or full, keep the editor or timer tab open and follow its recovery message.
 
 ## Privacy and data ownership
 
 BIT Focus is local-first:
 
-- Focus sessions, projects, rewards, drawings, settings, and other workspace data are stored in IndexedDB and local storage.
+- Focus sessions, projects, notes, rewards, settings, and other workspace data are stored in IndexedDB and local storage.
 - You can use the core app while signed out.
 - AI API keys are supplied by you and stored locally in your browser.
 - Data only leaves your browser when you choose a networked feature such as AI chat, a Discord webhook, account authentication, or cloud sync.
@@ -99,8 +122,9 @@ Useful commands:
 | `pnpm dev` | Start the Turbopack development server |
 | `pnpm build` | Create a production build |
 | `pnpm start` | Serve the production build |
-| `pnpm test` | Task migration, backup, sync, and date regression tests |
-| `pnpm test:e2e` | Desktop/mobile task workflows (dev server on port 3001) |
+| `pnpm test` | Persistence, timer, autosave, backup, migration, sync, and date regression tests |
+| `pnpm test:e2e` | Browser workflow regressions (app server on port 3001) |
+| `pnpm exec tsc --noEmit` | Check TypeScript types |
 | `pnpm lint` | Run the configured Next.js lint command |
 
 No environment variables are required for local-only use. The AI providers use API keys entered in the app.
@@ -135,7 +159,7 @@ Contributions are welcome. Bug reports, documentation fixes, accessibility impro
 2. Fork the repository and create a branch from the current default branch.
 3. Install dependencies with `pnpm install`.
 4. Make a focused change that follows the existing TypeScript, React, Tailwind, and shadcn/ui patterns.
-5. Run `pnpm build` and `pnpm lint` where supported.
+5. Run `pnpm test`, `pnpm exec tsc --noEmit`, `pnpm lint`, and `pnpm build`. Run relevant browser tests for interaction changes.
 6. Open a pull request explaining the problem, solution, test steps, and any visible UI changes.
 
 For larger features or changes to persistence and sync behavior, open an issue first. Include screenshots for UI changes and note any IndexedDB schema, import/export, or backward-compatibility impact.
@@ -158,15 +182,16 @@ BIT Focus uses:
 
 The main application routes live in `app/`, shared interface components in `components/`, state stores and contexts in `hooks/`, and persistence/integration code in `lib/`.
 
-## License
+## Upgrading older installations
 
-BIT Focus is available under the [MIT License](./LICENSE.md).
-### Projects-to-tasks upgrade
-
-Database version 13 converts issues into tasks with stable identities, preserving project notes and links, issue dates and completion, and milestone names as optional sections. Original milestone budgets, deadlines, payment states, and project versions remain available under Previous milestone details. Old issue labels can be mapped to existing tags in task details.
+Database version 13 converts issues into tasks with stable identities, preserving project notes and links, issue dates and completion, and milestone names in the retained data. Legacy milestone budgets, payment states, project versions, and saved filters remain in storage and backups, even where the current task workspace no longer exposes them.
 
 Task deadlines, estimates, and focus time are distinct. Date-only deadlines retain their calendar day across time zones. Existing focus history is kept; only sessions started from a task gain task/project attribution. Calendar blocks can link to a task without adding scheduling fields to the task.
 
 The upgrade resets the sync pull cursor once, allowing previously unknown task records to be fetched. Use the updated app on each device; older clients still operate on the retained issue records and do not understand task edits. Tasks and saved filters use the existing generic sync collection. No backend collection is added. New backups include tasks, saved filters, and task links; older BIT Focus backups are converted when restored.
 
-Run `pnpm test` for persistence regressions. For browser checks, install Chromium with `pnpm exec playwright install chromium`, start `pnpm dev --port 3001`, then run `pnpm test:e2e`.
+Run `pnpm test` for persistence regressions. For browser checks, install Chromium with `pnpm exec playwright install chromium`, start `pnpm dev --port 3001` in another terminal, then run `pnpm test:e2e`. To check the production app, run `pnpm build` and use `pnpm start --port 3001` instead. Offline service-worker behavior is enabled only in production.
+
+## License
+
+BIT Focus is available under the [MIT License](./LICENSE.md).
