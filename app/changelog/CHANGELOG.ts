@@ -32,6 +32,18 @@ const CHANGELOG = `
 - Added: The Calendar opens to a specific day from links, such as from the Home day strip.
 - Improved: Task details list upcoming blocks for the task, including repeating ones.
 - Technical: Added the timeblock template table and repeat fields (database version 17) with sync, backup, and restore support. Restoring a backup made before this version keeps the templates already on this device. Added tests for repeat expansion, current-block lookup, Pomodoro splits, templates, time-range parsing, and template backups.
+### \`v0.24.2-beta\` (2026-10-31) — Calendar Polish
+- Added: Right-click anywhere on the Calendar for a menu that fits what you clicked. On empty time: add a block there or plan a task into it. On a day: open it, save it as a template, apply a template, or shift the rest of today. On a block: edit, start, change its tag or timer mode, or delete it (only this one or the whole series). On a focus session: edit it. On a deadline: open the task.
+- Changed: Show and Zoom moved out of the header into the right-click menu. A single "View options" button in the header opens the same menu on touch screens or from the keyboard.
+- Changed: Day templates are managed from the right-click menu: save, apply to a day, to Monday–Friday, or to the whole week, then rename or delete. The Routines section in the side panel is gone.
+- Added: Choose how focus sessions look (slim pills or full blocks) and how planned blocks look (solid cards or the see-through tinted style), from the right-click menu. Your choice is remembered.
+- Changed: Month view is now an overview. Each day shows its focus total, a thin bar split by tag, and quiet planned and due counts, with a short month summary above. Click a day to open it.
+- Fixed: Dates in the day and week headers were cut off, and task deadlines were drawn over them. Deadlines now sit in their own row under the dates, with "+n more" when there are many.
+- Fixed: The block editor could run off the top of the screen. It's now compact (one row for the date and times, a searchable tag picker, and shorter repeat and timer controls) and always stays on screen.
+- Fixed: The time you selected disappeared behind the editor. The selection now stays outlined while you plan, and the editor opens beside it instead of on top of it.
+- Fixed: Clicking outside an open editor opened a new one where you clicked. It now just closes the editor.
+- Improved: Unscheduled tasks in the Calendar show their project.
+- Changed: Home's Now summary is smaller and sits inside the Today panel, with a compact strip that covers only the hours you've planned. It disappears on days with no blocks.
 ***
 
 ## \`v0.23.0 (LTS)\` (2026-09-29) — Settings, Commands & Review

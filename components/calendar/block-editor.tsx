@@ -1,12 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { format, isValid, parse } from "date-fns";
-import { Link2, Play, Repeat2, Trash2, X } from "lucide-react";
+import {
+  addDays,
+  differenceInCalendarDays,
+  format,
+  isValid,
+  parse,
+} from "date-fns";
+import { ChevronDown, Link2, Play, Repeat2, Trash2, X } from "lucide-react";
+import * as Popover from "@radix-ui/react-popover";
 import { toast } from "sonner";
 import type { TimeBlock, TimeblockRecurrence } from "@/lib/db";
 import type { Task } from "@/lib/tasks";
-import type { SavedTag } from "@/hooks/useTag";
+import { useTag, type SavedTag } from "@/hooks/useTag";
 import type { SeriesScope } from "@/hooks/useTimeblocks";
 import {
   describeRecurrence,
@@ -17,11 +24,10 @@ import {
 import { cn, getTagColor } from "@/lib/utils";
 import { AnchoredPanel } from "./anchored-panel";
 import {
-  CONTROL,
   FIELD,
   PRIMARY,
   QUIET,
-  softTag,
+  type AnchorRect,
   type Point,
 } from "./calendar-shared";
 
@@ -29,6 +35,8 @@ export interface EditorTarget {
   start: Date;
   end: Date;
   point: Point;
+  /** What the editor belongs to; the panel sits beside it rather than over it. */
+  rect?: AnchorRect;
   occurrence?: TimeblockOccurrence;
 }
 interface EditorProps {
@@ -109,7 +117,6 @@ export function BlockEditor({
   const [startDate, setStartDate] = useState(
     format(target.start, "yyyy-MM-dd"),
   );
-  const [endDate, setEndDate] = useState(format(target.end, "yyyy-MM-dd"));
   const [startTime, setStartTime] = useState(format(target.start, "HH:mm"));
   const [endTime, setEndTime] = useState(format(target.end, "HH:mm"));
   const [repeat, setRepeat] = useState<TimeblockRecurrence["freq"] | "none">(
@@ -126,6 +133,8 @@ export function BlockEditor({
   );
   const [pickerOpen, setPickerOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [tagPickerOpen, setTagPickerOpen] = useState(false);
+  const [tagQuery, setTagQuery] = useState("");
   const [scopeAction, setScopeAction] = useState<"save" | "delete" | null>(
     null,
   );
@@ -136,7 +145,20 @@ export function BlockEditor({
     "yyyy-MM-dd HH:mm",
     new Date(),
   );
-  const end = parse(`${endDate} ${endTime}`, "yyyy-MM-dd HH:mm", new Date());
+  // One date control; an earlier end time means the following day. Preserve
+  // existing multi-day blocks rather than silently shortening them on edit.
+  const endDayOffset = Math.max(
+    differenceInCalendarDays(target.end, target.start),
+    endTime < startTime ? 1 : 0,
+  );
+  const end = addDays(
+    parse(`${startDate} ${endTime}`, "yyyy-MM-dd HH:mm", new Date()),
+    endDayOffset,
+  );
+  const matchingTags = savedTags.filter(({ t }) =>
+    t.toLowerCase().includes(tagQuery.trim().toLowerCase()),
+  );
+  const newTag = tagQuery.trim();
   const valid =
     isValid(start) &&
     isValid(end) &&
@@ -196,18 +218,19 @@ export function BlockEditor({
   return (
     <AnchoredPanel
       point={target.point}
+      rect={target.rect}
       onClose={onClose}
       label={original ? "Edit time block" : "Plan time block"}
-      className="w-[360px]"
+      className="flex w-[380px] flex-col overflow-hidden"
     >
       <form
-        className="space-y-4"
+        className="flex min-h-0 flex-col"
         onSubmit={(event) => {
           event.preventDefault();
           if (valid && !busy) request("save");
         }}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex shrink-0 items-center justify-between">
           <h2 className="text-sm font-semibold tracking-tight">
             {original ? "Edit time block" : "Plan time block"}
           </h2>
@@ -220,340 +243,437 @@ export function BlockEditor({
             <X className="size-4" />
           </button>
         </div>
-        <div className="space-y-2">
-          <label
-            className="block text-xs text-muted-foreground"
-            htmlFor="block-title"
-          >
-            {taskUid ? "Linked task" : "Title"}
-          </label>
-          {taskUid ? (
-            <div className="flex items-center gap-1 rounded-xl bg-muted/60 p-1">
-              <span className="min-w-0 flex-1 truncate px-2 text-sm">
-                {linkedTask?.title || title || "Linked task"}
-              </span>
-              <button
-                type="button"
-                className={cn(QUIET, "w-9 px-0")}
-                aria-label="Unlink task"
-                onClick={() => setTaskUid("")}
-              >
-                <X className="size-4" />
-              </button>
-            </div>
-          ) : (
-            <input
-              id="block-title"
-              autoFocus
-              placeholder="What will you work on?"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              className={FIELD}
-            />
-          )}
-          <button
-            type="button"
-            className={QUIET}
-            aria-expanded={pickerOpen}
-            onClick={() => setPickerOpen(!pickerOpen)}
-          >
-            <Link2 className="size-4" />
-            {taskUid ? "Change linked task" : "Link a task"}
-          </button>
-          {pickerOpen && (
-            <div className="space-y-1 rounded-xl bg-muted/40 p-2">
+        <div className="min-h-0 space-y-3 overflow-y-auto overscroll-contain px-0.5 pb-3">
+          <div className="space-y-2">
+            <label
+              className="block text-xs text-muted-foreground"
+              htmlFor="block-title"
+            >
+              {taskUid ? "Linked task" : "Title"}
+            </label>
+            {taskUid ? (
+              <div className="flex items-center gap-1 rounded-xl bg-muted/60 p-1">
+                <span className="min-w-0 flex-1 truncate px-2 text-sm">
+                  {linkedTask?.title || title || "Linked task"}
+                </span>
+                <button
+                  type="button"
+                  className={cn(QUIET, "w-9 px-0")}
+                  aria-label="Unlink task"
+                  onClick={() => setTaskUid("")}
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+            ) : (
               <input
+                id="block-title"
+                autoFocus
+                placeholder="What will you work on?"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
                 className={FIELD}
-                aria-label="Search tasks to link"
-                placeholder="Find a task…"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
               />
-              <div className="max-h-36 overflow-y-auto">
-                {tasks
-                  .filter(
+            )}
+            <button
+              type="button"
+              className={QUIET}
+              aria-expanded={pickerOpen}
+              onClick={() => setPickerOpen(!pickerOpen)}
+            >
+              <Link2 className="size-4" />
+              {taskUid ? "Change linked task" : "Link a task"}
+            </button>
+            {pickerOpen && (
+              <div className="space-y-1 rounded-xl bg-muted/40 p-2">
+                <input
+                  className={FIELD}
+                  aria-label="Search tasks to link"
+                  placeholder="Find a task…"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                />
+                <div className="max-h-36 overflow-y-auto">
+                  {tasks
+                    .filter(
+                      (task) =>
+                        task.uid &&
+                        task.title.toLowerCase().includes(query.toLowerCase()),
+                    )
+                    .map((task) => (
+                      <button
+                        type="button"
+                        key={task.uid}
+                        className={cn(
+                          QUIET,
+                          "h-auto min-h-9 w-full justify-start py-2 text-left",
+                        )}
+                        onClick={() => {
+                          setTaskUid(task.uid!);
+                          setTitle(task.title);
+                          setTag(task.primaryTag || task.tags[0] || "Focus");
+                          setPickerOpen(false);
+                        }}
+                      >
+                        {task.title}
+                      </button>
+                    ))}
+                  {!tasks.some(
                     (task) =>
                       task.uid &&
                       task.title.toLowerCase().includes(query.toLowerCase()),
-                  )
-                  .map((task) => (
-                    <button
-                      type="button"
-                      key={task.uid}
-                      className={cn(
-                        QUIET,
-                        "h-auto min-h-9 w-full justify-start py-2 text-left",
-                      )}
-                      onClick={() => {
-                        setTaskUid(task.uid!);
-                        setTitle(task.title);
-                        setTag(task.primaryTag || task.tags[0] || "Focus");
-                        setPickerOpen(false);
-                      }}
-                    >
-                      {task.title}
-                    </button>
-                  ))}
-                {!tasks.some(
-                  (task) =>
-                    task.uid &&
-                    task.title.toLowerCase().includes(query.toLowerCase()),
-                ) && (
-                  <p className="p-2 text-xs text-muted-foreground">
-                    No open tasks match. Try another search.
-                  </p>
-                )}
+                  ) && (
+                    <p className="p-2 text-xs text-muted-foreground">
+                      No open tasks match. Try another search.
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-        <div className="space-y-2">
-          <label htmlFor="block-tag" className="text-xs text-muted-foreground">
-            Tag
-          </label>
-          <div className="flex max-h-24 flex-wrap gap-1 overflow-y-auto">
-            {savedTags.map(({ t }) => (
-              <button
-                key={t}
-                type="button"
-                className={cn(
-                  CONTROL,
-                  "h-9 max-w-full",
-                  tag === t && "ring-1 ring-ring",
-                )}
-                style={{ background: softTag(getTagColor(savedTags, t)[0]) }}
-                aria-pressed={tag === t}
-                onClick={() => setTag(t)}
-              >
-                <span
-                  className="size-2 shrink-0 rounded-full"
-                  style={{ background: getTagColor(savedTags, t)[0] }}
-                />
-                <span className="truncate">{t}</span>
-              </button>
-            ))}
+            )}
           </div>
-          <input
-            id="block-tag"
-            className={FIELD}
-            value={tag}
-            onChange={(event) => setTag(event.target.value)}
-            placeholder="Choose or type a tag"
-            required
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-2">
+          <div className="space-y-1">
             <label
-              htmlFor="block-start-date"
+              htmlFor="block-tag"
               className="text-xs text-muted-foreground"
             >
-              Start
+              Tag
             </label>
-            <input
-              id="block-start-date"
-              aria-label="Start date"
-              type="date"
-              className={cn(FIELD, "font-mono tabular-nums")}
-              value={startDate}
-              required
-              onChange={(event) => {
-                const value = event.target.value;
-                setStartDate(value);
-                if (endDate === startDate || endDate < value) setEndDate(value);
+            <Popover.Root
+              open={tagPickerOpen}
+              onOpenChange={(open) => {
+                setTagPickerOpen(open);
+                if (open) setTagQuery("");
               }}
-            />
-            <input
-              aria-label="Start time"
-              type="time"
-              className={cn(FIELD, "font-mono tabular-nums")}
-              value={startTime}
-              required
-              onChange={(event) => setStartTime(event.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <label
-              htmlFor="block-end-date"
-              className="text-xs text-muted-foreground"
             >
-              End
-            </label>
-            <input
-              id="block-end-date"
-              aria-label="End date"
-              type="date"
-              className={cn(FIELD, "font-mono tabular-nums")}
-              value={endDate}
-              required
-              onChange={(event) => setEndDate(event.target.value)}
-            />
-            <input
-              aria-label="End time"
-              type="time"
-              className={cn(FIELD, "font-mono tabular-nums")}
-              value={endTime}
-              required
-              onChange={(event) => setEndTime(event.target.value)}
-            />
-          </div>
-        </div>
-        {!valid && (
-          <p className="text-xs text-destructive">
-            Choose a tag, an end after the start, and valid repeat dates.
-          </p>
-        )}
-        <fieldset className="space-y-2">
-          <legend className="mb-2 text-xs text-muted-foreground">Repeat</legend>
-          <div className="flex flex-wrap gap-1 rounded-xl bg-muted/60 p-1">
-            {(
-              [
-                { value: "none", label: "Does not repeat" },
-                { value: "daily", label: "Every day" },
-                { value: "weekdays", label: "Weekdays" },
-                { value: "weekly", label: "Weekly" },
-              ] as const
-            ).map(({ value, label }) => (
-              <button
-                key={value}
-                type="button"
-                className={cn(
-                  QUIET,
-                  repeat === value && "bg-background text-foreground shadow-xs",
-                )}
-                aria-pressed={repeat === value}
-                onClick={() => setRepeat(value)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          {repeat === "weekly" && (
-            <div className="flex gap-1">
-              {[1, 2, 3, 4, 5, 6, 0].map((day, index) => (
+              <Popover.Trigger asChild>
                 <button
-                  key={day}
+                  id="block-tag"
+                  type="button"
+                  className={cn(FIELD, "flex items-center gap-2 text-left")}
+                  aria-label={`Choose tag, current tag ${tag}`}
+                >
+                  <span
+                    className="size-2 shrink-0 rounded-full"
+                    style={{ background: getTagColor(savedTags, tag)[0] }}
+                  />
+                  <span className="min-w-0 flex-1 truncate">
+                    {tag || "Choose a tag"}
+                  </span>
+                  <ChevronDown className="size-3 shrink-0 text-muted-foreground" />
+                </button>
+              </Popover.Trigger>
+              <Popover.Portal>
+                <Popover.Content
+                  sideOffset={6}
+                  align="start"
+                  avoidCollisions
+                  collisionPadding={12}
+                  sticky="always"
+                  aria-label="Choose a tag"
+                  className="z-50 flex max-h-[min(280px,var(--radix-popover-content-available-height))] w-[min(320px,calc(100vw-24px))] flex-col gap-2 rounded-2xl border bg-popover p-2 text-popover-foreground shadow-xs outline-none motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200"
+                >
+                  <input
+                    aria-label="Find or create a tag"
+                    placeholder="Find or create a tag…"
+                    className={cn(FIELD, "shrink-0")}
+                    value={tagQuery}
+                    onChange={(event) => setTagQuery(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") event.preventDefault();
+                    }}
+                  />
+                  <div className="min-h-0 overflow-y-auto overscroll-contain">
+                    {matchingTags.map(({ t }) => (
+                      <button
+                        key={t}
+                        type="button"
+                        aria-pressed={tag === t}
+                        className={cn(
+                          QUIET,
+                          "w-full justify-start",
+                          tag === t && "bg-muted text-foreground",
+                        )}
+                        onClick={() => {
+                          setTag(t);
+                          setTagPickerOpen(false);
+                        }}
+                      >
+                        <span
+                          className="size-2 shrink-0 rounded-full"
+                          style={{ background: getTagColor(savedTags, t)[0] }}
+                        />
+                        <span className="truncate">{t}</span>
+                      </button>
+                    ))}
+                    {newTag &&
+                      !savedTags.some(
+                        ({ t }) => t.toLowerCase() === newTag.toLowerCase(),
+                      ) && (
+                        <button
+                          type="button"
+                          className={cn(QUIET, "w-full justify-start")}
+                          onClick={() => {
+                            try {
+                              useTag
+                                .getState()
+                                .addSavedTag(
+                                  newTag,
+                                  getTagColor(savedTags, newTag)[0],
+                                );
+                              setTag(newTag);
+                              setTagPickerOpen(false);
+                            } catch {
+                              toast.error("Could not save tag");
+                            }
+                          }}
+                        >
+                          <span
+                            className="size-2 shrink-0 rounded-full"
+                            style={{
+                              background: getTagColor(savedTags, newTag)[0],
+                            }}
+                          />
+                          <span className="truncate">Create “{newTag}”</span>
+                        </button>
+                      )}
+                    {!matchingTags.length && !newTag && (
+                      <p className="p-2 text-xs text-muted-foreground">
+                        Type a name to create your first tag.
+                      </p>
+                    )}
+                  </div>
+                </Popover.Content>
+              </Popover.Portal>
+            </Popover.Root>
+          </div>
+          <div className="grid grid-cols-[1.35fr_1fr_1fr] gap-2">
+            <div className="min-w-0 space-y-1">
+              <label
+                htmlFor="block-start-date"
+                className="text-xs text-muted-foreground"
+              >
+                Date
+              </label>
+              <input
+                id="block-start-date"
+                aria-label="Block date"
+                type="date"
+                className={cn(FIELD, "px-2 font-mono text-xs tabular-nums")}
+                value={startDate}
+                required
+                onChange={(event) => setStartDate(event.target.value)}
+              />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <label
+                htmlFor="block-start-time"
+                className="text-xs text-muted-foreground"
+              >
+                Start
+              </label>
+              <input
+                id="block-start-time"
+                aria-label="Start time"
+                type="time"
+                className={cn(FIELD, "px-2 font-mono text-xs tabular-nums")}
+                value={startTime}
+                required
+                onChange={(event) => setStartTime(event.target.value)}
+              />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <label
+                htmlFor="block-end-time"
+                className="text-xs text-muted-foreground"
+              >
+                End
+              </label>
+              <input
+                id="block-end-time"
+                aria-label="End time"
+                type="time"
+                className={cn(FIELD, "px-2 font-mono text-xs tabular-nums")}
+                value={endTime}
+                required
+                onChange={(event) => setEndTime(event.target.value)}
+              />
+            </div>
+          </div>
+          {endDayOffset > 0 && isValid(end) && (
+            <p className="font-mono text-xs tabular-nums text-muted-foreground">
+              Ends {format(end, "EEE, MMM d")}
+            </p>
+          )}
+          {!valid && (
+            <p className="text-xs text-destructive">
+              Choose a tag, an end after the start, and valid repeat dates.
+            </p>
+          )}
+          <fieldset className="space-y-2">
+            <legend className="mb-2 text-xs text-muted-foreground">
+              Repeat
+            </legend>
+            <div className="grid grid-cols-4 gap-1 rounded-xl bg-muted/60 p-1">
+              {(
+                [
+                  { value: "none", label: "Once" },
+                  { value: "daily", label: "Daily" },
+                  { value: "weekdays", label: "Weekdays" },
+                  { value: "weekly", label: "Weekly" },
+                ] as const
+              ).map(({ value, label }) => (
+                <button
+                  key={value}
                   type="button"
                   className={cn(
                     QUIET,
-                    "w-9 px-0 font-mono",
-                    days.includes(day) && "bg-muted text-foreground",
+                    "min-w-0 px-1 text-xs",
+                    repeat === value &&
+                      "bg-background text-foreground shadow-xs",
                   )}
-                  aria-label={
-                    [
-                      "Monday",
-                      "Tuesday",
-                      "Wednesday",
-                      "Thursday",
-                      "Friday",
-                      "Saturday",
-                      "Sunday",
-                    ][index]
-                  }
-                  aria-pressed={days.includes(day)}
-                  onClick={() =>
-                    setDays(
-                      days.includes(day)
-                        ? days.filter((value) => value !== day)
-                        : [...days, day],
-                    )
-                  }
+                  aria-pressed={repeat === value}
+                  onClick={() => setRepeat(value)}
                 >
-                  {["M", "T", "W", "T", "F", "S", "S"][index]}
+                  {label}
                 </button>
               ))}
             </div>
-          )}
-          {repeat !== "none" && (
-            <>
-              <label
-                className="block text-xs text-muted-foreground"
-                htmlFor="block-until"
-              >
-                Until (optional)
-              </label>
-              <input
-                id="block-until"
-                type="date"
-                min={startDate}
-                className={cn(FIELD, "font-mono tabular-nums")}
-                value={until}
-                onChange={(event) => setUntil(event.target.value)}
-              />
-              <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Repeat2 className="size-3" />
-                {describeRecurrence(
-                  { freq: repeat, days },
-                  isValid(start) ? start : target.start,
-                )}
-              </p>
-            </>
-          )}
-        </fieldset>
-        <fieldset>
-          <legend className="mb-2 text-xs text-muted-foreground">Timer</legend>
-          <div className="flex flex-wrap gap-1 rounded-xl bg-muted/60 p-1">
-            {(
-              [
-                { value: "keep", label: "Keep current" },
-                { value: "pomodoro", label: "Pomodoro" },
-                { value: "standard", label: "Standard" },
-              ] as const
-            ).map(({ value, label }) => (
-              <button
-                key={value}
-                type="button"
-                className={cn(
-                  QUIET,
-                  "px-2",
-                  timer === value && "bg-background text-foreground shadow-xs",
-                )}
-                aria-pressed={timer === value}
-                onClick={() => setTimer(value)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <p className="mt-2 font-mono text-xs tabular-nums text-muted-foreground">
-            {hint
-              ? `${hint.label} · ${minutesBetween(start, end)} min planned`
-              : valid
-                ? `${minutesBetween(start, end)} min planned`
-                : "Set block times to see a Pomodoro estimate"}
-          </p>
-        </fieldset>
-        {scopeAction ? (
-          <SeriesChoice
-            action={scopeAction === "save" ? "Save changes to…" : "Delete…"}
-            busy={busy}
-            onChoose={(scope) => void perform(scopeAction, scope)}
-            onCancel={() => setScopeAction(null)}
-          />
-        ) : (
-          <div className="flex flex-wrap gap-1">
-            <button className={PRIMARY} disabled={!valid || busy} type="submit">
-              {busy ? "Saving…" : original ? "Save changes" : "Create block"}
-            </button>
-            {isHappening && (
-              <button type="button" className={QUIET} onClick={onStart}>
-                <Play className="size-4" />
-                Start block
-              </button>
+            {repeat === "weekly" && (
+              <div className="grid grid-cols-7 gap-1">
+                {[1, 2, 3, 4, 5, 6, 0].map((day, index) => (
+                  <button
+                    key={day}
+                    type="button"
+                    className={cn(
+                      QUIET,
+                      "w-full px-0 font-mono",
+                      days.includes(day) && "bg-muted text-foreground",
+                    )}
+                    aria-label={
+                      [
+                        "Monday",
+                        "Tuesday",
+                        "Wednesday",
+                        "Thursday",
+                        "Friday",
+                        "Saturday",
+                        "Sunday",
+                      ][index]
+                    }
+                    aria-pressed={days.includes(day)}
+                    onClick={() =>
+                      setDays(
+                        days.includes(day)
+                          ? days.filter((value) => value !== day)
+                          : [...days, day],
+                      )
+                    }
+                  >
+                    {["M", "T", "W", "T", "F", "S", "S"][index]}
+                  </button>
+                ))}
+              </div>
             )}
-            {original && (
-              <button
-                type="button"
-                className={cn(QUIET, "text-destructive")}
-                disabled={busy}
-                onClick={() => request("delete")}
-              >
-                <Trash2 className="size-4" />
-                Delete block
-              </button>
+            {repeat !== "none" && (
+              <>
+                <label
+                  className="block text-xs text-muted-foreground"
+                  htmlFor="block-until"
+                >
+                  Until (optional)
+                </label>
+                <input
+                  id="block-until"
+                  type="date"
+                  min={startDate}
+                  className={cn(FIELD, "font-mono tabular-nums")}
+                  value={until}
+                  onChange={(event) => setUntil(event.target.value)}
+                />
+                <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Repeat2 className="size-3" />
+                  {describeRecurrence(
+                    { freq: repeat, days },
+                    isValid(start) ? start : target.start,
+                  )}
+                </p>
+              </>
             )}
-          </div>
-        )}
+          </fieldset>
+          <fieldset>
+            <legend className="mb-2 text-xs text-muted-foreground">
+              Timer
+            </legend>
+            <div className="grid grid-cols-3 gap-1 rounded-xl bg-muted/60 p-1">
+              {(
+                [
+                  { value: "keep", label: "Keep current" },
+                  { value: "pomodoro", label: "Pomodoro" },
+                  { value: "standard", label: "Standard" },
+                ] as const
+              ).map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={cn(
+                    QUIET,
+                    "min-w-0 px-1 text-xs",
+                    timer === value &&
+                      "bg-background text-foreground shadow-xs",
+                  )}
+                  aria-pressed={timer === value}
+                  onClick={() => setTimer(value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 font-mono text-xs tabular-nums text-muted-foreground">
+              {hint
+                ? `${hint.label} · ${minutesBetween(start, end)} min planned`
+                : valid
+                  ? `${minutesBetween(start, end)} min planned`
+                  : "Set block times to see a Pomodoro estimate"}
+            </p>
+          </fieldset>
+        </div>
+        <div className="shrink-0 pt-2">
+          {scopeAction ? (
+            <SeriesChoice
+              action={scopeAction === "save" ? "Save changes to…" : "Delete…"}
+              busy={busy}
+              onChoose={(scope) => void perform(scopeAction, scope)}
+              onCancel={() => setScopeAction(null)}
+            />
+          ) : (
+            <div className="flex flex-wrap gap-1">
+              <button
+                className={PRIMARY}
+                disabled={!valid || busy}
+                type="submit"
+              >
+                {busy ? "Saving…" : original ? "Save changes" : "Create block"}
+              </button>
+              {isHappening && (
+                <button type="button" className={QUIET} onClick={onStart}>
+                  <Play className="size-4" />
+                  Start block
+                </button>
+              )}
+              {original && (
+                <button
+                  type="button"
+                  className={cn(QUIET, "text-destructive")}
+                  disabled={busy}
+                  onClick={() => request("delete")}
+                >
+                  <Trash2 className="size-4" />
+                  Delete
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </form>
     </AnchoredPanel>
   );

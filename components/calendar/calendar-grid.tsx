@@ -5,6 +5,10 @@ import {
   useMemo,
   useRef,
   useState,
+  cloneElement,
+  type HTMLAttributes,
+  type ReactElement,
+  type ReactNode,
   type CSSProperties,
 } from "react";
 import {
@@ -12,6 +16,7 @@ import {
   dateFnsLocalizer,
   type CalendarProps,
   type EventProps,
+  type EventWrapperProps,
   type SlotInfo,
 } from "react-big-calendar";
 import withDragAndDrop, {
@@ -33,9 +38,11 @@ import { cn } from "@/lib/utils";
 import { minutesBetween, pomodoroHint } from "@/lib/timeblocks";
 import {
   softTag,
-  timeblocksFirstLayout,
+  createTimeblocksLayout,
   ZOOM,
   type CalendarEvent,
+  type CalendarDisplay,
+  type ContextTarget,
   type CalendarView,
   type ZoomLevel,
 } from "./calendar-shared";
@@ -51,9 +58,20 @@ const localizer = dateFnsLocalizer({
 });
 const DnDCalendar = withDragAndDrop<CalendarEvent>(Calendar<CalendarEvent>);
 
-function DayHeader({ date }: { date: Date }) {
+function DayHeader({
+  date,
+  onContextTarget,
+}: {
+  date: Date;
+  onContextTarget: (target: ContextTarget) => void;
+}) {
   return (
-    <span className="flex flex-col items-center gap-1 py-3">
+    <span
+      className="flex flex-col items-center gap-1 py-2"
+      onContextMenu={() =>
+        onContextTarget({ kind: "slot", day: startOfDay(date), time: null })
+      }
+    >
       <span className="text-[11px] text-muted-foreground">
         {format(date, "EEE")}
       </span>
@@ -74,9 +92,11 @@ function CalendarEventContent({
   event,
   settings,
   month,
+  display,
 }: EventProps<CalendarEvent> & {
   settings: { focusDuration: number; breakDuration: number };
   month: boolean;
+  display: CalendarDisplay;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(0);
@@ -89,6 +109,12 @@ function CalendarEventContent({
     return () => observer.disconnect();
   }, []);
   const hint = pomodoroHint(minutesBetween(event.start, event.end), settings);
+  if (event.kind === "pending")
+    return (
+      <div className="h-full overflow-hidden font-mono text-[11px] tabular-nums">
+        {format(event.start, "HH:mm")}–{format(event.end, "HH:mm")}
+      </div>
+    );
   if (event.kind === "deadline")
     return <div className="truncate text-[11px]">{event.title}</div>;
   if (event.kind === "session")
@@ -99,15 +125,22 @@ function CalendarEventContent({
         aria-label={`Focus session: ${event.title}`}
         title={`${event.title} · ${format(event.start, "h:mm a")} – ${format(event.end, "h:mm a")}`}
       >
-        {(month || height >= 64) && (
+        {(month || display.sessions === "full" || height >= 64) && (
           <span
             className={cn(
-              "block truncate text-[10px] leading-none",
-              !month && "[writing-mode:vertical-rl]",
+              "block truncate text-[11px] leading-snug",
+              !month &&
+                display.sessions === "pills" &&
+                "[writing-mode:vertical-rl]",
             )}
           >
             {event.title}
           </span>
+        )}
+        {display.sessions === "full" && height >= 35 && (
+          <p className="mt-1 truncate font-mono text-[10px] tabular-nums opacity-75">
+            {format(event.start, "HH:mm")}–{format(event.end, "HH:mm")}
+          </p>
         )}
       </div>
     );
@@ -143,6 +176,8 @@ function CalendarEventContent({
 }
 
 interface GridProps {
+  display: CalendarDisplay;
+  onContextTarget: (target: ContextTarget) => void;
   events: CalendarEvent[];
   date: Date;
   view: CalendarView;
@@ -164,6 +199,8 @@ interface GridProps {
 }
 
 export function CalendarGrid({
+  display,
+  onContextTarget,
   events,
   date,
   view,
@@ -180,17 +217,74 @@ export function CalendarGrid({
   onMove,
   onOutsideDrop,
 }: GridProps) {
-  const components = useMemo<CalendarProps<CalendarEvent>["components"]>(
-    () => ({
+  const layout = useMemo(() => createTimeblocksLayout(display), [display]);
+  const components = useMemo<CalendarProps<CalendarEvent>["components"]>(() => {
+    const header = ({ date: day }: { date: Date }) => (
+      <DayHeader date={day} onContextTarget={onContextTarget} />
+    );
+    return {
       event: (props) => (
         <CalendarEventContent
           {...props}
           settings={settings}
           month={view === "month"}
+          display={display}
         />
       ),
-      week: { header: DayHeader },
-      day: { header: DayHeader },
+      eventWrapper: ({
+        event,
+        children,
+      }: EventWrapperProps<CalendarEvent> & { children?: ReactNode }) => (
+        <div
+          style={{ display: "contents" }}
+          ref={(node) => {
+            if (event.kind !== "pending") return;
+            const element = node?.querySelector<HTMLElement>(".rbc-event");
+            if (element) {
+              element.tabIndex = -1;
+              element.setAttribute("role", "presentation");
+            }
+          }}
+          onContextMenu={() => {
+            if (event.kind !== "pending")
+              onContextTarget({ kind: event.kind, event });
+          }}
+        >
+          {children}
+        </div>
+      ),
+      // Clone the slot itself: extra wrappers break RBC's flex sizing and DnD geometry.
+      timeSlotWrapper: ({
+        value,
+        children,
+      }: {
+        value?: Date;
+        children?: ReactElement<HTMLAttributes<HTMLElement>>;
+      }) =>
+        children
+          ? cloneElement(children, {
+              onContextMenu: (event) => {
+                children.props.onContextMenu?.(event);
+                if (value)
+                  onContextTarget({
+                    kind: "slot",
+                    day: startOfDay(value),
+                    time: value,
+                  });
+              },
+            })
+          : null,
+      dateCellWrapper: ({ value, children }) =>
+        cloneElement(children as ReactElement<HTMLAttributes<HTMLElement>>, {
+          onContextMenu: () =>
+            onContextTarget({
+              kind: "slot",
+              day: startOfDay(value),
+              time: null,
+            }),
+        }),
+      week: { header },
+      day: { header },
       month: {
         header: ({ date: day }) => (
           <span className="block py-3 text-xs text-muted-foreground">
@@ -198,14 +292,33 @@ export function CalendarGrid({
           </span>
         ),
       },
-    }),
-    [settings, view],
-  );
+    };
+  }, [settings, view, display, onContextTarget]);
   return (
     <main
       aria-label="Calendar"
       className="gcal min-h-0 min-w-0 flex-1 overflow-auto px-2 pb-3 md:pr-4"
       style={{ "--row-h": `${ZOOM[zoom]}px` } as CSSProperties}
+      onContextMenu={(event) => {
+        const target = event.target as HTMLElement;
+        if (target.closest(".rbc-event")) return;
+        // Empty row-content can sit above the all-day background cells.
+        const row = target.closest(".rbc-allday-cell");
+        if (!row) return;
+        const cells = row.querySelectorAll<HTMLElement>(".rbc-day-bg");
+        const index = Array.from(cells).findIndex((cell) => {
+          const bounds = cell.getBoundingClientRect();
+          return event.clientX >= bounds.left && event.clientX < bounds.right;
+        });
+        if (index >= 0) {
+          const day =
+            view === "day"
+              ? startOfDay(date)
+              : startOfWeek(date, { weekStartsOn: 1 });
+          day.setDate(day.getDate() + index);
+          onContextTarget({ kind: "slot", day, time: null });
+        }
+      }}
     >
       {loading ? (
         <div
@@ -233,10 +346,12 @@ export function CalendarGrid({
           startAccessor="start"
           endAccessor="end"
           allDayAccessor="allDay"
-          onSelectEvent={onSelect}
+          onSelectEvent={(event, details) => {
+            if (event.kind !== "pending") onSelect(event, details);
+          }}
           onKeyPressEvent={(event, details) => {
             const key = (details.nativeEvent as KeyboardEvent).key;
-            if (key === "Enter" || key === " ") {
+            if (event.kind !== "pending" && (key === "Enter" || key === " ")) {
               details.preventDefault();
               onSelect(event, details);
             }
@@ -253,7 +368,9 @@ export function CalendarGrid({
           onDragOver={(event) => {
             if (draggedEvent && view !== "month") event.preventDefault();
           }}
-          dayLayoutAlgorithm={timeblocksFirstLayout}
+          dayLayoutAlgorithm={layout}
+          allDayMaxRows={2}
+          messages={{ showMore: (count) => `+${count} more` }}
           showMultiDayTimes
           popup
           step={15}
@@ -272,26 +389,43 @@ export function CalendarGrid({
           eventPropGetter={(event) => ({
             className: cn(
               `calendar-${event.kind}`,
+              event.kind === "session" &&
+                `calendar-session-${display.sessions}`,
+              event.kind === "block" && `calendar-block-${display.blocks}`,
               highlight &&
                 event.occurrence?.key === highlight &&
                 "calendar-highlight",
             ),
             style:
-              event.kind === "block"
+              event.kind === "pending"
                 ? {
-                    background: softTag(event.color),
-                    color: "var(--foreground)",
-                    borderInlineStart: `3px solid ${event.color}`,
+                    background:
+                      "color-mix(in srgb, var(--primary) 12%, transparent)",
+                    color: "var(--primary)",
+                    border: "1px dashed var(--primary)",
+                    pointerEvents: "none",
+                    zIndex: 5,
                   }
-                : event.kind === "session"
+                : event.kind === "block"
                   ? {
-                      background: event.color,
-                      color: event.whiteText ? "#ffffff" : "#000000",
+                      background:
+                        display.blocks === "seeThrough"
+                          ? softTag(event.color)
+                          : `color-mix(in srgb, ${event.color} 14%, var(--card))`,
+                      color: "var(--foreground)",
+                      ...(display.blocks === "seeThrough"
+                        ? { border: `1px solid ${event.color}` }
+                        : { borderInlineStart: `3px solid ${event.color}` }),
                     }
-                  : {
-                      background: "var(--muted)",
-                      color: "var(--muted-foreground)",
-                    },
+                  : event.kind === "session"
+                    ? {
+                        background: event.color,
+                        color: event.whiteText ? "#ffffff" : "#000000",
+                      }
+                    : {
+                        background: "var(--muted)",
+                        color: "var(--muted-foreground)",
+                      },
           })}
         />
       )}
@@ -320,9 +454,29 @@ export function CalendarGrid({
           padding: 0;
           font-weight: 400;
         }
+        .gcal .rbc-time-header-content > .rbc-time-header-cell {
+          display: flex;
+          flex: 0 0 auto;
+          height: auto;
+          min-height: max-content;
+        }
+        .gcal .rbc-time-header-cell .rbc-header {
+          overflow: visible;
+          height: auto;
+          line-height: normal;
+        }
+        .gcal .rbc-time-header-cell .rbc-header > .rbc-button-link {
+          display: block;
+          width: 100%;
+          height: auto;
+          line-height: normal;
+        }
         .gcal .rbc-allday-cell {
+          flex: 0 0 auto;
+          height: auto;
           min-height: 25px;
-          padding: 3px 0;
+          padding: 3px 0 5px;
+          box-sizing: border-box;
         }
         .gcal .rbc-time-header .rbc-row-content {
           min-height: 25px;
@@ -388,8 +542,10 @@ export function CalendarGrid({
         }
         .gcal .rbc-day-slot .rbc-events-container {
           margin-right: 4px;
+          pointer-events: none;
         }
         .gcal .rbc-event {
+          pointer-events: auto;
           border: 0;
           border-radius: 8px;
           padding: 4px 6px;
@@ -400,9 +556,18 @@ export function CalendarGrid({
         .gcal .rbc-day-slot .rbc-event {
           border: 0;
         }
-        .gcal .rbc-day-slot .calendar-block {
+        .gcal .rbc-day-slot .calendar-block-solid {
           border-inline-start-width: 3px;
           border-inline-start-style: solid;
+        }
+        .gcal .rbc-day-slot .calendar-block-seeThrough {
+          border-width: 1px;
+          border-style: solid;
+        }
+        .gcal .rbc-day-slot .calendar-pending {
+          border: 1px dashed var(--primary);
+          pointer-events: none;
+          cursor: default;
         }
         .gcal .rbc-event-content {
           height: 100%;
@@ -410,13 +575,22 @@ export function CalendarGrid({
         .gcal .rbc-event-label {
           display: none;
         }
-        .gcal .calendar-session {
+        .gcal .calendar-session-pills {
           padding: 3px 0;
           border-radius: 5px;
         }
+        .gcal .calendar-session-full {
+          padding: 4px 6px;
+        }
         .gcal .calendar-deadline {
-          padding: 3px 6px;
+          padding: 2px 6px;
+          max-height: 22px;
+          overflow: hidden;
           font-weight: 400;
+        }
+        .gcal .rbc-allday-cell .rbc-row-segment {
+          min-width: 0;
+          padding: 0 3px 2px;
         }
         .gcal .rbc-event:focus-visible,
         .gcal .rbc-selected,

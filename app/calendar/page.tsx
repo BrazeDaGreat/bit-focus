@@ -21,6 +21,7 @@ import {
 import type { SlotInfo } from "react-big-calendar";
 import type { EventInteractionArgs } from "react-big-calendar/lib/addons/dragAndDrop";
 import { toast } from "sonner";
+import { SlidersHorizontal } from "lucide-react";
 import { useFocus, type FocusSession } from "@/hooks/useFocus";
 import { useTasks } from "@/hooks/useTasks";
 import { useProjects } from "@/hooks/useProjects";
@@ -38,6 +39,8 @@ import {
   useCalendarFilters,
 } from "@/components/calendar/calendar-header";
 import { CalendarGrid } from "@/components/calendar/calendar-grid";
+import { CalendarMenu, type CalendarMenuTarget } from "@/components/calendar/calendar-menu";
+import { MonthOverview } from "@/components/calendar/month-overview";
 import { PlanRail } from "@/components/calendar/plan-rail";
 import {
   BlockEditor,
@@ -47,6 +50,10 @@ import {
 import { AnchoredPanel } from "@/components/calendar/anchored-panel";
 import { editCalendarOccurrence } from "@/components/calendar/occurrence-actions";
 import {
+  DEFAULT_DISPLAY,
+  QUIET,
+  type CalendarDisplay,
+  type ContextTarget,
   movePeriod,
   periodRange,
   renderRange,
@@ -84,6 +91,13 @@ function CalendarWorkspace() {
   const [view, setView] = useState<CalendarView>("week");
   const [zoom, setZoom] = useState<ZoomLevel>("normal");
   const [filters, setFilters] = useCalendarFilters();
+  const [display, setDisplay] = useState<CalendarDisplay>(DEFAULT_DISPLAY);
+  const [displayReady, setDisplayReady] = useState(false);
+  const [menu, setMenu] = useState<CalendarMenuTarget | null>(null);
+  const [templatePanelOpen, setTemplatePanelOpen] = useState(false);
+  const contextTarget = useRef<ContextTarget | null>(null);
+  const ignoreSelectionGesture = useRef(false);
+  const optionsButton = useRef<HTMLButtonElement>(null);
   const [editor, setEditor] = useState<EditorTarget | null>(null);
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
   const [moving, setMoving] = useState(false);
@@ -98,6 +112,28 @@ function CalendarWorkspace() {
     queryView = params.get("view"),
     queryBlock = params.get("block");
 
+  useEffect(() => {
+    try {
+      const stored: unknown = JSON.parse(localStorage.getItem("bit-focus-calendar-display") || "null");
+      if (stored && typeof stored === "object") {
+        const value = stored as Partial<CalendarDisplay>;
+        setDisplay({ sessions: value.sessions === "full" ? "full" : "pills", blocks: value.blocks === "seeThrough" ? "seeThrough" : "solid" });
+      }
+    } catch { /* Display options still work without storage. */ }
+    setDisplayReady(true);
+  }, []);
+  useEffect(() => {
+    if (!displayReady) return;
+    try { localStorage.setItem("bit-focus-calendar-display", JSON.stringify(display)); } catch { /* Private mode can disable storage. */ }
+  }, [display, displayReady]);
+  useEffect(() => {
+    function beginGesture() {
+      // Keep this value for the entire gesture, even after outside-down dismisses a panel.
+      ignoreSelectionGesture.current = !!editor || !!pendingMove || !!selectedSession || !!menu || templatePanelOpen;
+    }
+    window.addEventListener("pointerdown", beginGesture, true);
+    return () => window.removeEventListener("pointerdown", beginGesture, true);
+  }, [editor, pendingMove, selectedSession, menu, templatePanelOpen]);
   useEffect(() => {
     void loadTasks();
     void loadProjects();
@@ -149,7 +185,7 @@ function CalendarWorkspace() {
         )
       )
         return;
-      if (editor || pendingMove) return;
+      if (editor || pendingMove || selectedSession || menu || templatePanelOpen) return;
       const key = event.key.toLowerCase();
       if (key === "d") setView("day");
       else if (key === "w") setView("week");
@@ -166,7 +202,7 @@ function CalendarWorkspace() {
     window.addEventListener("keydown", onKey, { capture: true });
     return () =>
       window.removeEventListener("keydown", onKey, { capture: true });
-  }, [view, editor, pendingMove]);
+  }, [view, editor, pendingMove, selectedSession, menu, templatePanelOpen]);
 
   const range = useMemo(() => periodRange(date, view), [date, view]);
   const visibleRange = useMemo(() => renderRange(date, view), [date, view]);
@@ -280,8 +316,11 @@ function CalendarWorkspace() {
           taskUid: task.uid,
         });
       }
+    if (editor && !editor.occurrence)
+      result.push({ id: "pending", kind: "pending", start: editor.start, end: editor.end, title: "", tag: "", color: "var(--primary)" });
     return result;
   }, [
+    editor,
     occurrences,
     focusSessions,
     openTasks,
@@ -438,12 +477,19 @@ function CalendarWorkspace() {
     }
   }
   function selectSlot(slot: SlotInfo) {
-    if (view !== "month")
-      setEditor({
-        start: slot.start,
-        end: slot.end > slot.start ? slot.end : addMinutes(slot.start, 60),
-        point: { ...pointer.current },
-      });
+    if (editor || pendingMove || selectedSession || menu || templatePanelOpen || ignoreSelectionGesture.current || view === "month") return;
+    const point = slot.box ? { x: slot.box.clientX, y: slot.box.clientY } : { ...pointer.current };
+    const rect = slot.bounds
+      ? { left: slot.bounds.left, top: slot.bounds.top, right: slot.bounds.right, bottom: slot.bounds.bottom }
+      : { left: point.x, top: point.y, right: point.x + 1, bottom: point.y + 1 };
+    setEditor({ start: slot.start, end: slot.end > slot.start ? slot.end : addMinutes(slot.start, 60), point, rect });
+  }
+  function openDay(day: Date) { setDate(day); setView("day"); }
+  function openTask(uid: string) { router.push(`/projects?task=${encodeURIComponent(uid)}`); }
+  function editEvent(event: CalendarEvent, point: Point, rect?: EditorTarget["rect"]) {
+    if (!event.occurrence) return;
+    setEditor({ occurrence: event.occurrence, start: event.start, end: event.end, point,
+      rect: rect || { left: point.x, top: point.y, right: point.x + 1, bottom: point.y + 1 } });
   }
   const draggedEvent: CalendarEvent | null = draggedTask
     ? {
@@ -472,27 +518,39 @@ function CalendarWorkspace() {
         draggedTaskRef.current = task;
         setDraggedTask(task);
       }}
-      canShift={!!current || !!next}
+      canShift={isSameDay(date, now) && (!!current || !!next)}
       review={review}
     />
   );
 
   return (
-    <div className="flex h-[calc(100dvh-4rem)] min-h-[560px] min-w-0 flex-col overflow-hidden">
+    <div className="flex h-[calc(100dvh-4rem)] min-h-[560px] min-w-0 flex-col overflow-hidden"
+      onContextMenu={(event) => {
+        event.preventDefault();
+        const target = contextTarget.current || { kind: "slot" as const, day: date, time: null };
+        contextTarget.current = null;
+        const eventElement = (event.target as HTMLElement).closest(".rbc-event");
+        const rect = eventElement?.getBoundingClientRect();
+        setEditor(null);
+        setPendingMove(null);
+        setMenu({ target, point: { x: event.clientX, y: event.clientY }, rect,
+          returnFocus: document.activeElement instanceof HTMLElement ? document.activeElement : null });
+      }}
+    >
       <CalendarHeader
         date={date}
         view={view}
-        zoom={zoom}
         onDate={(direction) =>
           setDate((value) =>
             direction === 0 ? new Date() : movePeriod(value, view, direction),
           )
         }
         onView={setView}
-        onZoom={setZoom}
-        filters={filters}
-        onFilters={setFilters}
-        tags={tags}
+        viewOptions={<button ref={optionsButton} className={`${QUIET} w-9 px-0`} aria-label="View options" title="View options" aria-haspopup="menu" aria-expanded={!!menu?.global}
+          onClick={(event) => {
+            const bounds = event.currentTarget.getBoundingClientRect();
+            setMenu({ target: { kind: "slot", day: date, time: null }, global: true, point: { x: bounds.left, y: bounds.bottom }, returnFocus: optionsButton.current });
+          }}><SlidersHorizontal className="size-4" /></button>}
         rail={rail}
       />
       <div className="flex min-h-0 flex-1 gap-2">
@@ -502,7 +560,17 @@ function CalendarWorkspace() {
         >
           {rail}
         </aside>
-        <CalendarGrid
+        {view === "month" ? <MonthOverview
+          month={date}
+          sessions={events.flatMap((event) => event.session ? [event.session] : [])}
+          occurrences={events.flatMap((event) => event.occurrence ? [event.occurrence] : [])}
+          deadlines={events.filter((event) => event.kind === "deadline")}
+          tagColor={(tag) => getTagColor(savedTags, tag)[0]}
+          onOpenDay={openDay}
+          onContextTarget={(target) => { contextTarget.current = target; }}
+        /> : <CalendarGrid
+          display={display}
+          onContextTarget={(target) => { contextTarget.current = target; }}
           date={date}
           view={view}
           zoom={zoom}
@@ -517,20 +585,12 @@ function CalendarWorkspace() {
           onSlot={selectSlot}
           onMove={moveBlock}
           onSelect={(event, details) => {
-            if (event.kind === "deadline")
-              router.push(
-                `/projects?task=${encodeURIComponent(event.taskUid || "")}`,
-              );
+            if (ignoreSelectionGesture.current || editor || pendingMove || templatePanelOpen) return;
+            if (event.kind === "deadline") openTask(event.taskUid || "");
             else if (event.occurrence) {
-              const bounds = details.currentTarget?.getBoundingClientRect();
-              setEditor({
-                occurrence: event.occurrence,
-                start: event.start,
-                end: event.end,
-                point: bounds
-                  ? { x: bounds.left, y: bounds.top }
-                  : { ...pointer.current },
-              });
+              const element = (details.target as HTMLElement | null)?.closest(".rbc-event");
+              const bounds = (element || details.currentTarget)?.getBoundingClientRect();
+              editEvent(event, bounds ? { x: bounds.left, y: bounds.top } : { ...pointer.current }, bounds);
             } else if (event.session) setSelectedSession(event.session);
           }}
           onOutsideDrop={({ start, allDay }) => {
@@ -538,14 +598,25 @@ function CalendarWorkspace() {
             draggedTaskRef.current = null;
             setDraggedTask(null);
             if (!task) return;
-            if (allDay || view === "month") {
+            if (allDay) {
               toast.message("Drop tasks into a timed day or week slot");
               return;
             }
             void planTask(task, new Date(start));
           }}
-        />
+        />}
       </div>
+      <CalendarMenu
+        menu={menu} onClose={() => setMenu(null)} onPanelChange={setTemplatePanelOpen}
+        view={view} now={now} canShift={!!current || !!next}
+        tasks={openTasks.filter((task) => !plannedTasks.has(task.uid || ""))}
+        tags={tags} savedTags={savedTags.map((tag) => ({ tag: tag.t, color: getTagColor(savedTags, tag.t)[0] }))}
+        filters={filters} onFilters={setFilters} zoom={zoom} onZoom={setZoom} display={display} onDisplay={setDisplay}
+        onOpenDay={openDay} onToday={() => setDate(new Date())}
+        onNew={(at, point) => setEditor({ start: at, end: addMinutes(at, 60), point, rect: { left: point.x, top: point.y, right: point.x + 1, bottom: point.y + 1 } })}
+        onEdit={editEvent} onStart={(event) => { if (event.occurrence) startOccurrence(event.occurrence); }}
+        onSession={setSelectedSession} onTask={openTask} onPlanTask={(task, at) => void planTask(task, at)}
+      />
       {editor && (
         <BlockEditor
           key={`${editor.occurrence?.key || "new"}:${+editor.start}:${+editor.end}`}

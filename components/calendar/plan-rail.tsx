@@ -7,7 +7,6 @@ import {
   format,
   isSameDay,
   isSameMonth,
-  startOfDay,
   startOfMonth,
   startOfWeek,
 } from "date-fns";
@@ -15,17 +14,17 @@ import {
   ChevronLeft,
   ChevronRight,
   GripVertical,
-  MoreHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTimeblocks } from "@/hooks/useTimeblocks";
+import { useProjects } from "@/hooks/useProjects";
+import { ProjectIcon } from "@/components/tasks/ProjectIcon";
 import type { Task } from "@/lib/tasks";
-import { dayKey, expandTimeblocks, templateFromDay } from "@/lib/timeblocks";
+import { dayKey } from "@/lib/timeblocks";
 import { cn } from "@/lib/utils";
 import {
   CONTROL,
   FIELD,
-  PRIMARY,
   QUIET,
   durationLabel,
   type CalendarView,
@@ -113,239 +112,6 @@ function MiniCalendar({
   );
 }
 
-function Templates({
-  date,
-  view,
-  onDate,
-}: {
-  date: Date;
-  view: CalendarView;
-  onDate: (date: Date) => void;
-}) {
-  const {
-    templates,
-    timeblocks,
-    saveTemplate,
-    renameTemplate,
-    removeTemplate,
-    applyTemplate,
-  } = useTimeblocks();
-  const [saving, setSaving] = useState(false);
-  const [name, setName] = useState("");
-  const [expanded, setExpanded] = useState<number | null>(null);
-  const [rename, setRename] = useState("");
-  const [busy, setBusy] = useState(false);
-  async function run(action: () => Promise<void>) {
-    setBusy(true);
-    try {
-      await action();
-    } catch {
-      toast.error("Could not update template");
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function save() {
-    const occurrences = expandTimeblocks(
-      timeblocks,
-      startOfDay(date),
-      addDays(startOfDay(date), 1),
-    ).filter((occurrence) => occurrence.day === dayKey(date));
-    if (!occurrences.length) {
-      toast.message("No blocks on this day", {
-        description: "Plan a block first, then save your routine.",
-      });
-      return;
-    }
-    await saveTemplate(name.trim(), templateFromDay(occurrences));
-    setSaving(false);
-    setName("");
-    toast.success("Day saved as template");
-  }
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">Routines</h3>
-        <button
-          className={QUIET}
-          onClick={() => setSaving(!saving)}
-          aria-expanded={saving}
-        >
-          Save day
-        </button>
-      </div>
-      <label className="block space-y-1.5 text-xs text-muted-foreground">
-        <span>
-          {view === "day"
-            ? "Day to save or fill"
-            : "Day to save or fill · pick any day"}
-        </span>
-        <input
-          type="date"
-          aria-label="Template day"
-          className={cn(FIELD, "font-mono tabular-nums")}
-          value={dayKey(date)}
-          onChange={(event) => {
-            const picked = new Date(`${event.target.value}T00:00:00`);
-            if (!isNaN(+picked)) onDate(picked);
-          }}
-        />
-      </label>
-      {saving && (
-        <form
-          className="space-y-2 rounded-xl bg-muted/40 p-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (name.trim() && !busy) void run(save);
-          }}
-        >
-          <input
-            autoFocus
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="e.g. Deep work day"
-            aria-label="Template name"
-            className={FIELD}
-          />
-          <div className="flex gap-1">
-            <button
-              type="submit"
-              className={PRIMARY}
-              disabled={!name.trim() || busy}
-            >
-              Save template
-            </button>
-            <button
-              type="button"
-              className={QUIET}
-              onClick={() => setSaving(false)}
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      )}
-      {!templates.length && !saving && (
-        <div className="rounded-xl bg-muted/40 p-3">
-          <p className="text-sm font-medium">Keep a day that works</p>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            Save its blocks, then reuse them when you need a familiar rhythm.
-          </p>
-        </div>
-      )}
-      <div className="space-y-1">
-        {templates.map((template) => (
-          <div key={template.id} className="rounded-xl bg-muted/40 p-2">
-            <div className="flex items-center gap-1">
-              <div className="min-w-0 flex-1 px-1">
-                <p className="truncate text-sm font-medium">{template.name}</p>
-                <p className="font-mono text-xs tabular-nums text-muted-foreground">
-                  {template.blocks.length} blocks
-                </p>
-              </div>
-              <button
-                className={cn(QUIET, "w-9 px-0")}
-                aria-label={`Manage ${template.name}`}
-                aria-expanded={expanded === template.id}
-                onClick={() => {
-                  setExpanded(expanded === template.id ? null : template.id!);
-                  setRename(template.name);
-                }}
-              >
-                <MoreHorizontal className="size-4" />
-              </button>
-            </div>
-            {expanded === template.id && (
-              <div className="mt-3 space-y-2">
-                <p className="px-1 text-xs text-muted-foreground">Apply to</p>
-                <div className="flex flex-wrap gap-1">
-                  {[
-                    { label: format(date, "EEE d"), count: 1 },
-                    { label: "Mon–Fri", count: 5 },
-                    { label: "All 7 days", count: 7 },
-                  ].map(({ label, count }) => (
-                    <button
-                      key={count}
-                      className={QUIET}
-                      disabled={busy}
-                      onClick={() =>
-                        void run(async () => {
-                          const first =
-                            count === 1
-                              ? startOfDay(date)
-                              : startOfWeek(date, { weekStartsOn: 1 });
-                          const added = await applyTemplate(
-                            template,
-                            Array.from({ length: count }, (_, index) =>
-                              addDays(first, index),
-                            ),
-                          );
-                          toast.success(`${added} blocks added`, {
-                            description:
-                              count === 1
-                                ? format(first, "EEEE, MMM d")
-                                : `Week of ${format(first, "MMM d")}`,
-                          });
-                        })
-                      }
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                <form
-                  className="space-y-1"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (rename.trim())
-                      void run(async () => {
-                        await renameTemplate(template.id!, rename);
-                        toast.success("Template renamed");
-                      });
-                  }}
-                >
-                  <input
-                    aria-label={`Rename ${template.name}`}
-                    className={FIELD}
-                    value={rename}
-                    onChange={(event) => setRename(event.target.value)}
-                  />
-                  <div className="flex gap-1">
-                    <button
-                      disabled={
-                        busy ||
-                        !rename.trim() ||
-                        rename.trim() === template.name
-                      }
-                      className={QUIET}
-                      type="submit"
-                    >
-                      Rename
-                    </button>
-                    <button
-                      disabled={busy}
-                      className={cn(QUIET, "text-destructive")}
-                      type="button"
-                      onClick={() =>
-                        void run(async () => {
-                          await removeTemplate(template.id!);
-                          toast.success("Template deleted");
-                        })
-                      }
-                    >
-                      Delete template
-                    </button>
-                  </div>
-                </form>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 interface RailProps {
   date: Date;
   view: CalendarView;
@@ -374,6 +140,7 @@ export function PlanRail({
   canShift,
   review,
 }: RailProps) {
+  const projects = useProjects((state) => state.projects);
   const [query, setQuery] = useState("");
   const [shifting, setShifting] = useState(false);
   const shiftRestOfDay = useTimeblocks((state) => state.shiftRestOfDay);
@@ -405,7 +172,9 @@ export function PlanRail({
           />
         )}
         <div className="max-h-64 space-y-1 overflow-y-auto">
-          {filtered.map((task) => (
+          {filtered.map((task) => {
+            const project = projects.find((item) => item.id === task.projectId);
+            return (
             <div
               key={task.uid || task.id}
               draggable={!!task.uid}
@@ -425,10 +194,14 @@ export function PlanRail({
                 <p className="truncate text-sm" title={task.title}>
                   {task.title}
                 </p>
-                <p className="font-mono text-[11px] tabular-nums text-muted-foreground">
-                  {durationLabel(task.estimateMinutes || 60)}
-                  {plannedTasks.has(task.uid || "") && " · Planned"}
-                </p>
+                <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                  <span className="shrink-0 font-mono tabular-nums">{durationLabel(task.estimateMinutes || 60)}</span>
+                  {project && <span className="inline-flex min-w-0 items-center gap-1" title={project.title}>
+                    <ProjectIcon name={project.icon} className="size-3 shrink-0" />
+                    <span className="truncate">{project.title}</span>
+                  </span>}
+                  {plannedTasks.has(task.uid || "") && <span className="shrink-0">· Planned</span>}
+                </div>
               </div>
               <button
                 className={cn(QUIET, "px-2")}
@@ -440,7 +213,8 @@ export function PlanRail({
                 Plan
               </button>
             </div>
-          ))}
+            );
+          })}
           {!filtered.length && (
             <div className="rounded-xl bg-muted/40 p-3">
               <p className="text-sm font-medium">
@@ -455,7 +229,6 @@ export function PlanRail({
           )}
         </div>
       </section>
-      <Templates date={date} view={view} onDate={onDate} />
       {canShift && (
         <section className="space-y-2 rounded-xl bg-muted/40 p-3">
           <h3 className="text-sm font-semibold">Running late?</h3>

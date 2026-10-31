@@ -145,9 +145,6 @@ export default function Dashboard(): JSX.Element {
   return (
     <>
       {/* ── Zone 1: Now ── */}
-      <div className="mb-4">
-        <NowCard />
-      </div>
       <div
         className={cn(
           "grid gap-4",
@@ -388,6 +385,7 @@ function TodayPanel(): JSX.Element {
           loading={loadingFocusSessions}
         />
       </div>
+      <NowCard />
     </section>
   );
 }

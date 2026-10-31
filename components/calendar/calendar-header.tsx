@@ -3,14 +3,9 @@
 import { useEffect, useState, type ReactNode } from "react";
 import * as Popover from "@radix-ui/react-popover";
 import {
-  Check,
   ChevronLeft,
   ChevronRight,
-  SlidersHorizontal,
   PanelLeft,
-  ZoomIn,
-  ZoomOut,
-  Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PANEL } from "./anchored-panel";
@@ -20,7 +15,6 @@ import {
   periodLabel,
   type CalendarFilters,
   type CalendarView,
-  type ZoomLevel,
 } from "./calendar-shared";
 
 const DEFAULT_FILTERS: CalendarFilters = {
@@ -71,13 +65,9 @@ export function useCalendarFilters() {
 interface HeaderProps {
   date: Date;
   view: CalendarView;
-  zoom: ZoomLevel;
   onDate: (direction: -1 | 0 | 1) => void;
   onView: (view: CalendarView) => void;
-  onZoom: (zoom: ZoomLevel) => void;
-  filters: CalendarFilters;
-  onFilters: (filters: CalendarFilters) => void;
-  tags: { tag: string; color: string }[];
+  viewOptions: ReactNode;
   rail: ReactNode;
 }
 function Divider() {
@@ -87,13 +77,9 @@ function Divider() {
 export function CalendarHeader({
   date,
   view,
-  zoom,
   onDate,
   onView,
-  onZoom,
-  filters,
-  onFilters,
-  tags,
+  viewOptions,
   rail,
 }: HeaderProps) {
   return (
@@ -118,7 +104,7 @@ export function CalendarHeader({
           </Popover.Portal>
         </Popover.Root>
       </div>
-      <button className={QUIET} onClick={() => onDate(0)}>
+      <button className={QUIET} onClick={() => onDate(0)} title="Go to today (T)" aria-keyshortcuts="T">
         Today
       </button>
       <div className="flex gap-1">
@@ -140,116 +126,8 @@ export function CalendarHeader({
       <h1 className="min-w-0 flex-1 font-mono text-sm font-semibold tracking-tight tabular-nums">
         {periodLabel(date, view)}
       </h1>
-      <Popover.Root>
-        <Popover.Trigger className={QUIET}>
-          <SlidersHorizontal className="size-4" />
-          Show
-        </Popover.Trigger>
-        <Popover.Portal>
-          <Popover.Content
-            align="end"
-            collisionPadding={12}
-            className={cn(PANEL, "w-64")}
-            aria-label="Calendar visibility"
-          >
-            <p className="mb-2 text-sm font-semibold">Layers</p>
-            {(
-              [
-                ["sessions", "Focus sessions"],
-                ["blocks", "Time blocks"],
-                ["deadlines", "Task deadlines"],
-              ] as const
-            ).map(([key, label]) => (
-              <button
-                key={key}
-                className={cn(QUIET, "w-full justify-between")}
-                aria-pressed={filters[key]}
-                onClick={() => onFilters({ ...filters, [key]: !filters[key] })}
-              >
-                {label}
-                <Check className={cn("size-4", !filters[key] && "opacity-0")} />
-              </button>
-            ))}
-            {!!tags.length && (
-              <>
-                <p className="mb-2 mt-5 text-sm font-semibold">Tags</p>
-                <div className="max-h-48 overflow-y-auto">
-                  {tags.map(({ tag, color }) => {
-                    const visible = !filters.hiddenTags.includes(tag);
-                    return (
-                      <button
-                        key={tag}
-                        className={cn(QUIET, "w-full justify-start")}
-                        aria-pressed={visible}
-                        onClick={() =>
-                          onFilters({
-                            ...filters,
-                            hiddenTags: visible
-                              ? [...filters.hiddenTags, tag]
-                              : filters.hiddenTags.filter(
-                                  (item) => item !== tag,
-                                ),
-                          })
-                        }
-                      >
-                        <span
-                          className="size-2 shrink-0 rounded-full"
-                          style={{ background: color }}
-                        />
-                        <span className="flex-1 truncate text-left">{tag}</span>
-                        <Check
-                          className={cn(
-                            "size-4 shrink-0",
-                            !visible && "opacity-0",
-                          )}
-                        />
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-            <p className="mt-4 rounded-xl bg-muted/40 p-3 text-xs leading-relaxed text-muted-foreground">
-              <span className="font-mono">D / W / M</span> switch views
-              <br />
-              <span className="font-mono">T</span> today ·{" "}
-              <span className="font-mono">← / →</span> navigate
-              <br />
-              Drag empty time to plan a block.
-            </p>
-          </Popover.Content>
-        </Popover.Portal>
-      </Popover.Root>
+      {viewOptions}
       <Divider />
-      {view !== "month" && (
-        <>
-          <div className="flex rounded-xl bg-muted/60 p-1">
-            {(
-              [
-                { key: "compact", label: "Compact rows", Icon: ZoomOut },
-                { key: "normal", label: "Normal rows", Icon: Search },
-                { key: "expanded", label: "Expanded rows", Icon: ZoomIn },
-              ] as const
-            ).map(({ key, label, Icon }) => (
-              <button
-                key={key}
-                title={label}
-                aria-label={label}
-                aria-pressed={zoom === key}
-                onClick={() => onZoom(key)}
-                className={cn(
-                  QUIET,
-                  "w-9 px-0",
-                  zoom === key && "bg-background text-foreground shadow-xs",
-                )}
-              >
-                <Icon className="size-4" />
-              </button>
-            ))}
-          </div>
-          <Divider />
-        </>
-      )}
       <div className="flex rounded-xl bg-muted/60 p-1">
         {(["day", "week", "month"] as const).map((item) => (
           <button
@@ -262,6 +140,8 @@ export function CalendarHeader({
                 : "text-muted-foreground hover:bg-muted/60",
             )}
             onClick={() => onView(item)}
+            title={`${item[0].toUpperCase()}${item.slice(1)} (${item[0].toUpperCase()})`}
+            aria-keyshortcuts={item[0].toUpperCase()}
             aria-pressed={view === item}
           >
             {item}

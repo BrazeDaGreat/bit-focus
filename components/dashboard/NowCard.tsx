@@ -1,138 +1,85 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { addDays, format, startOfDay } from "date-fns";
 import { FaPlay } from "react-icons/fa6";
-import { usePomo } from "@/hooks/PomoContext";
 import { useCurrentBlock } from "@/hooks/useCurrentBlock";
-import { useProjects } from "@/hooks/useProjects";
-import { useTasks } from "@/hooks/useTasks";
 import { useTag } from "@/hooks/useTag";
-import { pomodoroHint, type TimeblockOccurrence } from "@/lib/timeblocks";
+import type { TimeblockOccurrence } from "@/lib/timeblocks";
 import { getTagColor } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const PANEL_CLASS = "rounded-2xl border bg-card p-5 shadow-xs";
-const LINK_CLASS = "rounded-sm underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
-
 export default function NowCard() {
   const {
-    today, current, next, freeUntil, progress, now, loading, titleOf,
-    startOccurrence, isRunningOn, minutesLeft, minutesUntilNext, durationOf,
+    today, current, next, freeUntil, now, loading, titleOf,
+    startOccurrence, isRunningOn, minutesLeft,
   } = useCurrentBlock();
-  const { state } = usePomo();
   const savedTags = useTag((s) => s.savedTags);
-  const tasks = useTasks((s) => s.tasks);
-  const projects = useProjects((s) => s.projects);
 
-  if (loading) return <NowCardSkeleton />;
+  if (loading) {
+    return (
+      <Skeleton
+        className="mt-3 h-24 w-full rounded-xl bg-muted/40 animate-none motion-safe:animate-pulse"
+        aria-label="Loading today's time blocks"
+        aria-busy="true"
+      />
+    );
+  }
+  if (today.length === 0) return null;
 
-  const task = current?.block.taskUid
-    ? tasks.find((t) => t.uid === current.block.taskUid && !t.deletedAt)
-    : undefined;
-  const project = projects.find((p) =>
-    (current?.block.projectUid && p.uid === current.block.projectUid) ||
-    (task?.projectId != null && p.id === task.projectId)
-  );
-  const color = current ? getTagColor(savedTags, current.block.tag)[0] : undefined;
-  const hint = current ? pomodoroHint(durationOf(current), state.pomodoroSettings) : null;
+  const running = current ? isRunningOn(current) : false;
 
   return (
-    <section className={PANEL_CLASS} aria-labelledby="now-card-title">
-      <h2 id="now-card-title" className="text-sm font-semibold tracking-tight">Now</h2>
-
+    <div className="mt-3 min-w-0 rounded-xl bg-muted/40 px-4 py-3" role="group" aria-label="Now">
       {current ? (
-        <div className="mt-3 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0 flex-1 basis-48">
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: color }} aria-hidden="true" />
-                <p className="truncate text-base font-medium" title={titleOf(current)}>{titleOf(current)}</p>
-              </div>
-              {(project || task) && (
-                <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
-                  {project && <Link className={LINK_CLASS} href={`/projects?project=${project.id}`}>{project.title}</Link>}
-                  {project && task?.uid && <span aria-hidden="true">·</span>}
-                  {task?.uid && <Link className={LINK_CLASS} href={`/projects?task=${encodeURIComponent(task.uid)}`}>View task</Link>}
-                </p>
-              )}
-              <p className="mt-1 font-mono text-xs tabular-nums text-muted-foreground">
-                {format(current.start, "h:mm a")} – {format(current.end, "h:mm a")}
-              </p>
+        <div className="grid min-h-7 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+            <div className="flex min-w-0 items-center gap-2">
+              <span
+                className="size-2 shrink-0 rounded-full"
+                style={{ backgroundColor: getTagColor(savedTags, current.block.tag)[0] }}
+                aria-hidden="true"
+              />
+              <p className="truncate text-sm font-medium" title={titleOf(current)}>{titleOf(current)}</p>
             </div>
-            {isRunningOn(current) ? (
-              <span className="text-xs text-muted-foreground">In progress</span>
-            ) : (
-              <button
-                type="button"
-                onClick={() => startOccurrence(current)}
-                className="flex h-10 shrink-0 items-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors duration-150 hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <FaPlay className="size-3" aria-hidden="true" />
-                Start block
-              </button>
-            )}
+            <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+              {running ? `${minutesLeft} min left` : `until ${format(current.end, "h:mm a")}`}
+            </span>
           </div>
-          <div>
-            <div
-              role="progressbar"
-              aria-label="Time block elapsed"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={Math.round(progress * 100)}
-              aria-valuetext={`${minutesLeft} min left`}
-              className="h-1.5 overflow-hidden rounded-full bg-muted/60"
+          {running ? (
+            <span className="text-xs text-muted-foreground">In progress</span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => startOccurrence(current)}
+              className="flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2 text-xs font-medium text-muted-foreground transition-colors duration-150 hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <div className="h-full rounded-full motion-safe:transition-[width] motion-safe:duration-700" style={{ width: `${progress * 100}%`, backgroundColor: color }} />
-            </div>
-            <div className="mt-1.5 flex flex-wrap justify-between gap-x-3 gap-y-1 text-xs text-muted-foreground">
-              <span className="font-mono tabular-nums">{minutesLeft} min left</span>
-              {hint && <span className="font-mono tabular-nums" title="Focus and break minutes per Pomodoro">{hint.label}</span>}
-            </div>
-          </div>
-        </div>
-      ) : today.length === 0 ? (
-        <div className="mt-3 rounded-xl bg-muted/40 px-3 py-3">
-          <p className="text-sm font-medium">No time blocks today</p>
-          <p className="mt-1 text-xs text-muted-foreground">Drag across the <Link href="/calendar" className={LINK_CLASS}>Calendar</Link> to plan your day.</p>
+              <FaPlay className="size-2.5" aria-hidden="true" />
+              Start block
+            </button>
+          )}
         </div>
       ) : (
-        <p className="mt-3 text-sm font-medium">
+        <p className="flex min-h-7 items-center gap-1 text-sm font-medium">
           {freeUntil ? <>Free until <span className="font-mono tabular-nums">{format(freeUntil, "h:mm a")}</span></> : "Nothing else planned today"}
         </p>
       )}
 
       {next && (
-        <p className="mt-3 break-words text-xs text-muted-foreground">
-          Next · {titleOf(next)} · <span className="font-mono tabular-nums">{minutesUntilNext <= 60 ? `in ${minutesUntilNext} min` : `at ${format(next.start, "h:mm a")}`}</span>
+        <p className="mt-1 flex min-w-0 items-center gap-1 text-xs text-muted-foreground" title={`Next · ${titleOf(next)} · at ${format(next.start, "h:mm a")}`}>
+          <span className="shrink-0">Next ·</span>
+          <span className="truncate">{titleOf(next)}</span>
+          <span className="shrink-0">·</span>
+          <span className="shrink-0 font-mono tabular-nums">at {format(next.start, "h:mm a")}</span>
         </p>
       )}
 
-      {today.length > 0 && <DayStrip occurrences={today} now={now} titleOf={titleOf} />}
-    </section>
+      <DayStrip occurrences={today} now={now} titleOf={titleOf} />
+    </div>
   );
 }
 
-function NowCardSkeleton() {
-  return (
-    <section className={PANEL_CLASS} aria-label="Loading today's time blocks" aria-busy="true">
-      <Skeleton className="h-4 w-10 animate-none motion-safe:animate-pulse" />
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
-        <div className="space-y-2">
-          <Skeleton className="h-5 w-40 max-w-full animate-none motion-safe:animate-pulse" />
-          <Skeleton className="h-3 w-28 animate-none motion-safe:animate-pulse" />
-        </div>
-        <Skeleton className="h-10 w-28 rounded-lg animate-none motion-safe:animate-pulse" />
-      </div>
-      <Skeleton className="mt-3 h-1.5 w-full rounded-full animate-none motion-safe:animate-pulse" />
-      <Skeleton className="mt-3 h-3 w-40 animate-none motion-safe:animate-pulse" />
-      <Skeleton className="mt-4 h-8 w-full rounded-xl animate-none motion-safe:animate-pulse" />
-    </section>
-  );
-}
-
-/** A quiet, clickable outline of the day; the current time stays on the track. */
+/** A compact day range; elapsed segment fills and the marker share one track. */
 function DayStrip({ occurrences, now, titleOf }: {
   occurrences: TimeblockOccurrence[];
   now: Date;
@@ -141,9 +88,15 @@ function DayStrip({ occurrences, now, titleOf }: {
   const router = useRouter();
   const savedTags = useTag((s) => s.savedTags);
   const hour = 3_600_000;
-  const start = Math.max(startOfDay(now).getTime(), Math.min(now.getTime(), ...occurrences.map((o) => o.start.getTime())) - hour);
-  const end = Math.min(addDays(startOfDay(now), 1).getTime(), Math.max(now.getTime(), ...occurrences.map((o) => o.end.getTime())) + hour);
-  const span = Math.max(1, end - start);
+  const dayStart = startOfDay(now).getTime();
+  const dayEnd = addDays(startOfDay(now), 1).getTime();
+  const firstStart = Math.max(dayStart, Math.min(...occurrences.map((o) => o.start.getTime())));
+  const lastEnd = Math.min(dayEnd, Math.max(...occurrences.map((o) => o.end.getTime())));
+  const rangeStart = Math.max(dayStart, firstStart - hour / 2);
+  const rangeEnd = Math.min(dayEnd, lastEnd + hour / 2);
+  const span = Math.min(dayEnd - dayStart, Math.max(3 * hour, rangeEnd - rangeStart));
+  const start = Math.max(dayStart, Math.min(dayEnd - span, (rangeStart + rangeEnd - span) / 2));
+  const end = start + span;
   const position = (time: number) => Math.max(0, Math.min(100, (time - start) / span * 100));
   const stepHours = Math.max(1, Math.ceil(span / hour / 3));
   const tick = new Date(start);
@@ -154,12 +107,18 @@ function DayStrip({ occurrences, now, titleOf }: {
     if (position(tick.getTime()) >= 5 && position(tick.getTime()) <= 95) ticks.push(new Date(tick));
     tick.setHours(tick.getHours() + stepHours);
   }
+  // Keep the range close to the plan even when now is many hours away.
+  const markerLabel = `Now, ${format(now, "h:mm a")}${now.getTime() < start ? ", before shown range" : now.getTime() > end ? ", after shown range" : ""}`;
 
   return (
-    <div className="mt-4" role="group" aria-label="Today's time blocks">
+    <div className="mt-1" role="group" aria-label="Today's time blocks; filled segments show elapsed time">
       <div className="relative h-6">
-        <div className="absolute inset-x-0 top-2 h-2 rounded-full bg-muted/60" aria-hidden="true" />
+        <div className="absolute inset-x-0 top-[9px] h-1.5 rounded-full bg-muted/60" aria-hidden="true" />
         {occurrences.map((occurrence) => {
+          const visibleStart = Math.max(start, occurrence.start.getTime());
+          const visibleEnd = Math.min(end, occurrence.end.getTime());
+          const elapsed = Math.max(0, Math.min(1, (now.getTime() - visibleStart) / Math.max(1, visibleEnd - visibleStart)));
+          const color = getTagColor(savedTags, occurrence.block.tag)[0];
           const label = `${titleOf(occurrence)}, ${format(occurrence.start, "h:mm a")} to ${format(occurrence.end, "h:mm a")}`;
           return (
             <button
@@ -171,15 +130,18 @@ function DayStrip({ occurrences, now, titleOf }: {
               className="absolute top-0 flex h-6 items-center rounded-lg transition-colors duration-150 hover:bg-muted/50 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               style={{ left: `${position(occurrence.start.getTime())}%`, width: `${position(occurrence.end.getTime()) - position(occurrence.start.getTime())}%` }}
             >
-              <span className="h-2 w-full rounded-full" style={{ backgroundColor: getTagColor(savedTags, occurrence.block.tag)[0] }} />
+              <span className="relative h-1.5 w-full overflow-hidden rounded-full" aria-hidden="true">
+                <span className="absolute inset-0 opacity-40" style={{ backgroundColor: color }} />
+                <span className="absolute inset-y-0 left-0 rounded-full motion-safe:transition-[width] motion-safe:duration-700" style={{ width: `${elapsed * 100}%`, backgroundColor: color }} />
+              </span>
             </button>
           );
         })}
         <span
-          className="pointer-events-none absolute top-1 h-4 w-0.5 -translate-x-1/2 rounded-full bg-foreground"
+          className="pointer-events-none absolute top-1.5 h-3 w-0.5 -translate-x-1/2 rounded-full bg-foreground"
           style={{ left: `${position(now.getTime())}%` }}
-          title={`Now, ${format(now, "h:mm a")}`}
-        ><span className="sr-only">Now, {format(now, "h:mm a")}</span></span>
+          title={markerLabel}
+        ><span className="sr-only">{markerLabel}</span></span>
       </div>
       <div className="relative h-4 font-mono text-[10px] leading-none tabular-nums text-muted-foreground" aria-hidden="true">
         {ticks.map((time) => (
