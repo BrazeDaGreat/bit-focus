@@ -16,6 +16,22 @@ const CHANGELOG = `
 - Changed: Automatic backups remain small by omitting note images and task attachments. Settings explains this, and their filenames include "without-files". Older backups still restore; the preview explains which existing files will be kept when file collections are absent.
 - Changed: Local note drafts and pending focus saves stay on their original device. They are excluded from backups and cannot be replaced by recovery state imported from another browser. Account session tokens remain excluded.
 - Technical: Added regression coverage for timer saves and retries, task-note recovery and task switching, complete backups, and restore confirmation. Updated the README to match the current workspace and explain backup coverage.
+### \`v0.24.1-beta\` (2026-10-31) — Plan Your Day
+- Added: A "Now" card on Home shows the time block you planned for right now: its task, how far through it you are, the minutes left, and how it splits into Pomodoros. "Start block" starts the timer with the block's tag, task, and timer mode in one click. The next block sits underneath, and between blocks the card says when your free time ends.
+- Added: A day strip under the Now card lays out today's blocks with a marker for the current time. Tap a block to open that day in the Calendar.
+- Added: The Focus page shows the current block beside the timer, with a "Start block" button. Picture in picture and the mini timer show the block's name and time left.
+- Added: When a block you started ends while the timer is running, a message asks whether to stop the timer (your focus is saved) or keep going. It never stops the timer on its own.
+- Added: Repeating blocks. Set a block to repeat every day, on weekdays, or on chosen days of the week, with an optional end date. Editing, moving, resizing, or deleting one occurrence asks whether it applies to only that one or to the whole series.
+- Added: Drag a task from the Calendar's task list onto the grid to plan time for it. The block links to the task, uses its tag, and lasts as long as its estimate (an hour when it has none). "Plan" drops a task into the next free slot without dragging.
+- Added: Day templates. Save a day's blocks as a template, such as "Deep work day" or "Uni day", then apply it to a day, to Monday–Friday, or to the whole week. Templates sync and are included in backups.
+- Added: "Running late?" pushes the rest of today's blocks back by 15 minutes, 30 minutes, or an hour, or pulls them 15 minutes earlier.
+- Added: Each block shows how it splits into Pomodoros at your lengths, such as "4 × 25/5", and can switch the timer to Pomodoro or Standard when you start it.
+- Added: Type a time range to plan a block. In Projects, "Essay draft tomorrow 2-4pm #uni" adds the task and plans a linked block for it, and fills in the estimate from the block's length if you didn't give one. In the command palette (Ctrl + K), the same text plans a block on its own. Ranges like 2-4pm, 9am-12:30pm, 14:00-16:00, "from 2 to 4pm", and "2pm for 1h" all work. With a range, a date like "tomorrow" sets the block's day; "by", "due", "before", and "until" still set the task's deadline.
+- Changed: The Calendar is redesigned to be calmer. A side panel has two parts: Plan (month picker, unscheduled tasks, templates, and day shifts) and Review (the period's focus total, sessions, and top tags). All filters (focus sessions, time blocks, task deadlines, and tags) are in one "Show" menu that remembers your choices.
+- Changed: Planned blocks are soft, tag-tinted cards showing the title, time, and Pomodoro split, and focus sessions run as a slim strip along the edge of each day, so your plan reads first. Creating or editing a block opens a small panel next to it with the title or linked task, tag, time, repeat, and timer mode.
+- Added: The Calendar opens to a specific day from links, such as from the Home day strip.
+- Improved: Task details list upcoming blocks for the task, including repeating ones.
+- Technical: Added the timeblock template table and repeat fields (database version 17) with sync, backup, and restore support. Restoring a backup made before this version keeps the templates already on this device. Added tests for repeat expansion, current-block lookup, Pomodoro splits, templates, time-range parsing, and template backups.
 ***
 
 ## \`v0.23.0 (LTS)\` (2026-09-29) — Settings, Commands & Review

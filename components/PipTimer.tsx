@@ -23,6 +23,7 @@ import { describeRing, type RingState } from "@/lib/timerRing";
 import { cn, formatClock } from "@/lib/utils";
 import { FaPause, FaPlay } from "react-icons/fa";
 import { FaForwardFast, FaPlus, FaArrowUpRightFromSquare } from "react-icons/fa6";
+import { BlockTimerLine } from "@/components/now/BlockTimerLine";
 
 export default function PipTimer(): JSX.Element {
   const { state, start, pause, reset, extend } = usePomo();
@@ -75,6 +76,8 @@ export default function PipTimer(): JSX.Element {
         <span className="mt-1 font-mono text-[2.5rem] font-semibold leading-none tracking-tighter tabular-nums">
           {formatClock(displaySeconds(state))}
         </span>
+
+        <BlockTimerLine className="mt-1" />
 
         {/* Controls, in the Focus dock's button style */}
         <div className="mt-3 flex items-center gap-1">

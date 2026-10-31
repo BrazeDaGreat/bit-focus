@@ -101,6 +101,19 @@ export interface SyncBackupRow {
   payload: string;
 }
 
+/**
+ * How a timeblock repeats. The block's own start and end are the first
+ * occurrence; later ones are expanded on read (see `lib/timeblocks.ts`).
+ * Weekday numbers follow `Date#getDay`: 0 is Sunday.
+ */
+export interface TimeblockRecurrence {
+  freq: "daily" | "weekdays" | "weekly";
+  /** Weekly only: the weekdays it repeats on. */
+  days?: number[];
+  /** Last day it repeats on (`yyyy-MM-dd`, inclusive). Open-ended when absent. */
+  until?: string;
+}
+
 export interface TimeBlock extends Syncable {
   id?: number;
   tag: string;
@@ -109,6 +122,34 @@ export interface TimeBlock extends Syncable {
   title?: string;
   taskUid?: string;
   projectUid?: string;
+  /** Present on the first block of a repeating series. */
+  recurrence?: TimeblockRecurrence;
+  /** Series only: occurrence days (`yyyy-MM-dd`) removed or edited on their own. */
+  exceptions?: string[];
+  /** A single occurrence edited apart from its series: the series block's uid. */
+  seriesUid?: string;
+  /** Timer mode to switch to when the block is started. */
+  timerMode?: "standard" | "pomodoro";
+}
+
+/** One block in a saved day plan, timed in minutes from midnight. */
+export interface TimeblockTemplateBlock {
+  tag: string;
+  title?: string;
+  taskUid?: string;
+  projectUid?: string;
+  startMinutes: number;
+  endMinutes: number;
+  timerMode?: "standard" | "pomodoro";
+}
+
+/** A reusable day of timeblocks ("Deep work day", "Uni day"). */
+export interface TimeblockTemplate extends Syncable {
+  id?: number;
+  name: string;
+  blocks: TimeblockTemplateBlock[];
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface AIChat extends Syncable {
@@ -277,6 +318,7 @@ class BitFocusDB extends Dexie {
   discounts: Dexie.Table<SpecialDiscount, number>;
 
   timeblocks: Dexie.Table<TimeBlock, number>;
+  timeblockTemplates: Dexie.Table<TimeblockTemplate, number>;
   tasks: Dexie.Table<Task, number>;
   taskAttachments: Dexie.Table<TaskAttachment, number>;
   taskFilters: Dexie.Table<TaskFilter, number>;
@@ -556,11 +598,17 @@ class BitFocusDB extends Dexie {
       note_assets: "++id, &uid, noteUid, createdAt",
     });
 
+    // Repeating timeblocks need no index; templates get their own table.
+    this.version(17).stores({
+      timeblock_templates: "++id, &uid, name, updatedAt",
+    });
+
     // Table reference assignment
     this.tasks = this.table("task_items");
     this.taskAttachments = this.table("task_attachments");
     this.taskFilters = this.table("task_filters");
     this.timeblocks = this.table("timeblocks");
+    this.timeblockTemplates = this.table("timeblock_templates");
     this.configuration = this.table("configuration");
     this.focus = this.table("focus");
     this.notes = this.table("notes");

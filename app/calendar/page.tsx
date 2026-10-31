@@ -1,1407 +1,612 @@
 "use client";
 
 import {
+  Suspense,
+  useCallback,
   useEffect,
   useMemo,
-  useState,
-  useCallback,
   useRef,
-  type JSX,
+  useState,
 } from "react";
-import { Calendar, dateFnsLocalizer, View } from "react-big-calendar";
-import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop";
-import type { EventInteractionArgs } from "react-big-calendar/lib/addons/dragAndDrop";
-import type { SlotInfo, DayLayoutFunction } from "react-big-calendar";
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { getStyledEvents } = require("react-big-calendar/lib/utils/DayEventLayout") as {
-  getStyledEvents: (args: {
-    events: object[];
-    minimumStartDifference: number;
-    slotMetrics: unknown;
-    accessors: unknown;
-    dayLayoutAlgorithm: string;
-  }) => Array<{ event: object; style: { top: number; height: number; width: number; xOffset: number } }>;
-};
+import { useRouter, useSearchParams } from "next/navigation";
 import {
-  format,
-  parse,
-  startOfWeek,
-  endOfWeek,
-  startOfDay,
-  endOfDay,
-  startOfMonth,
-  endOfMonth,
   addDays,
-  addWeeks,
-  addMonths,
-  subMonths,
+  addMinutes,
+  format,
   isSameDay,
-  isSameMonth,
-  getDay,
+  isValid,
+  parse,
+  startOfDay,
 } from "date-fns";
-import { enUS } from "date-fns/locale/en-US";
-import "react-big-calendar/lib/css/react-big-calendar.css";
-import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
-import { useFocus, FocusSession } from "@/hooks/useFocus";
-import { useRouter } from "next/navigation";
+import type { SlotInfo } from "react-big-calendar";
+import type { EventInteractionArgs } from "react-big-calendar/lib/addons/dragAndDrop";
+import { toast } from "sonner";
+import { useFocus, type FocusSession } from "@/hooks/useFocus";
 import { useTasks } from "@/hooks/useTasks";
 import { useProjects } from "@/hooks/useProjects";
-import { taskDeadline } from "@/lib/tasks";
-import { toast } from "sonner";
 import { useTag } from "@/hooks/useTag";
-import { useTimeblocks } from "@/hooks/useTimeblocks";
-import {
-  cn,
-  durationFromSeconds,
-  formatTimeNew,
-  getTagColor,
-  reduceSessions,
-} from "@/lib/utils";
+import { useTimeblocks, type SeriesScope } from "@/hooks/useTimeblocks";
+import { useCurrentBlock } from "@/hooks/useCurrentBlock";
+import { usePomo } from "@/hooks/PomoContext";
+import type { TimeBlock } from "@/lib/db";
+import { taskDeadline, type Task } from "@/lib/tasks";
+import { expandTimeblocks, type TimeblockOccurrence } from "@/lib/timeblocks";
+import { getTagColor } from "@/lib/utils";
 import { EditFocusSessionDialog } from "@/components/EditFocusSessionDialog";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { useIsMobile } from "@/hooks/useIsMobile";
+  CalendarHeader,
+  useCalendarFilters,
+} from "@/components/calendar/calendar-header";
+import { CalendarGrid } from "@/components/calendar/calendar-grid";
+import { PlanRail } from "@/components/calendar/plan-rail";
 import {
-  FaChevronLeft,
-  FaChevronRight,
-  FaBars,
-  FaTrash,
-  FaRegClock,
-  FaMagnifyingGlassMinus,
-  FaMagnifyingGlass,
-  FaMagnifyingGlassPlus,
-} from "react-icons/fa6";
+  BlockEditor,
+  SeriesChoice,
+  type EditorTarget,
+} from "@/components/calendar/block-editor";
+import { AnchoredPanel } from "@/components/calendar/anchored-panel";
+import { editCalendarOccurrence } from "@/components/calendar/occurrence-actions";
+import {
+  movePeriod,
+  periodRange,
+  renderRange,
+  type CalendarEvent,
+  type CalendarView,
+  type Point,
+  type ZoomLevel,
+} from "@/components/calendar/calendar-shared";
 
-const localizer = dateFnsLocalizer({
-  format,
-  parse,
-  startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 1 }),
-  getDay,
-  locales: { "en-US": enUS },
-});
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const DnDCalendar = withDragAndDrop(Calendar as any);
-
-const timeblocksFirstLayout: DayLayoutFunction<CalendarEvent> = ({
-  events,
-  minimumStartDifference,
-  slotMetrics,
-  accessors,
-}) => {
-  const focusEvts = events.filter((e) => !e.isTimeblock);
-  const tbEvts = events.filter((e) => e.isTimeblock);
-
-  type StyledEvent = {
-    event: CalendarEvent;
-    style: { top: number; height: number; width: number; xOffset: number };
-  };
-
-  const focusStyled: StyledEvent[] = focusEvts.length
-    ? (getStyledEvents({
-        events: focusEvts,
-        minimumStartDifference,
-        slotMetrics,
-        accessors,
-        dayLayoutAlgorithm: "no-overlap",
-      }) as StyledEvent[])
-    : [];
-
-  const tbStyled: StyledEvent[] = tbEvts.map((event) => {
-    const { top, height } = (
-      slotMetrics as { getRange: (s: Date, e: Date) => { top: number; height: number } }
-    ).getRange(
-      (accessors as { start: (e: CalendarEvent) => Date }).start(event),
-      (accessors as { end: (e: CalendarEvent) => Date }).end(event)
-    );
-    return { event, style: { top, height, width: 100, xOffset: 0 } };
-  });
-
-  return [...tbStyled, ...focusStyled];
-};
-
-interface CalendarEvent {
-  id: string;
-  sourceId: number;
-  title: string;
-  start: Date;
-  end: Date;
-  tag: string;
-  color: string;
-  textColor: string;
-  isTimeblock: boolean;
-  isTask?: boolean;
-  taskUid?: string;
-  allDay?: boolean;
+interface PendingMove {
+  occurrence: TimeblockOccurrence;
+  updates: Partial<TimeBlock>;
+  point: Point;
 }
 
-type CalView = "day" | "week" | "month";
-type ZoomLevel = "compact" | "normal" | "expanded";
-
-const ZOOM_CONFIG: Record<ZoomLevel, { row: number; step: number; timeslots: number }> = {
-  compact: { row: 34, step: 30, timeslots: 2 },
-  normal: { row: 56, step: 15, timeslots: 4 },
-  expanded: { row: 104, step: 15, timeslots: 4 },
-};
-
-interface PendingSlot {
-  start: Date;
-  end: Date;
-  x: number;
-  y: number;
-}
-
-interface EditingTb {
-  id: number;
-  tag: string;
-  startTime: Date;
-  endTime: Date;
-  x: number;
-  y: number;
-}
-
-function getPeriodRange(date: Date, view: CalView) {
-  if (view === "day") return { start: startOfDay(date), end: endOfDay(date) };
-  if (view === "week")
-    return {
-      start: startOfWeek(date, { weekStartsOn: 1 }),
-      end: endOfWeek(date, { weekStartsOn: 1 }),
-    };
-  return { start: startOfMonth(date), end: endOfMonth(date) };
-}
-
-function navigate(date: Date, view: CalView, dir: -1 | 1): Date {
-  if (view === "day") return addDays(date, dir);
-  if (view === "week") return addWeeks(date, dir);
-  return addMonths(date, dir);
-}
-
-function getPeriodLabel(date: Date, view: CalView): string {
-  if (view === "day") return format(date, "MMMM d, yyyy");
-  if (view === "month") return format(date, "MMMM yyyy");
-  const s = startOfWeek(date, { weekStartsOn: 1 });
-  const e = endOfWeek(date, { weekStartsOn: 1 });
-  if (s.getMonth() === e.getMonth()) return format(s, "MMMM yyyy");
-  if (s.getFullYear() === e.getFullYear())
-    return `${format(s, "MMM")} – ${format(e, "MMM yyyy")}`;
-  return `${format(s, "MMM yyyy")} – ${format(e, "MMM yyyy")}`;
-}
-
-function hexToRgba(hex: string, alpha: number): string {
-  const clean = hex.replace("#", "");
-  const r = parseInt(clean.slice(0, 2), 16);
-  const g = parseInt(clean.slice(2, 4), 16);
-  const b = parseInt(clean.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-function colorWithAlpha(color: string, alpha: number): string {
-  if (color.startsWith("#") && color.length === 7) return hexToRgba(color, alpha);
-  if (color.startsWith("rgba")) return color.replace(/[\d.]+\)$/, `${alpha})`);
-  if (color.startsWith("rgb("))
-    return color.replace("rgb(", "rgba(").replace(")", `, ${alpha})`);
-  return color;
-}
-
-function MiniCalendar({
-  value,
-  onPick,
-  activeRange,
-}: {
-  value: Date;
-  onPick: (d: Date) => void;
-  activeRange: { start: Date; end: Date };
-}) {
-  const [month, setMonth] = useState(() => startOfMonth(value));
-  useEffect(() => setMonth(startOfMonth(value)), [value]);
-
-  const days = useMemo(() => {
-    const first = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
-    return Array.from({ length: 42 }, (_, i) => addDays(first, i));
-  }, [month]);
-
-  const today = new Date();
-  const rangeStart = startOfDay(activeRange.start);
-  const rangeEnd = endOfDay(activeRange.end);
-
-  return (
-    <div className="select-none">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-semibold tracking-tight">
-          {format(month, "MMMM yyyy")}
-        </span>
-        <div className="flex items-center gap-0.5">
-          <button
-            onClick={() => setMonth((m) => subMonths(m, 1))}
-            className="size-6 grid place-items-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-            aria-label="Previous month"
-          >
-            <FaChevronLeft className="size-2.5" />
-          </button>
-          <button
-            onClick={() => setMonth((m) => addMonths(m, 1))}
-            className="size-6 grid place-items-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-            aria-label="Next month"
-          >
-            <FaChevronRight className="size-2.5" />
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-7 gap-y-0.5">
-        {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
-          <span
-            key={i}
-            className="text-[10px] font-medium text-muted-foreground h-6 grid place-items-center"
-          >
-            {d}
-          </span>
-        ))}
-        {days.map((d) => {
-          const inRange = d >= rangeStart && d <= rangeEnd;
-          const isToday = isSameDay(d, today);
-          const isSel = isSameDay(d, value);
-          return (
-            <button
-              key={d.toISOString()}
-              onClick={() => onPick(d)}
-              aria-current={isToday ? "date" : undefined}
-              className={cn(
-                "text-[11px] size-6 mx-auto grid place-items-center rounded-full transition-colors tabular-nums",
-                !isSameMonth(d, month) && "text-muted-foreground/45",
-                inRange && !isSel && "bg-accent",
-                isToday && !isSel && "text-primary font-bold",
-                isSel
-                  ? "bg-primary text-primary-foreground font-semibold"
-                  : "hover:bg-accent/70"
-              )}
-            >
-              {d.getDate()}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-export default function CalendarPage(): JSX.Element {
+function CalendarWorkspace() {
   const router = useRouter();
+  const params = useSearchParams();
   const { tasks, loadTasks } = useTasks();
   const { projects, loadProjects } = useProjects();
-  const [showTasks, setShowTasks] = useState(true);
-  const [pendingTaskUid, setPendingTaskUid] = useState("");
-  const { focusSessions, loadFocusSessions, loadingFocusSessions } = useFocus();
   const { savedTags } = useTag();
+  const { focusSessions, loadFocusSessions, loadingFocusSessions } = useFocus();
   const {
     timeblocks,
     loadTimeblocks,
+    loadingTimeblocks,
     addTimeblock,
-    editTimeblock,
-    removeTimeblock,
+    removeOccurrence,
   } = useTimeblocks();
-  const isMobile = useIsMobile();
-
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [currentView, setCurrentView] = useState<CalView>("week");
-  const [zoomLevel, setZoomLevel] = useState<ZoomLevel>("normal");
-  const [hiddenTags, setHiddenTags] = useState<Set<string>>(new Set());
-  const [selectedSession, setSelectedSession] = useState<FocusSession | null>(null);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [showTimeblocks, setShowTimeblocks] = useState(true);
-
-  const [pendingSlot, setPendingSlot] = useState<PendingSlot | null>(null);
-  const [pendingTag, setPendingTag] = useState("");
-
-  const [editingTb, setEditingTb] = useState<EditingTb | null>(null);
-  const [editTbTag, setEditTbTag] = useState("");
-
-  const lastMousePos = useRef({ x: 0, y: 0 });
+  const { now, current, next, startOccurrence } = useCurrentBlock();
+  const {
+    state: { pomodoroSettings },
+  } = usePomo();
+  const [date, setDate] = useState(() => new Date());
+  const [view, setView] = useState<CalendarView>("week");
+  const [zoom, setZoom] = useState<ZoomLevel>("normal");
+  const [filters, setFilters] = useCalendarFilters();
+  const [editor, setEditor] = useState<EditorTarget | null>(null);
+  const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
+  const [moving, setMoving] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<FocusSession | null>(
+    null,
+  );
+  const [draggedTask, setDraggedTask] = useState<Task | null>(null);
+  const draggedTaskRef = useRef<Task | null>(null);
+  const pointer = useRef<Point>({ x: 100, y: 160 });
+  const [highlight, setHighlight] = useState<string | null>(null);
+  const queryDate = params.get("date"),
+    queryView = params.get("view"),
+    queryBlock = params.get("block");
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      lastMousePos.current = { x: e.clientX, y: e.clientY };
+    void loadTasks();
+    void loadProjects();
+    void loadFocusSessions();
+    void loadTimeblocks();
+  }, [loadTasks, loadProjects, loadFocusSessions, loadTimeblocks]);
+  useEffect(() => {
+    if (queryDate) {
+      const picked = parse(queryDate, "yyyy-MM-dd", new Date());
+      if (isValid(picked) && format(picked, "yyyy-MM-dd") === queryDate)
+        setDate(picked);
+    }
+    if (queryView === "day" || queryView === "week" || queryView === "month")
+      setView(queryView);
+  }, [queryDate, queryView]);
+  useEffect(() => {
+    if (!queryBlock || loadingTimeblocks) return;
+    setHighlight(queryBlock);
+    const timeout = window.setTimeout(() => setHighlight(null), 6000);
+    return () => window.clearTimeout(timeout);
+  }, [queryBlock, loadingTimeblocks]);
+  useEffect(() => {
+    function track(event: PointerEvent | DragEvent) {
+      if (event.clientX || event.clientY)
+        pointer.current = { x: event.clientX, y: event.clientY };
+    }
+    window.addEventListener("pointerdown", track, true);
+    window.addEventListener("pointermove", track);
+    window.addEventListener("dragover", track);
+    return () => {
+      window.removeEventListener("pointerdown", track, true);
+      window.removeEventListener("pointermove", track);
+      window.removeEventListener("dragover", track);
     };
-    window.addEventListener("mousemove", handler);
-    return () => window.removeEventListener("mousemove", handler);
   }, []);
-
   useEffect(() => {
-    loadFocusSessions();
-    loadTimeblocks();
-    loadTasks();
-    loadProjects();
-  }, [loadFocusSessions, loadTimeblocks, loadTasks, loadProjects]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const t = e.target as HTMLElement | null;
+    function onKey(event: KeyboardEvent) {
       if (
-        t &&
-        (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        event.defaultPrevented
       )
         return;
-      switch (e.key.toLowerCase()) {
-        case "d":
-          setCurrentView("day");
-          break;
-        case "w":
-          setCurrentView("week");
-          break;
-        case "m":
-          setCurrentView("month");
-          break;
-        case "t":
-          setCurrentDate(new Date());
-          break;
-        case "arrowleft":
-          setCurrentDate((d) => navigate(d, currentView, -1));
-          break;
-        case "arrowright":
-          setCurrentDate((d) => navigate(d, currentView, 1));
-          break;
-        default:
-          return;
-      }
-      e.preventDefault();
-    };
-    // Capture phase: this listener must beat the global single-letter
-    // shortcuts (notably "T" for Focus Table) so "T" means "today" here.
+      const target = event.target as HTMLElement | null;
+      if (
+        target?.closest(
+          "input, textarea, select, [contenteditable=true], [role=dialog], [role=menu]",
+        )
+      )
+        return;
+      if (editor || pendingMove) return;
+      const key = event.key.toLowerCase();
+      if (key === "d") setView("day");
+      else if (key === "w") setView("week");
+      else if (key === "m") setView("month");
+      else if (key === "t") setDate(new Date());
+      else if (key === "arrowleft" || key === "arrowright")
+        setDate((value) =>
+          movePeriod(value, view, key === "arrowleft" ? -1 : 1),
+        );
+      else return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
     window.addEventListener("keydown", onKey, { capture: true });
-    return () => window.removeEventListener("keydown", onKey, { capture: true });
-  }, [currentView]);
+    return () =>
+      window.removeEventListener("keydown", onKey, { capture: true });
+  }, [view, editor, pendingMove]);
 
-  const allFocusEvents = useMemo<CalendarEvent[]>(() => {
-    if (!focusSessions.length) return [];
-
-    const sorted = [...focusSessions].sort(
-      (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+  const range = useMemo(() => periodRange(date, view), [date, view]);
+  const visibleRange = useMemo(() => renderRange(date, view), [date, view]);
+  const occurrences = useMemo(
+    () => expandTimeblocks(timeblocks, visibleRange.start, visibleRange.end),
+    [timeblocks, visibleRange],
+  );
+  const openTasks = useMemo(
+    () =>
+      tasks.filter(
+        (task) =>
+          !task.deletedAt &&
+          !task.completedAt &&
+          !projects.some(
+            (project) =>
+              project.id === task.projectId && project.status === "Closed",
+          ),
+      ),
+    [tasks, projects],
+  );
+  const plannedTasks = useMemo(() => {
+    const future = expandTimeblocks(timeblocks, now, addDays(now, 35));
+    return new Set(
+      [
+        ...future.map((occurrence) => occurrence.block.taskUid),
+        ...timeblocks
+          .filter((block) => new Date(block.endTime) > now)
+          .map((block) => block.taskUid),
+      ].filter((uid): uid is string => !!uid),
     );
-
-    const GAP = 30 * 60 * 1000;
-    const merged: CalendarEvent[] = [];
-    let group = [sorted[0]];
-
-    const flush = (g: typeof group) => {
-      const tag = g[0].tag;
-      const [color, white] = getTagColor(savedTags, tag);
-      merged.push({
-        id: `focus:${g[0].uid || g[0].id}`,
-        sourceId: g[0].id!,
-        title: g[0].taskUid ? tasks.find((t) => t.uid === g[0].taskUid)?.title || tag : tag,
-        start: new Date(g[0].startTime),
-        end: new Date(g[g.length - 1].endTime),
-        tag,
-        color,
-        textColor: white ? "#ffffff" : "#000000",
-        isTimeblock: false,
-      });
-    };
-
-    for (let i = 1; i < sorted.length; i++) {
-      const prev = group[group.length - 1];
-      const curr = sorted[i];
-      const gap = new Date(curr.startTime).getTime() - new Date(prev.endTime).getTime();
-      if (curr.tag === prev.tag && curr.taskUid === prev.taskUid && gap >= 0 && gap <= GAP) {
-        group.push(curr);
-      } else {
-        flush(group);
-        group = [curr];
+  }, [timeblocks, now]);
+  const tags = useMemo(() => {
+    const names = new Set([
+      ...savedTags.map((tag) => tag.t),
+      ...timeblocks.map((block) => block.tag),
+      ...focusSessions.map((session) => session.tag),
+      ...openTasks.map((task) => task.primaryTag || task.tags[0] || "Focus"),
+    ]);
+    return [...names]
+      .sort((a, b) => a.localeCompare(b))
+      .map((tag) => ({ tag, color: getTagColor(savedTags, tag)[0] }));
+  }, [savedTags, timeblocks, focusSessions, openTasks]);
+  const events = useMemo(() => {
+    const result: CalendarEvent[] = [];
+    const visible = (tag: string) => !filters.hiddenTags.includes(tag);
+    if (filters.blocks)
+      for (const occurrence of occurrences) {
+        if (!visible(occurrence.block.tag)) continue;
+        result.push({
+          id: `block:${occurrence.key}`,
+          title:
+            tasks.find(
+              (task) =>
+                task.uid === occurrence.block.taskUid && !task.deletedAt,
+            )?.title ||
+            occurrence.block.title ||
+            occurrence.block.tag,
+          start: occurrence.start,
+          end: occurrence.end,
+          tag: occurrence.block.tag,
+          color: getTagColor(savedTags, occurrence.block.tag)[0],
+          kind: "block",
+          occurrence,
+        });
       }
-    }
-    flush(group);
-
-    const split: CalendarEvent[] = [];
-    for (const ev of merged) {
-      if (ev.start.toDateString() === ev.end.toDateString()) {
-        split.push(ev);
-        continue;
+    if (filters.sessions)
+      for (const session of focusSessions) {
+        const start = new Date(session.startTime),
+          end = new Date(session.endTime);
+        if (
+          start >= visibleRange.end ||
+          end <= visibleRange.start ||
+          !visible(session.tag)
+        )
+          continue;
+        const [color, whiteText] = getTagColor(savedTags, session.tag);
+        result.push({
+          id: `session:${session.uid || session.id}`,
+          title:
+            tasks.find((task) => task.uid === session.taskUid)?.title ||
+            session.tag,
+          start,
+          end,
+          tag: session.tag,
+          color,
+          whiteText,
+          kind: "session",
+          session,
+        });
       }
-      let seg = new Date(ev.start);
-      while (seg.toDateString() !== ev.end.toDateString()) {
-        const dayEnd = new Date(seg);
-        dayEnd.setHours(23, 59, 59, 999);
-        split.push({ ...ev, id: `${ev.id}:${seg.getTime()}`, start: new Date(seg), end: dayEnd });
-        seg = new Date(seg);
-        seg.setDate(seg.getDate() + 1);
-        seg.setHours(0, 0, 0, 0);
+    if (filters.deadlines)
+      for (const task of openTasks) {
+        const deadline = taskDeadline(task),
+          tag = task.primaryTag || task.tags[0] || "Focus";
+        if (
+          !deadline ||
+          deadline < visibleRange.start ||
+          deadline >= visibleRange.end ||
+          !visible(tag)
+        )
+          continue;
+        result.push({
+          id: `deadline:${task.uid || task.id}`,
+          title: task.title,
+          start: startOfDay(deadline),
+          end: addDays(startOfDay(deadline), 1),
+          tag,
+          color: getTagColor(savedTags, tag)[0],
+          kind: "deadline",
+          allDay: true,
+          taskUid: task.uid,
+        });
       }
-      split.push({ ...ev, id: `${ev.id}:${seg.getTime()}`, start: seg, end: new Date(ev.end) });
-    }
-    return split;
-  }, [focusSessions, savedTags, tasks]);
-
-  const focusEvents = useMemo(
-    () => allFocusEvents.filter((e) => !hiddenTags.has(e.tag)),
-    [allFocusEvents, hiddenTags]
-  );
-
-  const timeblocksCalEvents = useMemo<CalendarEvent[]>(() => {
-    if (!showTimeblocks || currentView === "month") return [];
-    return timeblocks.map((tb): CalendarEvent => {
-      const [solidColor, white] = getTagColor(savedTags, tb.tag);
-      return {
-        id: `block:${tb.uid || tb.id}`,
-        sourceId: tb.id!,
-        title: tasks.find((t) => t.uid === tb.taskUid)?.title || tb.title || tb.tag || "Time block",
-        start: new Date(tb.startTime),
-        end: new Date(tb.endTime),
-        tag: tb.tag,
-        color: solidColor,
-        textColor: white ? "#ffffff" : "#000000",
-        isTimeblock: true,
-      };
-    });
-  }, [timeblocks, savedTags, showTimeblocks, currentView, tasks]);
-
-  const taskEvents = useMemo<CalendarEvent[]>(() => showTasks ? tasks.filter((task) => task.dueDate && !task.deletedAt && !task.completedAt && !projects.some((p) => p.id === task.projectId && p.status === "Closed")).map((task) => {
-    const deadline = taskDeadline(task)!;
-    const tag = task.primaryTag || task.tags[0] || "Tasks";
-    const [color, white] = getTagColor(savedTags, tag);
-    return { id: `task:${task.uid || task.id}`, sourceId: task.id!, title: `Due${task.dueTime ? ` ${format(deadline, "h:mm a")}` : ""} · ${task.title}`,
-      start: startOfDay(deadline), end: addDays(startOfDay(deadline), 1), tag, color,
-      textColor: white ? "#fff" : "#000", isTimeblock: false, isTask: true, taskUid: task.uid, allDay: true };
-  }).filter((event) => !hiddenTags.has(event.tag)) : [], [tasks, projects, savedTags, hiddenTags, showTasks]);
-
-  const allCalEvents = useMemo(
-    () => [...focusEvents, ...timeblocksCalEvents, ...taskEvents],
-    [focusEvents, timeblocksCalEvents, taskEvents]
-  );
-
-  const allTags = useMemo(() => {
-    const map = new Map<string, string>();
-    allFocusEvents.forEach((e) => {
-      if (!map.has(e.tag)) map.set(e.tag, e.color);
-    });
-    return Array.from(map.entries())
-      .map(([tag, color]) => ({ tag, color }))
-      .sort((a, b) => a.tag.localeCompare(b.tag));
-  }, [allFocusEvents]);
-
-  const periodRange = useMemo(
-    () => getPeriodRange(currentDate, currentView),
-    [currentDate, currentView]
-  );
-
-  const periodStats = useMemo(() => {
-    const { start, end } = periodRange;
-    const inPeriod = focusSessions.filter((s) => {
-      const t = new Date(s.startTime).getTime();
-      return t >= start.getTime() && t <= end.getTime() && !hiddenTags.has(s.tag);
-    });
-    const totalSec = reduceSessions(inPeriod);
-    const count = inPeriod.length;
-    const avgSec = count > 0 ? totalSec / count : 0;
-    return {
-      total: formatTimeNew(durationFromSeconds(totalSec), "H:M:S", "text"),
-      count,
-      avg: count > 0 ? formatTimeNew(durationFromSeconds(avgSec), "H:M:S", "text") : "—",
-    };
-  }, [focusSessions, periodRange, hiddenTags]);
-
-  const tagBreakdown = useMemo(() => {
-    const { start, end } = periodRange;
+    return result;
+  }, [
+    occurrences,
+    focusSessions,
+    openTasks,
+    tasks,
+    savedTags,
+    visibleRange,
+    filters,
+  ]);
+  const review = useMemo(() => {
     const totals = new Map<string, number>();
-    focusSessions.forEach((s) => {
-      const t = new Date(s.startTime).getTime();
-      if (t < start.getTime() || t > end.getTime()) return;
-      if (hiddenTags.has(s.tag)) return;
-      totals.set(s.tag, (totals.get(s.tag) ?? 0) + reduceSessions([s]));
-    });
-    const max = Math.max(1, ...totals.values());
-    return Array.from(totals.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([tag, sec]) => ({
-        tag,
-        sec,
-        pct: (sec / max) * 100,
-        color: getTagColor(savedTags, tag)[0],
-      }));
-  }, [focusSessions, periodRange, hiddenTags, savedTags]);
+    let total = 0,
+      count = 0;
+    for (const session of focusSessions) {
+      if (filters.hiddenTags.includes(session.tag)) continue;
+      const minutes = Math.max(
+        0,
+        (Math.min(+new Date(session.endTime), +range.end) -
+          Math.max(+new Date(session.startTime), +range.start)) /
+          60_000,
+      );
+      if (!minutes) continue;
+      total += minutes;
+      count++;
+      totals.set(session.tag, (totals.get(session.tag) || 0) + minutes);
+    }
+    return {
+      total,
+      count,
+      tags: [...totals]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([tag, minutes]) => ({
+          tag,
+          minutes,
+          color: getTagColor(savedTags, tag)[0],
+        })),
+    };
+  }, [focusSessions, range, savedTags, filters.hiddenTags]);
+  const scrollTo = useMemo(() => {
+    const target = occurrences.find(
+      (occurrence) => occurrence.key === queryBlock,
+    )?.start;
+    const time = new Date(target || new Date());
+    time.setHours(Math.max(0, time.getHours() - 1), 0, 0, 0);
+    return time;
+  }, [occurrences, queryBlock]);
 
-  const clampPopupPos = useCallback(
-    (rawX: number, rawY: number) => ({
-      x: Math.max(10, Math.min(rawX + 12, window.innerWidth - 275)),
-      y: Math.max(10, Math.min(rawY - 10, window.innerHeight - 310)),
-    }),
-    []
-  );
-
-  const handleEventDrop = useCallback(
-    ({ event, start, end }: EventInteractionArgs<CalendarEvent>) => {
-      if (!event.isTimeblock) return;
-      editTimeblock(event.sourceId, { startTime: new Date(start), endTime: new Date(end) });
+  async function saveEditor(updates: Partial<TimeBlock>, scope: SeriesScope) {
+    if (!editor) return;
+    const task = tasks.find((item) => item.uid === updates.taskUid);
+    const attribution = {
+      projectUid: task
+        ? projects.find((project) => project.id === task.projectId)?.uid
+        : undefined,
+    };
+    if (editor.occurrence)
+      await editCalendarOccurrence(
+        editor.occurrence,
+        { ...updates, ...attribution },
+        scope,
+      );
+    else {
+      const { tag, title, startTime, endTime, ...extras } = updates;
+      await addTimeblock(tag || "Focus", startTime!, endTime!, title, {
+        ...extras,
+        ...attribution,
+      });
+    }
+    toast.success(editor.occurrence ? "Block updated" : "Block planned");
+  }
+  const moveBlock = useCallback(
+    ({ event, start, end, isAllDay }: EventInteractionArgs<CalendarEvent>) => {
+      if (!event.occurrence || isAllDay) return;
+      const updates = { startTime: new Date(start), endTime: new Date(end) };
+      if (updates.endTime <= updates.startTime) return;
+      if (event.occurrence.recurring)
+        setPendingMove({
+          occurrence: event.occurrence,
+          updates,
+          point: { ...pointer.current },
+        });
+      else
+        void editCalendarOccurrence(event.occurrence, updates, "this").catch(
+          () => toast.error("Could not move block"),
+        );
     },
-    [editTimeblock]
+    [],
   );
-
-  const handleEventResize = useCallback(
-    ({ event, start, end }: EventInteractionArgs<CalendarEvent>) => {
-      if (!event.isTimeblock) return;
-      editTimeblock(event.sourceId, { startTime: new Date(start), endTime: new Date(end) });
-    },
-    [editTimeblock]
-  );
-
-  const handleSelectSlot = useCallback(
-    (slot: SlotInfo) => {
-      if (currentView === "month") return;
-      if (slot.action !== "select") return;
-      const { x, y } = clampPopupPos(lastMousePos.current.x, lastMousePos.current.y);
-      setPendingSlot({ start: slot.start, end: slot.end, x, y });
-      setPendingTag("");
-      setPendingTaskUid("");
-    },
-    [currentView, clampPopupPos]
-  );
-
-  const handleCreateTimeblock = useCallback(
-    (tagOverride?: string) => {
-      if (!pendingSlot) return;
-      const task = tasks.find((t) => t.uid === pendingTaskUid);
-      const tag = (tagOverride ?? (pendingTag || task?.primaryTag || task?.tags[0] || (task ? "Focus" : ""))).trim();
-      if (!tag) return;
-      const project = projects.find((p) => p.id === task?.projectId);
-      void addTimeblock(tag, pendingSlot.start, pendingSlot.end, task?.title, { taskUid: task?.uid, projectUid: project?.uid }).catch(() => toast.error("Could not create calendar block"));
-      setPendingSlot(null);
-      setPendingTag("");
-    },
-    [pendingSlot, pendingTag, addTimeblock, pendingTaskUid, tasks, projects]
-  );
-
-  const handleSelectEvent = useCallback(
-    (event: CalendarEvent) => {
-      if (event.isTask) {
-        router.push(`/projects?task=${encodeURIComponent(event.taskUid || "")}`);
+  async function finishMove(scope: SeriesScope) {
+    if (!pendingMove || moving) return;
+    setMoving(true);
+    try {
+      await editCalendarOccurrence(
+        pendingMove.occurrence,
+        pendingMove.updates,
+        scope,
+      );
+      setPendingMove(null);
+    } catch {
+      toast.error("Could not move block");
+    } finally {
+      setMoving(false);
+    }
+  }
+  async function planTask(task: Task, droppedAt?: Date) {
+    if (!task.uid) return;
+    const duration = Math.max(1, task.estimateMinutes || 60);
+    let start: Date;
+    if (droppedAt) start = droppedAt;
+    else {
+      const day =
+        startOfDay(date) < startOfDay(now) ? startOfDay(now) : startOfDay(date);
+      start = isSameDay(day, now)
+        ? new Date(Math.ceil(+now / 900_000) * 900_000)
+        : addMinutes(day, 9 * 60);
+      const blocks = expandTimeblocks(timeblocks, day, addDays(day, 2));
+      for (const occurrence of blocks) {
+        if (occurrence.end <= start) continue;
+        if (occurrence.start >= addMinutes(start, duration)) break;
+        start = new Date(Math.ceil(+occurrence.end / 900_000) * 900_000);
+      }
+      if (addMinutes(start, duration) > addDays(day, 1)) {
+        toast.message("No free slot left on this day", {
+          description:
+            "Choose another day or drag the task onto a specific time.",
+        });
         return;
       }
-      if (event.isTimeblock) {
-        const tb = timeblocks.find((t) => t.id === event.sourceId);
-        if (!tb) return;
-        const { x, y } = clampPopupPos(lastMousePos.current.x, lastMousePos.current.y);
-        setEditingTb({
-          id: tb.id!,
-          tag: tb.tag,
-          startTime: new Date(tb.startTime),
-          endTime: new Date(tb.endTime),
-          x,
-          y,
-        });
-        setEditTbTag(tb.tag);
-      } else {
-        const session = focusSessions.find((s) => s.id === event.sourceId);
-        if (session) {
-          setSelectedSession(session);
-          setIsEditDialogOpen(true);
-        }
-      }
-    },
-    [timeblocks, focusSessions, clampPopupPos, router]
-  );
-
-  const eventStyleGetter = useCallback((event: CalendarEvent) => {
-    if (event.isTimeblock) {
-      return {
-        style: {
-          backgroundColor: colorWithAlpha(event.color, 0.14),
-          color: event.color,
-          borderRadius: "6px",
-          border: `1.5px dashed ${colorWithAlpha(event.color, 0.7)}`,
-          fontWeight: 600,
-          fontSize: "0.7rem",
-          zIndex: 0,
-        },
-      };
     }
-    return {
-      style: {
-        backgroundColor: event.color,
-        color: event.textColor,
-        borderRadius: "6px",
-        border: "none",
-        zIndex: 2,
-      },
-    };
-  }, []);
-
-  const draggableAccessor = useCallback((e: CalendarEvent) => e.isTimeblock, []);
-  const resizableAccessor = useCallback((e: CalendarEvent) => e.isTimeblock, []);
-
-  const DayHeader = useCallback(({ date }: { date: Date }) => {
-    const isToday = isSameDay(date, new Date());
-    return (
-      <span className="w-full flex flex-col items-center gap-0.5 py-2 group">
-        <span
-          className={cn(
-            "text-[11px] font-medium uppercase tracking-wider",
-            isToday ? "text-primary" : "text-muted-foreground"
-          )}
-        >
-          {format(date, "EEE")}
-        </span>
-        <span
-          className={cn(
-            "grid place-items-center size-9 rounded-full text-xl tabular-nums transition-colors",
-            isToday
-              ? "bg-primary text-primary-foreground font-medium"
-              : "text-foreground group-hover:bg-accent"
-          )}
-        >
-          {format(date, "d")}
-        </span>
-      </span>
-    );
-  }, []);
-
-  const MonthHeader = useCallback(
-    ({ date }: { date: Date }) => (
-      <span className="block py-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-        {format(date, "EEE")}
-      </span>
-    ),
-    []
-  );
-
-  const calComponents = useMemo(
-    () => ({
-      toolbar: () => null,
-      timeGutterHeader: () => (
-        <div className="h-full flex items-end justify-end pr-2 pb-1.5">
-          <span className="text-[10px] font-mono text-muted-foreground">
-            {format(new Date(), "OOO")}
-          </span>
-        </div>
-      ),
-      week: { header: DayHeader },
-      day: { header: DayHeader },
-      month: { header: MonthHeader },
-    }),
-    [DayHeader, MonthHeader]
-  );
-
-  const scrollToTime = useMemo(() => {
-    const d = new Date();
-    d.setHours(Math.max(0, d.getHours() - 1), 0, 0, 0);
-    return d;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDate, currentView, zoomLevel]);
-
-  const periodLabel = getPeriodLabel(currentDate, currentView);
-  const statsLabel =
-    currentView === "day" ? "Today" : currentView === "week" ? "This week" : "This month";
-
-  const toggleTag = (tag: string) => {
-    setHiddenTags((prev) => {
-      const next = new Set(prev);
-      if (next.has(tag)) next.delete(tag);
-      else next.add(tag);
-      return next;
-    });
-  };
-
-  const SidebarContent = () => (
-    <div className="flex flex-col gap-5">
-      <MiniCalendar value={currentDate} onPick={setCurrentDate} activeRange={periodRange} />
-
-      <div className="pt-3">
-        <button onClick={() => setShowTasks((v) => !v)} aria-pressed={showTasks} className="flex items-center gap-2 rounded-lg px-1 py-1 text-[13px] hover:bg-muted/50">
-          <span className={cn("size-3 rounded-sm border-2", showTasks ? "border-primary bg-primary/20" : "border-muted-foreground")} />Task deadlines
-        </button>
-        <p className="mt-1 pl-1 text-[11px] text-muted-foreground">Shown above the day. Select a task to edit it.</p>
-      </div>
-      <div className="border-t pt-4">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-          My tags
-        </p>
-        {allTags.length === 0 ? (
-          <p className="text-xs text-muted-foreground">
-            No tags yet. Finish a focus session to see it here.
-          </p>
-        ) : (
-          <div className="flex flex-col">
-            {allTags.map(({ tag, color }) => {
-              const active = !hiddenTags.has(tag);
-              return (
-                <button
-                  key={tag}
-                  onClick={() => toggleTag(tag)}
-                  aria-pressed={active}
-                  className="flex items-center gap-2.5 py-1.5 px-1.5 -mx-1.5 rounded-md hover:bg-accent/60 transition-colors w-full text-left"
-                >
-                  <span
-                    className="size-3.5 rounded-[4px] shrink-0 border-2 transition-colors"
-                    style={{
-                      backgroundColor: active ? color : "transparent",
-                      borderColor: color,
-                    }}
-                  />
-                  <span
-                    className={cn(
-                      "text-[13px] truncate transition-colors",
-                      active ? "text-foreground" : "text-muted-foreground line-through"
-                    )}
-                  >
-                    {tag}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {currentView !== "month" && (
-        <div className="border-t pt-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-            Planned
-          </p>
-          <button
-            onClick={() => setShowTimeblocks((v) => !v)}
-            aria-pressed={showTimeblocks}
-            className="flex items-center gap-2.5 py-1.5 px-1.5 -mx-1.5 rounded-md hover:bg-accent/60 transition-colors w-full text-left"
-          >
-            <span
-              className={cn(
-                "size-3.5 rounded-[4px] shrink-0 border-2 border-dashed transition-colors",
-                showTimeblocks ? "border-primary bg-primary/20" : "border-muted-foreground"
-              )}
-            />
-            <span
-              className={cn(
-                "text-[13px]",
-                showTimeblocks ? "text-foreground" : "text-muted-foreground line-through"
-              )}
-            >
-              Time blocks
-            </span>
-          </button>
-          <p className="text-[11px] text-muted-foreground/80 mt-1.5 pl-1 leading-snug">
-            {showTimeblocks && timeblocksCalEvents.length > 0
-              ? `${timeblocksCalEvents.length} block${
-                  timeblocksCalEvents.length !== 1 ? "s" : ""
-                } · drag empty space to plan more`
-              : "Drag empty space to plan time"}
-          </p>
-        </div>
-      )}
-
-      <div className="border-t pt-4">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-          {statsLabel}
-        </p>
-        <p className="text-2xl font-mono font-semibold tracking-tight tabular-nums">
-          {periodStats.total}
-        </p>
-        <p className="text-xs text-muted-foreground mt-1">
-          {periodStats.count} session{periodStats.count !== 1 ? "s" : ""} · avg{" "}
-          {periodStats.avg}
-        </p>
-
-        {tagBreakdown.length > 0 && (
-          <div className="mt-3 flex flex-col gap-2">
-            {tagBreakdown.map(({ tag, sec, pct, color }) => (
-              <div key={tag} className="flex flex-col gap-1">
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-[11px] truncate">{tag}</span>
-                  <span className="text-[10px] font-mono text-muted-foreground shrink-0">
-                    {formatTimeNew(durationFromSeconds(sec), "H:M:S", "text")}
-                  </span>
-                </div>
-                <div className="h-1 rounded-full bg-muted overflow-hidden">
-                  <div
-                    className="h-full rounded-full"
-                    style={{ width: `${pct}%`, background: color }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <p className="border-t pt-3 text-[11px] leading-relaxed text-muted-foreground/70">
-        Shortcuts: <span className="font-mono">D</span> day ·{" "}
-        <span className="font-mono">W</span> week · <span className="font-mono">M</span>{" "}
-        month · <span className="font-mono">T</span> today ·{" "}
-        <span className="font-mono">← →</span> navigate
-      </p>
-    </div>
+    try {
+      const project = projects.find((item) => item.id === task.projectId);
+      const block = await addTimeblock(
+        task.primaryTag || task.tags[0] || "Focus",
+        start,
+        addMinutes(start, duration),
+        task.title,
+        { taskUid: task.uid, projectUid: project?.uid },
+      );
+      if (!droppedAt) setDate(start);
+      toast.success("Task planned", {
+        description: format(start, "EEE, MMM d · HH:mm"),
+        action: {
+          label: "Undo",
+          onClick: () => {
+            void useTimeblocks
+              .getState()
+              .removeTimeblock(block.id!)
+              .catch(() => toast.error("Could not undo block"));
+          },
+        },
+      });
+    } catch {
+      toast.error("Could not plan task");
+    }
+  }
+  function selectSlot(slot: SlotInfo) {
+    if (view !== "month")
+      setEditor({
+        start: slot.start,
+        end: slot.end > slot.start ? slot.end : addMinutes(slot.start, 60),
+        point: { ...pointer.current },
+      });
+  }
+  const draggedEvent: CalendarEvent | null = draggedTask
+    ? {
+        id: `drag:${draggedTask.uid}`,
+        title: draggedTask.title,
+        start: now,
+        end: addMinutes(now, draggedTask.estimateMinutes || 60),
+        tag: draggedTask.primaryTag || draggedTask.tags[0] || "Focus",
+        color: getTagColor(
+          savedTags,
+          draggedTask.primaryTag || draggedTask.tags[0] || "Focus",
+        )[0],
+        kind: "block",
+      }
+    : null;
+  const rail = (
+    <PlanRail
+      date={date}
+      view={view}
+      range={range}
+      onDate={setDate}
+      tasks={openTasks}
+      plannedTasks={plannedTasks}
+      onPlanTask={(task) => void planTask(task)}
+      onDragTask={(task) => {
+        draggedTaskRef.current = task;
+        setDraggedTask(task);
+      }}
+      canShift={!!current || !!next}
+      review={review}
+    />
   );
 
   return (
-    <div className="flex flex-col h-[100dvh] w-full overflow-hidden">
-      <header className="flex items-center gap-2 md:gap-3 px-3 md:px-5 h-16 shrink-0 border-b">
-        {isMobile && (
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" className="size-9 rounded-full">
-                <FaBars className="size-4" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              align="start"
-              className="w-64 p-4 max-h-[80vh] overflow-y-auto"
-            >
-              <SidebarContent />
-            </PopoverContent>
-          </Popover>
-        )}
-
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setCurrentDate(new Date())}
-          className="rounded-full h-9 px-4 text-[13px] font-medium"
+    <div className="flex h-[calc(100dvh-4rem)] min-h-[560px] min-w-0 flex-col overflow-hidden">
+      <CalendarHeader
+        date={date}
+        view={view}
+        zoom={zoom}
+        onDate={(direction) =>
+          setDate((value) =>
+            direction === 0 ? new Date() : movePeriod(value, view, direction),
+          )
+        }
+        onView={setView}
+        onZoom={setZoom}
+        filters={filters}
+        onFilters={setFilters}
+        tags={tags}
+        rail={rail}
+      />
+      <div className="flex min-h-0 flex-1 gap-2">
+        <aside
+          aria-label="Plan and review"
+          className="hidden w-72 shrink-0 overflow-y-auto px-5 pb-6 pt-3 md:block"
         >
-          Today
-        </Button>
-
-        <div className="flex items-center">
-          <button
-            onClick={() => setCurrentDate((d) => navigate(d, currentView, -1))}
-            className="size-9 grid place-items-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-            aria-label="Previous period"
-          >
-            <FaChevronLeft className="size-3.5" />
-          </button>
-          <button
-            onClick={() => setCurrentDate((d) => navigate(d, currentView, 1))}
-            className="size-9 grid place-items-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-            aria-label="Next period"
-          >
-            <FaChevronRight className="size-3.5" />
-          </button>
-        </div>
-
-        <h1 className="text-base md:text-[22px] font-normal tracking-tight truncate">
-          {periodLabel}
-        </h1>
-
-        <div className="ml-auto flex items-center gap-2">
-          {currentView !== "month" && !isMobile && (
-            <div className="flex items-center bg-muted rounded-full p-0.5 gap-0.5">
-              {(
-                [
-                  {
-                    level: "compact" as ZoomLevel,
-                    Icon: FaMagnifyingGlassMinus,
-                    label: "Compact rows",
-                  },
-                  {
-                    level: "normal" as ZoomLevel,
-                    Icon: FaMagnifyingGlass,
-                    label: "Normal rows",
-                  },
-                  {
-                    level: "expanded" as ZoomLevel,
-                    Icon: FaMagnifyingGlassPlus,
-                    label: "Expanded rows",
-                  },
-                ] as const
-              ).map(({ level, Icon, label }) => (
-                <button
-                  key={level}
-                  onClick={() => setZoomLevel(level)}
-                  title={label}
-                  aria-label={label}
-                  className={cn(
-                    "size-8 grid place-items-center rounded-full transition-colors",
-                    zoomLevel === level
-                      ? "bg-background shadow-sm text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <Icon className="size-3" />
-                </button>
-              ))}
-            </div>
-          )}
-
-          <div className="flex items-center bg-muted rounded-full p-0.5 gap-0.5">
-            {(["day", "week", "month"] as CalView[]).map((v) => (
-              <button
-                key={v}
-                onClick={() => setCurrentView(v)}
-                className={cn(
-                  "px-3 md:px-3.5 h-8 text-[13px] font-medium rounded-full transition-colors capitalize",
-                  currentView === v
-                    ? "bg-background shadow-sm text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {v}
-              </button>
-            ))}
-          </div>
-        </div>
-      </header>
-
-      <div className="flex flex-1 min-h-0">
-        {!isMobile && (
-          <aside className="w-64 shrink-0 border-r px-4 py-4 overflow-y-auto">
-            <SidebarContent />
-          </aside>
-        )}
-
-        <main
-          suppressHydrationWarning
-          className="gcal flex-1 min-w-0 p-2 md:p-3"
-          style={{ ["--row-h" as string]: `${ZOOM_CONFIG[zoomLevel].row}px` }}
-        >
-          {loadingFocusSessions ? (
-            <div className="grid place-items-center h-full text-muted-foreground text-sm">
-              Loading sessions…
-            </div>
-          ) : (
-            <DnDCalendar
-              localizer={localizer}
-              events={allCalEvents}
-              startAccessor="start"
-              endAccessor="end"
-              allDayAccessor="allDay"
-              view={currentView as View}
-              onView={(v) => setCurrentView(v as CalView)}
-              date={currentDate}
-              onNavigate={setCurrentDate}
-              onSelectEvent={handleSelectEvent as (event: object) => void}
-              onEventDrop={handleEventDrop as (args: EventInteractionArgs<object>) => void}
-              onEventResize={
-                handleEventResize as (args: EventInteractionArgs<object>) => void
-              }
-              onSelectSlot={handleSelectSlot}
-              selectable={currentView !== "month"}
-              draggableAccessor={draggableAccessor as (event: object) => boolean}
-              resizableAccessor={resizableAccessor as (event: object) => boolean}
-              resizable
-              popup
-              eventPropGetter={
-                eventStyleGetter as (event: object) => { style: React.CSSProperties }
-              }
-              dayLayoutAlgorithm={timeblocksFirstLayout as DayLayoutFunction<object>}
-              step={ZOOM_CONFIG[zoomLevel].step}
-              timeslots={ZOOM_CONFIG[zoomLevel].timeslots}
-              scrollToTime={scrollToTime}
-              formats={{
-                timeGutterFormat: (d: Date) => format(d, "h a"),
-                eventTimeRangeFormat: ({ start }: { start: Date }) =>
-                  format(start, "h:mm a"),
-              }}
-              tooltipAccessor={(event) => {
-                const ev = event as CalendarEvent;
-                if (ev.isTask) return ev.title;
-                const prefix = ev.isTimeblock ? "Planned · " : "";
-                return `${prefix}${ev.tag}\n${format(ev.start, "h:mm a")} – ${format(
-                  ev.end,
-                  "h:mm a"
-                )}`;
-              }}
-              getNow={() => new Date()}
-              min={startOfDay(new Date())}
-              max={endOfDay(new Date())}
-              components={calComponents}
-            />
-          )}
-        </main>
+          {rail}
+        </aside>
+        <CalendarGrid
+          date={date}
+          view={view}
+          zoom={zoom}
+          events={events}
+          settings={pomodoroSettings}
+          loading={loadingFocusSessions || loadingTimeblocks}
+          highlight={highlight}
+          scrollTo={scrollTo}
+          draggedEvent={draggedEvent}
+          onDate={setDate}
+          onView={setView}
+          onSlot={selectSlot}
+          onMove={moveBlock}
+          onSelect={(event, details) => {
+            if (event.kind === "deadline")
+              router.push(
+                `/projects?task=${encodeURIComponent(event.taskUid || "")}`,
+              );
+            else if (event.occurrence) {
+              const bounds = details.currentTarget?.getBoundingClientRect();
+              setEditor({
+                occurrence: event.occurrence,
+                start: event.start,
+                end: event.end,
+                point: bounds
+                  ? { x: bounds.left, y: bounds.top }
+                  : { ...pointer.current },
+              });
+            } else if (event.session) setSelectedSession(event.session);
+          }}
+          onOutsideDrop={({ start, allDay }) => {
+            const task = draggedTaskRef.current;
+            draggedTaskRef.current = null;
+            setDraggedTask(null);
+            if (!task) return;
+            if (allDay || view === "month") {
+              toast.message("Drop tasks into a timed day or week slot");
+              return;
+            }
+            void planTask(task, new Date(start));
+          }}
+        />
       </div>
-
-      {pendingSlot && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setPendingSlot(null)} />
-          <div
-            className="fixed z-50 bg-popover border shadow-2xl rounded-xl overflow-hidden w-64"
-            style={{ left: pendingSlot.x, top: pendingSlot.y }}
-          >
-            <div className="px-4 pt-3.5 pb-2.5 border-b bg-muted/40">
-              <div className="flex items-center gap-2">
-                <FaRegClock className="size-3 text-muted-foreground shrink-0" />
-                <p className="text-xs font-semibold">Plan time block</p>
-              </div>
-              <p className="text-xs text-muted-foreground mt-0.5 font-mono">
-                {format(pendingSlot.start, "h:mm a")} → {format(pendingSlot.end, "h:mm a")}
-              </p>
-              <select aria-label="Task for calendar block" value={pendingTaskUid} onChange={(e) => setPendingTaskUid(e.target.value)} className="mt-2 h-8 w-full rounded-lg bg-muted/50 px-2 text-xs">
-                <option value="">No linked task</option>
-                {tasks.filter((t) => !t.deletedAt && !t.completedAt && !projects.some((p) => p.id === t.projectId && p.status === "Closed")).map((t) => <option key={t.uid} value={t.uid}>{t.title}</option>)}
-              </select>
-            </div>
-
-            <div className="p-3 flex flex-col gap-2.5">
-              {allTags.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {allTags.slice(0, 10).map(({ tag, color }) => (
-                    <button
-                      key={tag}
-                      onClick={() => handleCreateTimeblock(tag)}
-                      className="px-2.5 py-1 rounded-full text-xs font-semibold transition-transform hover:scale-105 active:scale-95"
-                      style={{
-                        backgroundColor: colorWithAlpha(color, 0.15),
-                        color,
-                        border: `1.5px dashed ${color}`,
-                      }}
-                    >
-                      {tag}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <div className="flex gap-1.5">
-                <Input
-                  autoFocus
-                  value={pendingTag}
-                  onChange={(e) => setPendingTag(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleCreateTimeblock();
-                    if (e.key === "Escape") setPendingSlot(null);
-                  }}
-                  placeholder="New tag…"
-                  className="h-7 text-xs flex-1 bg-background"
-                />
-                <Button
-                  size="sm"
-                  className="h-7 px-2.5 text-xs"
-                  onClick={() => handleCreateTimeblock()}
-                  disabled={!pendingTag.trim() && !pendingTaskUid}
-                >
-                  Add
-                </Button>
-              </div>
-
-              <button
-                onClick={() => setPendingSlot(null)}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors w-full text-center py-0.5"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </>
+      {editor && (
+        <BlockEditor
+          key={`${editor.occurrence?.key || "new"}:${+editor.start}:${+editor.end}`}
+          target={editor}
+          tasks={openTasks}
+          savedTags={savedTags}
+          settings={pomodoroSettings}
+          now={now}
+          onSave={saveEditor}
+          onDelete={async (scope) => {
+            if (editor.occurrence) {
+              await removeOccurrence(editor.occurrence, scope);
+              toast.success("Block deleted");
+            }
+          }}
+          onStart={() => {
+            if (editor.occurrence) startOccurrence(editor.occurrence);
+            setEditor(null);
+          }}
+          onClose={() => setEditor(null)}
+        />
       )}
-
-      {editingTb && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setEditingTb(null)} />
-          <div
-            className="fixed z-50 bg-popover border shadow-2xl rounded-xl overflow-hidden w-64"
-            style={{ left: editingTb.x, top: editingTb.y }}
-          >
-            <div className="px-4 pt-3.5 pb-2.5 border-b bg-muted/40">
-              <div className="flex items-center gap-2">
-                <span
-                  className="size-2.5 rounded-full shrink-0"
-                  style={{ background: getTagColor(savedTags, editingTb.tag)[0] }}
-                />
-                <p className="text-xs font-semibold truncate">{editingTb.tag}</p>
-              </div>
-              <p className="text-xs text-muted-foreground mt-0.5 font-mono">
-                {format(editingTb.startTime, "h:mm a")} →{" "}
-                {format(editingTb.endTime, "h:mm a")}
-              </p>
-            </div>
-
-            <div className="p-3 flex flex-col gap-2.5">
-              {allTags.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {allTags
-                    .filter((t) => t.tag !== editingTb.tag)
-                    .slice(0, 9)
-                    .map(({ tag, color }) => (
-                      <button
-                        key={tag}
-                        onClick={() => {
-                          editTimeblock(editingTb.id, { tag });
-                          setEditingTb(null);
-                        }}
-                        className="px-2 py-0.5 rounded-full text-xs font-medium transition-transform hover:scale-105"
-                        style={{
-                          backgroundColor: colorWithAlpha(color, 0.12),
-                          color,
-                          border: `1.5px dashed ${color}`,
-                        }}
-                      >
-                        {tag}
-                      </button>
-                    ))}
-                </div>
-              )}
-
-              <div className="flex gap-1.5">
-                <Input
-                  value={editTbTag}
-                  onChange={(e) => setEditTbTag(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && editTbTag.trim()) {
-                      editTimeblock(editingTb.id, { tag: editTbTag.trim() });
-                      setEditingTb(null);
-                    }
-                    if (e.key === "Escape") setEditingTb(null);
-                  }}
-                  placeholder="Rename tag…"
-                  className="h-7 text-xs flex-1 bg-background"
-                />
-                <Button
-                  size="sm"
-                  className="h-7 px-2.5 text-xs"
-                  onClick={() => {
-                    if (editTbTag.trim()) {
-                      editTimeblock(editingTb.id, { tag: editTbTag.trim() });
-                      setEditingTb(null);
-                    }
-                  }}
-                  disabled={!editTbTag.trim() || editTbTag.trim() === editingTb.tag}
-                >
-                  Save
-                </Button>
-              </div>
-
-              <button
-                onClick={() => {
-                  removeTimeblock(editingTb.id);
-                  setEditingTb(null);
-                }}
-                className="flex items-center justify-center gap-1.5 text-xs text-destructive hover:text-destructive/80 transition-colors w-full py-0.5"
-              >
-                <FaTrash className="size-2.5" />
-                Delete block
-              </button>
-
-              <button
-                onClick={() => setEditingTb(null)}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors w-full text-center py-0.5"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </>
+      {pendingMove && (
+        <AnchoredPanel
+          point={pendingMove.point}
+          onClose={() => {
+            if (!moving) setPendingMove(null);
+          }}
+          label="Move repeating block"
+        >
+          <SeriesChoice
+            action="Apply this time change to…"
+            busy={moving}
+            onChoose={(scope) => void finishMove(scope)}
+            onCancel={() => setPendingMove(null)}
+          />
+        </AnchoredPanel>
       )}
-
       <EditFocusSessionDialog
         session={selectedSession}
-        open={isEditDialogOpen}
-        onOpenChange={setIsEditDialogOpen}
+        open={!!selectedSession}
+        onOpenChange={(open) => {
+          if (!open) setSelectedSession(null);
+        }}
       />
-
-      <style jsx global>{`
-        .gcal {
-          height: 100%;
-        }
-        .gcal .rbc-calendar {
-          font-family: inherit;
-          height: 100%;
-          background: transparent;
-        }
-        .gcal .rbc-toolbar {
-          display: none;
-        }
-        .gcal .rbc-allday-cell {
-          min-height: 24px;
-          padding: 3px 0;
-        }
-        .gcal .rbc-time-view,
-        .gcal .rbc-month-view {
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          overflow: hidden;
-          background: var(--card);
-        }
-        .gcal .rbc-time-header {
-          border-bottom: 1px solid var(--border);
-          background: var(--card);
-        }
-        .gcal .rbc-time-header.rbc-overflowing,
-        .gcal .rbc-time-header-gutter,
-        .gcal .rbc-time-header-content {
-          border-right: 0;
-          border-left: 0;
-        }
-        .gcal .rbc-header {
-          border-bottom: 0;
-          border-left: 1px solid var(--border);
-          padding: 0;
-          font-weight: 400;
-          overflow: visible;
-        }
-        .gcal .rbc-header:first-child {
-          border-left: 0;
-        }
-        .gcal .rbc-time-content {
-          border-top: 0;
-          overflow-y: auto;
-          scrollbar-width: thin;
-        }
-        .gcal .rbc-time-content > .rbc-day-slot,
-        .gcal .rbc-time-content > .rbc-time-gutter + * {
-          border-left: 1px solid var(--border);
-        }
-        .gcal .rbc-timeslot-group {
-          min-height: var(--row-h, 56px);
-          border-bottom: 1px solid var(--border);
-        }
-        .gcal .rbc-day-slot .rbc-time-slot {
-          border-top: 0;
-        }
-        .gcal .rbc-time-gutter {
-          font-size: 0.68rem;
-          font-family: var(--font-geist-mono, monospace);
-          color: var(--muted-foreground);
-          background: var(--card);
-        }
-        .gcal .rbc-time-gutter .rbc-timeslot-group {
-          border-bottom: 0;
-          text-align: right;
-        }
-        .gcal .rbc-time-gutter .rbc-label {
-          display: inline-block;
-          padding: 0 0.6rem 0 0.5rem;
-          transform: translateY(-0.55em);
-          background: var(--card);
-          white-space: nowrap;
-        }
-        .gcal .rbc-time-gutter .rbc-timeslot-group:first-child .rbc-label {
-          visibility: hidden;
-        }
-        .gcal .rbc-today {
-          background: color-mix(in oklab, var(--primary) 6%, transparent);
-        }
-        .gcal .rbc-off-range-bg {
-          background: color-mix(in oklab, var(--muted) 55%, transparent);
-        }
-        .gcal .rbc-current-time-indicator {
-          background: #ea4335;
-          height: 2px;
-          z-index: 5;
-        }
-        .gcal .rbc-current-time-indicator::before {
-          content: "";
-          position: absolute;
-          left: -5px;
-          top: -4px;
-          width: 10px;
-          height: 10px;
-          border-radius: 9999px;
-          background: #ea4335;
-        }
-        .gcal .rbc-event {
-          padding: 2px 7px;
-          font-size: 0.75rem;
-          font-weight: 500;
-          line-height: 1.25;
-          border-radius: 6px !important;
-          border: none;
-          outline: none !important;
-          box-shadow: none !important;
-          transition: box-shadow 0.12s ease;
-        }
-        .gcal .rbc-event:hover {
-          box-shadow: 0 1px 8px rgb(0 0 0 / 0.3) !important;
-        }
-        .gcal .rbc-event:focus-visible,
-        .gcal .rbc-selected {
-          outline: 2px solid var(--ring) !important;
-          outline-offset: 1px;
-        }
-        .gcal .rbc-event-label {
-          font-size: 0.64rem;
-          font-family: var(--font-geist-mono, monospace);
-          opacity: 0.85;
-        }
-        .gcal .rbc-slot-selecting,
-        .gcal .rbc-slot-selection {
-          background: color-mix(in oklab, var(--primary) 14%, transparent);
-          border: 1px dashed color-mix(in oklab, var(--primary) 55%, transparent);
-          border-radius: 6px;
-          color: var(--foreground);
-          font-size: 0.68rem;
-        }
-        .gcal .rbc-month-row {
-          border-top: 1px solid var(--border);
-        }
-        .gcal .rbc-month-row:first-child {
-          border-top: 0;
-        }
-        .gcal .rbc-month-header .rbc-header {
-          text-align: center;
-        }
-        .gcal .rbc-day-bg + .rbc-day-bg {
-          border-left: 1px solid var(--border);
-        }
-        .gcal .rbc-date-cell {
-          padding: 5px 6px 2px;
-          text-align: center;
-          font-size: 0.72rem;
-          font-variant-numeric: tabular-nums;
-        }
-        .gcal .rbc-date-cell.rbc-now > .rbc-button-link {
-          display: inline-grid;
-          place-items: center;
-          min-width: 22px;
-          height: 22px;
-          border-radius: 9999px;
-          background: var(--primary);
-          color: var(--primary-foreground);
-          font-weight: 600;
-        }
-        .gcal .rbc-off-range .rbc-button-link {
-          color: var(--muted-foreground);
-          opacity: 0.55;
-        }
-        .gcal .rbc-show-more {
-          color: var(--muted-foreground);
-          font-size: 0.68rem;
-          font-weight: 600;
-          background: transparent;
-          padding-left: 6px;
-        }
-        .gcal .rbc-show-more:hover {
-          color: var(--foreground);
-        }
-        .gcal .rbc-overlay {
-          background: var(--popover);
-          color: var(--popover-foreground);
-          border: 1px solid var(--border);
-          border-radius: 10px;
-          box-shadow: 0 12px 32px rgb(0 0 0 / 0.24);
-          padding: 8px;
-        }
-        .gcal .rbc-overlay-header {
-          border-bottom: 1px solid var(--border);
-          font-size: 0.75rem;
-          font-weight: 600;
-          padding: 2px 4px 8px;
-          margin-bottom: 6px;
-        }
-        .gcal .rbc-addons-dnd-drag-preview {
-          opacity: 0.6;
-        }
-        .gcal .rbc-addons-dnd .rbc-addons-dnd-resize-ns-icon {
-          border-color: currentColor;
-          opacity: 0.5;
-        }
-        .gcal .rbc-time-content::-webkit-scrollbar {
-          width: 8px;
-        }
-        .gcal .rbc-time-content::-webkit-scrollbar-thumb {
-          background: color-mix(in oklab, var(--muted-foreground) 35%, transparent);
-          border-radius: 9999px;
-        }
-        .gcal .rbc-time-content::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .gcal *,
-          .gcal *::before {
-            transition: none !important;
-          }
-        }
-      `}</style>
     </div>
+  );
+}
+
+export default function CalendarPage() {
+  return (
+    <Suspense
+      fallback={
+        <div
+          className="m-4 h-[80dvh] rounded-2xl bg-muted/40"
+          role="status"
+          aria-label="Loading calendar"
+        />
+      }
+    >
+      <CalendarWorkspace />
+    </Suspense>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { format } from "date-fns";
 import {
   Archive,
   ArrowLeft,
@@ -40,7 +41,8 @@ import {
   taskMinutes,
   type Task,
 } from "@/lib/tasks";
-import { parseTaskInput, parsedToTaskFields } from "@/lib/task-parse";
+import { blockTimes, parseTaskInput, parsedToTaskFields } from "@/lib/task-parse";
+import { minutesBetween } from "@/lib/timeblocks";
 import { ParsePreview } from "./ParsePreview";
 import { TaskSyntaxHelp } from "./TaskSyntaxHelp";
 import { TaskRow } from "./TaskRow";
@@ -94,7 +96,7 @@ export function TaskWorkspace({
   const { tasks, loading, error, loadTasks, addTask, updateTask } = useTasks();
   const { projects, loadingProjects, loadProjects } = useProjects();
   const { focusSessions, loadFocusSessions } = useFocus();
-  const { loadTimeblocks } = useTimeblocks();
+  const { loadTimeblocks, addTimeblock } = useTimeblocks();
   const { state: timer, startTask } = usePomo();
   const router = useRouter();
   const params = useSearchParams();
@@ -241,16 +243,33 @@ export function TaskWorkspace({
     if (!parsed.title.trim() || adding) return;
     setAdding(true);
     try {
+      const now = new Date();
+      const current = parseTaskInput(quickTitle, { now, projects, ignore });
+      const planned = blockTimes(current, now);
       const fields = {
         projectId: typeof scope === "number" ? scope : null,
-        ...parsedToTaskFields(parsed),
+        ...parsedToTaskFields(current, now),
+        ...(planned && current.estimateMinutes === undefined
+          ? { estimateMinutes: minutesBetween(planned.start, planned.end) }
+          : {}),
       };
-      await addTask(parsed.title, fields);
-      if (
-        parsed.projectId !== undefined &&
-        parsed.projectId !== (typeof scope === "number" ? scope : null)
-      ) {
-        const destination = projects.find((p) => p.id === parsed.projectId);
+      const id = await addTask(current.title, fields);
+      const destination = projects.find((p) => p.id === fields.projectId);
+      if (planned) {
+        // addTask mints its own uid and publishes the created row before resolving.
+        const newTask = useTasks.getState().tasks.find((task) => task.id === id);
+        try {
+          if (!newTask?.uid) throw new Error("Created task is unavailable");
+          await addTimeblock(current.tags[0] || "Focus", planned.start, planned.end, current.title, {
+            taskUid: newTask.uid,
+            projectUid: destination?.uid,
+          });
+          toast(`Task added and planned for ${format(planned.start, "EEE")} ${current.tokens.find((token) => token.kind === "block")!.label}`);
+        } catch {
+          // The task already exists: clear the input so retrying cannot duplicate it.
+          toast.error("Task added, but its calendar block could not be saved");
+        }
+      } else if (current.projectId !== undefined && current.projectId !== (typeof scope === "number" ? scope : null)) {
         if (destination) toast(`Added to ${destination.title}`);
       }
       setQuickTitle("");

@@ -16,7 +16,8 @@
 
 "use client";
 
-import { useEffect, useState, type JSX, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from "react";
+import { format } from "date-fns";
 import { Command } from "cmdk";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -26,6 +27,8 @@ import { useTag } from "@/hooks/useTag";
 import { useFocusGoal, GOAL_PRESETS } from "@/hooks/useFocusGoal";
 import { useConfig, type FeatureKey } from "@/hooks/useConfig";
 import { useProjects } from "@/hooks/useProjects";
+import { useTimeblocks } from "@/hooks/useTimeblocks";
+import { blockTimes, parseTaskInput } from "@/lib/task-parse";
 import { useNotes } from "@/hooks/useNotes";
 import { isTrashed, noteHref, noteTitle } from "@/lib/notes";
 import { ProjectIcon } from "@/components/tasks/ProjectIcon";
@@ -41,6 +44,7 @@ import { FaPause, FaPlay } from "react-icons/fa";
 import {
   FaArrowRight,
   FaBullseye,
+  FaCalendarPlus,
   FaFileExport,
   FaForwardFast,
   FaGear,
@@ -81,6 +85,31 @@ export default function CommandPalette(): JSX.Element {
   const { featureToggles } = useConfig();
   const { projects, loadProjects } = useProjects();
   const { notes, loadNotes } = useNotes();
+  const addTimeblock = useTimeblocks((s) => s.addTimeblock);
+  const planning = useRef(false);
+  const parsed = useMemo(() => parseTaskInput(search, { projects }), [search, projects]);
+  const planned = blockTimes(parsed);
+  const rangeLabel = parsed.tokens.find((token) => token.kind === "block")?.label;
+
+  const planBlock = async () => {
+    if (planning.current) return;
+    const now = new Date();
+    const current = parseTaskInput(search, { now, projects });
+    const times = blockTimes(current, now);
+    if (!times) return;
+    planning.current = true;
+    try {
+      const project = projects.find((p) => p.id === current.projectId);
+      await addTimeblock(current.tags[0] || tag || "Focus", times.start, times.end, current.title, {
+        projectUid: project?.uid,
+      });
+      toast(`Block planned for ${format(times.start, "EEE, MMM d")} ${current.tokens.find((token) => token.kind === "block")!.label}`);
+    } catch {
+      toast.error("Could not plan block");
+    } finally {
+      planning.current = false;
+    }
+  };
 
   useEffect(() => {
     if (paletteOpen && featureToggles.projects) loadProjects();
@@ -107,6 +136,7 @@ export default function CommandPalette(): JSX.Element {
   const hasElapsed = state.startTime !== null || state.elapsedSeconds > 0;
   const trimmed = search.trim().replace(/^#/, "");
   const offerNewTag =
+    !planned &&
     trimmed.length > 0 &&
     trimmed.length <= 32 &&
     !savedTags.some((t) => t.t.toLowerCase() === trimmed.toLowerCase());
@@ -147,7 +177,7 @@ export default function CommandPalette(): JSX.Element {
         <Command.Input
           value={search}
           onValueChange={setSearch}
-          placeholder="Type a command, page, tag, project or note…"
+          placeholder="Type a command or plan “Study tomorrow 2-4pm”…"
           className="h-12 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
         <Kbd className="shrink-0">Esc</Kbd>
@@ -157,6 +187,20 @@ export default function CommandPalette(): JSX.Element {
         <Command.Empty className="px-3 py-8 text-center text-sm text-muted-foreground">
           Nothing matches “{search}”.
         </Command.Empty>
+
+        {planned && (
+          <Command.Group heading="Calendar">
+            <Item
+              icon={<FaCalendarPlus />}
+              value={search}
+              keywords={["plan", "block", "calendar"]}
+              onSelect={run(() => { void planBlock(); })}
+            >
+              Plan block: {parsed.title} · <span className="font-mono tabular-nums">{format(planned.start, "EEE, MMM d")} {rangeLabel}</span>
+              {parsed.tags[0] && <span className="ml-2 inline-flex rounded-md bg-primary/12 px-1.5 py-0.5 text-xs text-primary">#{parsed.tags[0]}</span>}
+            </Item>
+          </Command.Group>
+        )}
 
         {/* ── Timer ── */}
         <Command.Group heading="Timer">

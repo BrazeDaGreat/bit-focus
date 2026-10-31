@@ -94,6 +94,11 @@ const PomoContext = createContext<{
   state: PomoState;
   start: () => void;
   startTask: (task: NonNullable<PomoState["task"]>) => void;
+  /**
+   * Start a planned timeblock: its tag, its task when it has one (otherwise
+   * none), and its timer mode when set. Focus already on the clock is saved first.
+   */
+  startBlock: (block: { tag: string; task?: PomoState["task"]; mode?: TimerMode }) => void;
   pause: () => void;
   reset: () => void;
   setMode: (mode: TimerMode) => void;
@@ -667,6 +672,20 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
       send({ type: "RESET" });
       send({ type: "START", payload: { startTime: now, now, task } });
       announce(`Started focusing on ${task.title}.`);
+    },
+    startBlock: ({ tag, task = null, mode }: { tag: string; task?: PomoState["task"]; mode?: TimerMode }) => {
+      const s = stateRef.current;
+      const sameMode = !mode || mode === s.mode;
+      if (s.isRunning && sameMode && (s.task?.uid ?? null) === (task?.uid ?? null) && useTag.getState().tag === tag) return;
+      const now = Date.now();
+      if (isFocusTime(s) && liveElapsed(s, now) >= 60) {
+        finishSession(s, now, s.mode === "pomodoro" ? "Pomodoro session" : "Focus session", false);
+      }
+      useTag.getState().setTag(tag);
+      send({ type: "RESET" });
+      if (!sameMode) send({ type: "SET_MODE", payload: { mode: mode!, startAt: null } });
+      send({ type: "START", payload: { startTime: now, now, task } });
+      announce(`Started focusing on ${task?.title ?? tag}.`);
     },
     start: () => {
       const s = stateRef.current;

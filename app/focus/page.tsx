@@ -34,13 +34,15 @@ import { describeRing, humanMinutes, type RingState } from "@/lib/timerRing";
 import { FocusSession, useFocus } from "@/hooks/useFocus";
 import { deleteSessionsWithUndo } from "@/lib/focusUndo";
 import { useTag } from "@/hooks/useTag";
+import { useCurrentBlock } from "@/hooks/useCurrentBlock";
 import {
   GOAL_MAX_MINUTES,
   GOAL_MIN_MINUTES,
   GOAL_PRESETS,
   useFocusGoal,
 } from "@/hooks/useFocusGoal";
-import { calculateTime, cn, formatClock, formatTimeNew } from "@/lib/utils";
+import { calculateTime, cn, formatClock, formatTimeNew, getTagColor } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import { FaPause, FaPlay, FaTrash, FaYoutube } from "react-icons/fa";
 import {
   FaArrowRightLong,
@@ -119,13 +121,14 @@ export default function Focus(): JSX.Element {
       {/* ── Timer screen: ring centred, dock along the bottom edge ──────── */}
       <section className="flex min-h-[calc(100dvh-7.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] flex-col md:min-h-[calc(100dvh-7rem)] lg:min-h-[calc(100dvh-3.5rem)]">
         {/* Ring takes the whole screen above the dock */}
-        <div className="flex flex-1 items-center justify-center px-4 py-8">
+        <div className="flex flex-1 flex-col items-center justify-center gap-5 px-4 py-8">
           <TimerRing
             seconds={displaySeconds(state)}
             ring={ring}
             isRunning={state.isRunning}
             compact={isMobile}
           />
+          <FocusBlockRow />
         </div>
 
         {/* ── Music — rides just above the dock ── */}
@@ -276,6 +279,45 @@ export default function Focus(): JSX.Element {
       >
         <PomodoroSettings />
       </ResponsiveDialog>
+    </div>
+  );
+}
+
+/** Calendar context belongs beside the ring it can start. */
+function FocusBlockRow() {
+  const { current, freeUntil, loading, titleOf, startOccurrence, isRunningOn } = useCurrentBlock(15_000);
+  const savedTags = useTag((s) => s.savedTags);
+
+  if (loading) {
+    return <Skeleton aria-label="Loading current time block" className="h-12 w-full max-w-md rounded-xl animate-none motion-safe:animate-pulse" />;
+  }
+
+  if (!current) {
+    return (
+      <p className="rounded-xl bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+        {freeUntil ? <>Free until <span className="font-mono tabular-nums">{dayjs(freeUntil).format("h:mm A")}</span></> : "Nothing else planned today"}
+      </p>
+    );
+  }
+
+  const running = isRunningOn(current);
+  return (
+    <div className={cn(
+      "flex w-full max-w-md flex-wrap items-center gap-2 rounded-xl bg-muted/60 p-1 motion-safe:transition-opacity motion-safe:duration-500",
+      running && "opacity-40 hover:opacity-100 focus-within:opacity-100"
+    )}>
+      <div className="flex min-w-0 flex-1 basis-40 items-center gap-2 px-2 py-2">
+        <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ backgroundColor: getTagColor(savedTags, current.block.tag)[0] }} />
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium" title={titleOf(current)}>{titleOf(current)}</p>
+          <p className="text-xs text-muted-foreground">until <span className="font-mono tabular-nums">{dayjs(current.end).format("h:mm A")}</span></p>
+        </div>
+      </div>
+      {!running && (
+        <DockButton onClick={() => startOccurrence(current)} icon={<FaPlay className="size-3" />} className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          Start block
+        </DockButton>
+      )}
     </div>
   );
 }

@@ -65,6 +65,7 @@ import {
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { DEFAULT_TAG_COLOR } from "./ManageTagsContent";
 import type { TrendDatum } from "./TrendChart";
+import NowCard from "./NowCard";
 
 dayjs.extend(isSameOrAfter);
 
@@ -144,6 +145,9 @@ export default function Dashboard(): JSX.Element {
   return (
     <>
       {/* ── Zone 1: Now ── */}
+      <div className="mb-4">
+        <NowCard />
+      </div>
       <div
         className={cn(
           "grid gap-4",

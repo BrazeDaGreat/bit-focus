@@ -110,7 +110,7 @@ test("nested asset collection deduplicates uids and ignores external sources", (
 
 test("v16 preserves note indexes and provides unique indexed asset identities", async () => {
   await db.open();
-  assert.equal(db.verno, 16);
+  assert.equal(db.verno, 17);
   assert.deepEqual(db.notes.schema.indexes.map((index) => index.name), ["title", "type", "parentId", "createdAt", "updatedAt", "uid", "deletedAt", "order"]);
   assert.deepEqual(db.noteAssets.schema.indexes.map((index) => index.name), ["uid", "noteUid", "createdAt"]);
   await db.noteAssets.add(asset("page-a", "image-a"));

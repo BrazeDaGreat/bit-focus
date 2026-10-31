@@ -38,6 +38,10 @@ const RELOADERS: Record<string, Reloader> = {
     import("@/hooks/useTimeblocks").then((m) =>
       m.useTimeblocks.getState().loadTimeblocks(),
     ),
+  timeblockTemplates: () =>
+    import("@/hooks/useTimeblocks").then((m) =>
+      m.useTimeblocks.getState().loadTimeblocks(),
+    ),
   rewards: () =>
     import("@/hooks/useRewards").then((m) => m.useRewards.getState().loadRewards()),
   discounts: () =>
