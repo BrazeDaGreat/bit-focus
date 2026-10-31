@@ -184,7 +184,18 @@ export function PlanRail({
                 onDragTask(task);
               }}
               onDragEnd={() => onDragTask(null)}
-              className="group flex items-center gap-1 rounded-lg py-2 pl-1 hover:bg-muted/50"
+              // No visible button: drag it onto the grid, or press Enter to
+              // drop it into the next free slot.
+              tabIndex={task.uid ? 0 : -1}
+              aria-label={`${task.title}. Drag onto the calendar, or press Enter to plan it in the next free slot.`}
+              title="Drag onto the calendar"
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && task.uid) {
+                  event.preventDefault();
+                  onPlanTask(task);
+                }
+              }}
+              className="group flex cursor-grab items-center gap-1 rounded-lg py-2 pl-1 pr-2 outline-none hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
             >
               <GripVertical
                 aria-hidden
@@ -203,15 +214,6 @@ export function PlanRail({
                   {plannedTasks.has(task.uid || "") && <span className="shrink-0">· Planned</span>}
                 </div>
               </div>
-              <button
-                className={cn(QUIET, "px-2")}
-                disabled={!task.uid}
-                aria-label={`Plan ${task.title}`}
-                title="Plan at the next free 15-minute slot on the selected day"
-                onClick={() => onPlanTask(task)}
-              >
-                Plan
-              </button>
             </div>
             );
           })}

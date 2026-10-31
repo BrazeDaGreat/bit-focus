@@ -215,7 +215,7 @@ export default function SettingsPage(): JSX.Element {
               label="Automatic backup"
               hint={
                 autoBackup && lastBackup
-                  ? `Downloads a backup without files every 24 hours while the app is open. Last one ${dayjs(lastBackup).format("MMM D, HH:mm")}.`
+                  ? `Downloads a backup without files every 24 hours while the app is open. Last one ${dayjs(lastBackup).format("MMM D, h:mm A")}.`
                   : "Downloads a backup without files every 24 hours while the app is open."
               }
               preference="autoBackup"

@@ -44,6 +44,10 @@ const CHANGELOG = `
 - Fixed: Clicking outside an open editor opened a new one where you clicked. It now just closes the editor.
 - Improved: Unscheduled tasks in the Calendar show their project.
 - Changed: Home's Now summary is smaller and sits inside the Today panel, with a compact strip that covers only the hours you've planned. It disappears on days with no blocks.
+- Added: Home's Now summary shows how much time you've planned for today. Overlapping blocks are counted once.
+- Changed: Times use the 12-hour clock everywhere: calendar blocks and sessions, the selection outline, toasts, the Focus session log, the focus table, subtask deadlines, and the last automatic backup.
+- Changed: The "Plan" button is gone from the Calendar's unscheduled task list to keep it uncluttered. Drag a task onto the calendar, right-click a time to plan a task there, or focus a task and press Enter to drop it into the next free slot.
+- Fixed: The second line of notifications was hard to read in most themes. It now uses the theme's own muted text colour.
 ***
 
 ## \`v0.23.0 (LTS)\` (2026-09-29) — Settings, Commands & Review

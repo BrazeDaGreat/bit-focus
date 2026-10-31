@@ -867,7 +867,7 @@ function SessionRow({ session }: { session: FocusSession }): JSX.Element {
     <div className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-muted/50">
       <div className="flex w-24 shrink-0 flex-col">
         <span className="font-mono text-sm tabular-nums">
-          {startedAt.format("HH:mm")}
+          {startedAt.format("h:mm A")}
         </span>
         <span className="text-[11px] text-muted-foreground">{dayLabel}</span>
       </div>

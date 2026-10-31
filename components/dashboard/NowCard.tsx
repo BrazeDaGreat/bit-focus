@@ -8,6 +8,7 @@ import { useTag } from "@/hooks/useTag";
 import type { TimeblockOccurrence } from "@/lib/timeblocks";
 import { getTagColor } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { durationLabel } from "@/components/calendar/calendar-shared";
 
 export default function NowCard() {
   const {
@@ -28,9 +29,16 @@ export default function NowCard() {
   if (today.length === 0) return null;
 
   const running = current ? isRunningOn(current) : false;
+  const planned = plannedMinutes(today, startOfDay(now), addDays(startOfDay(now), 1));
 
   return (
     <div className="mt-3 min-w-0 rounded-xl bg-muted/40 px-4 py-3" role="group" aria-label="Now">
+      <p className="mb-1.5 flex items-baseline justify-between gap-2 text-xs text-muted-foreground">
+        <span>Now</span>
+        <span>
+          <span className="font-mono tabular-nums text-foreground">{durationLabel(planned)}</span> planned today
+        </span>
+      </p>
       {current ? (
         <div className="grid min-h-7 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
@@ -77,6 +85,22 @@ export default function NowCard() {
       <DayStrip occurrences={today} now={now} titleOf={titleOf} />
     </div>
   );
+}
+
+/** Minutes of the day covered by blocks; overlapping blocks count once. */
+function plannedMinutes(occurrences: TimeblockOccurrence[], dayStart: Date, dayEnd: Date) {
+  const spans = occurrences
+    .map((o) => [Math.max(+o.start, +dayStart), Math.min(+o.end, +dayEnd)] as const)
+    .filter(([start, end]) => end > start)
+    .sort((a, b) => a[0] - b[0]);
+  let total = 0;
+  let reach = -Infinity;
+  for (const [start, end] of spans) {
+    if (end <= reach) continue;
+    total += end - Math.max(start, reach);
+    reach = end;
+  }
+  return Math.round(total / 60_000);
 }
 
 /** A compact day range; elapsed segment fills and the marker share one track. */

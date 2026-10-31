@@ -33,7 +33,7 @@ export function TaskSubtasks({ task, onOpen }: { task: Task; onOpen: (task: Task
             </button>
             <button type="button" onClick={() => onOpen(child)} className="min-w-0 flex-1 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <p className={cn("truncate text-sm", child.completedAt && "text-muted-foreground line-through")}>{child.title}</p>
-              {due && <p className={cn("font-mono text-xs tabular-nums", isTaskOverdue(child) ? "text-destructive" : "text-muted-foreground")}>{format(due, child.dueTime ? "MMM d · HH:mm" : "MMM d")}</p>}
+              {due && <p className={cn("font-mono text-xs tabular-nums", isTaskOverdue(child) ? "text-destructive" : "text-muted-foreground")}>{format(due, child.dueTime ? "MMM d · h:mm a" : "MMM d")}</p>}
             </button>
           </div>;
         })}

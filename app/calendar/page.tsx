@@ -461,7 +461,7 @@ function CalendarWorkspace() {
       );
       if (!droppedAt) setDate(start);
       toast.success("Task planned", {
-        description: format(start, "EEE, MMM d · HH:mm"),
+        description: format(start, "EEE, MMM d · h:mm a"),
         action: {
           label: "Undo",
           onClick: () => {

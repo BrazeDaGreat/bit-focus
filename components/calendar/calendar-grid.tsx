@@ -35,7 +35,7 @@ import {
 import { enUS } from "date-fns/locale/en-US";
 import { Repeat2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { minutesBetween, pomodoroHint } from "@/lib/timeblocks";
+import { formatTimeRange, minutesBetween, pomodoroHint } from "@/lib/timeblocks";
 import {
   softTag,
   createTimeblocksLayout,
@@ -112,7 +112,7 @@ function CalendarEventContent({
   if (event.kind === "pending")
     return (
       <div className="h-full overflow-hidden font-mono text-[11px] tabular-nums">
-        {format(event.start, "HH:mm")}–{format(event.end, "HH:mm")}
+        {formatTimeRange(event.start, event.end)}
       </div>
     );
   if (event.kind === "deadline")
@@ -139,7 +139,7 @@ function CalendarEventContent({
         )}
         {display.sessions === "full" && height >= 35 && (
           <p className="mt-1 truncate font-mono text-[10px] tabular-nums opacity-75">
-            {format(event.start, "HH:mm")}–{format(event.end, "HH:mm")}
+            {formatTimeRange(event.start, event.end)}
           </p>
         )}
       </div>
@@ -163,7 +163,7 @@ function CalendarEventContent({
       </div>
       {height >= 35 && (
         <p className="mt-1 truncate font-mono text-[10px] tabular-nums opacity-65">
-          {format(event.start, "HH:mm")}–{format(event.end, "HH:mm")}
+          {formatTimeRange(event.start, event.end)}
         </p>
       )}
       {height >= 58 && hint && (
@@ -384,7 +384,7 @@ export function CalendarGrid({
             eventTimeRangeFormat: () => "",
           }}
           tooltipAccessor={(event) =>
-            `${event.kind === "block" ? "Planned" : event.kind === "session" ? "Focus session" : "Task deadline"} · ${event.title}\n${format(event.start, "EEE HH:mm")} – ${format(event.end, "HH:mm")}`
+            `${event.kind === "block" ? "Planned" : event.kind === "session" ? "Focus session" : "Task deadline"} · ${event.title}\n${format(event.start, "EEE")} ${formatTimeRange(event.start, event.end)}`
           }
           eventPropGetter={(event) => ({
             className: cn(

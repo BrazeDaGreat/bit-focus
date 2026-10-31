@@ -124,6 +124,14 @@ export function pomodoroHint(
   return { count, label: `${count} × ${focus}/${rest}` };
 }
 
+/** "2:30–6:30 PM", or "11:30 AM–1:00 PM" across noon. The app shows times on a 12-hour clock. */
+export function formatTimeRange(start: Date, end: Date): string {
+  const half = (d: Date) => format(d, "a");
+  return half(start) === half(end)
+    ? `${format(start, "h:mm")}–${format(end, "h:mm a")}`
+    : `${format(start, "h:mm a")}–${format(end, "h:mm a")}`;
+}
+
 export const minutesBetween = (start: Date, end: Date) =>
   Math.round((end.getTime() - start.getTime()) / MINUTE);
 
