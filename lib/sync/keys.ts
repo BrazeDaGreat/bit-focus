@@ -52,6 +52,8 @@ const DEVICE_LOCAL_KEYS: readonly string[] = [
   "pomoSegments",
   "pomoSegmentStart",
   "pomoTask",
+  // The planned timeblock the running timer was started from.
+  "pomoBlock",
   // Finished sessions this device has not confirmed saved. Replaying one on
   // another device would grant its points twice.
   "pomoPendingCompletions",

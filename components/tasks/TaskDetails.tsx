@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { format } from "date-fns";
+import { addDays, format } from "date-fns";
 import { Play, X, Trash2, RotateCcw, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,8 @@ import { useProjects } from "@/hooks/useProjects";
 import { useTag } from "@/hooks/useTag";
 import { useFocus } from "@/hooks/useFocus";
 import { useTimeblocks } from "@/hooks/useTimeblocks";
+import { useNow } from "@/hooks/useCurrentBlock";
+import { describeRecurrence, expandTimeblocks } from "@/lib/timeblocks";
 import { cn } from "@/lib/utils";
 import { DeadlinePicker, ProjectPicker } from "./TaskPickers";
 import {
@@ -44,11 +46,16 @@ export function TaskDetails({
   const { savedTags } = useTag();
   const { focusSessions } = useFocus();
   const { timeblocks } = useTimeblocks();
+  const now = useNow();
   const [title, setTitle] = useState(task.title);
   const [busy, setBusy] = useState(false);
   useEffect(() => setTitle(task.title), [task.title]);
   const sessions = focusSessions.filter((s) => s.taskUid === task.uid);
-  const blocks = timeblocks.filter((b) => b.taskUid === task.uid);
+  const blocks = expandTimeblocks(
+    task.uid ? timeblocks.filter((b) => b.taskUid === task.uid) : [],
+    now,
+    addDays(now, 14),
+  );
   const deadline = taskDeadline(task);
   const save = async (updates: Partial<Task>) => {
     try {
@@ -318,7 +325,19 @@ export function TaskDetails({
           {sessions.length > 0 &&
             ` · ${sessions.length} session${sessions.length === 1 ? "" : "s"}`}
         </p>
-        {blocks.length > 0 && <p>Calendar blocks · {blocks.length}</p>}
+        {blocks.length > 0 && (
+          <div className="space-y-1">
+            <p>Calendar blocks · <span className="font-mono tabular-nums">{blocks.length}</span> in the next <span className="font-mono tabular-nums">14</span> days</p>
+            {blocks.map(({ key, block, start, end, recurring }) => (
+              <p key={key} className="font-mono tabular-nums">
+                {format(start, "EEE, MMM d · h:mm a")}–{format(end, "h:mm a")}
+                {block.recurrence
+                  ? ` · ${describeRecurrence(block.recurrence, new Date(block.startTime))}`
+                  : recurring ? " · Repeating series" : ""}
+              </p>
+            ))}
+          </div>
+        )}
         {task.completedAt && (
           <p>Completed {format(new Date(task.completedAt), "MMM d, yyyy")}</p>
         )}

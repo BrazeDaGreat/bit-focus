@@ -41,7 +41,7 @@
  */
 
 import Dexie from "dexie";
-import db, { type AIConfig, QuickLink } from "./db";
+import db, { type AIConfig, QuickLink, type TimeblockTemplate } from "./db";
 import type { NoteAsset } from "./notes";
 import { serializeTasks, deserializeTasks, serializeAttachment, deserializeAttachment, deserializeTaskFilter, type SavedTask, type SavedTaskFilter, type SavedTaskAttachment } from "./task-backup";
 import { migrateTasks } from "./task-migration";
@@ -214,6 +214,8 @@ type ExportedData = {
     }[];
     /** AI config */
     aiConfig: AIConfig[];
+    /** Saved day plans. Absent in backups made before v0.24.1. */
+    timeblockTemplates?: (Omit<TimeblockTemplate, "createdAt" | "updatedAt"> & { createdAt: string; updatedAt: string })[];
     /** Calendar timeblock records */
     timeblocks?: {
       id?: number;
@@ -404,6 +406,11 @@ class SaveManager {
           startTime: t.startTime.toISOString(),
           endTime: t.endTime.toISOString(),
         })),
+        timeblockTemplates: (await db.timeblockTemplates.toArray()).map((t) => ({
+          ...t,
+          createdAt: t.createdAt.toISOString(),
+          updatedAt: t.updatedAt.toISOString(),
+        })),
       },
     };
 
@@ -513,6 +520,12 @@ class SaveManager {
       startTime: new Date(t.startTime),
       endTime: new Date(t.endTime),
     }));
+    // Older backups have no templates; restoring one keeps the ones saved here.
+    const timeblockTemplates = data.indexedDB.timeblockTemplates?.map((t) => ({
+      ...t,
+      createdAt: new Date(t.createdAt),
+      updatedAt: new Date(t.updatedAt),
+    }));
 
     const previousStorage = new Map<string, string>();
     for (let i = 0; i < localStorage.length; i++) {
@@ -535,6 +548,7 @@ class SaveManager {
         db.aiChats,
         db.aiConfig,
         db.timeblocks,
+        db.timeblockTemplates,
         db.tasks,
         db.taskFilters,
         db.taskAttachments,
@@ -555,6 +569,7 @@ class SaveManager {
         await db.aiChats.clear();
         await db.aiConfig.clear();
         await db.timeblocks.clear();
+        if (timeblockTemplates) await db.timeblockTemplates.clear();
         await db.tasks.clear();
         await db.taskFilters.clear();
         // Snapshots without files preserve local attachments for matching task UIDs.
@@ -590,6 +605,7 @@ class SaveManager {
         if (timeblocks.length > 0) {
           await db.timeblocks.bulkAdd(timeblocks);
         }
+        if (timeblockTemplates) await db.timeblockTemplates.bulkAdd(timeblockTemplates);
         await db.tasks.bulkAdd(tasks);
         if (attachments) await db.taskAttachments.bulkAdd(attachments);
         await db.taskFilters.bulkAdd(taskFilters);

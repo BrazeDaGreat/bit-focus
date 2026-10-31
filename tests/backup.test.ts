@@ -241,3 +241,24 @@ test("a settings storage failure rolls back imported records and restores all or
   assert.deepEqual((await SaveManager.exportJSON({ includeAttachments: true })).indexedDB, baseline.indexedDB);
   assert.deepEqual(storage, previous);
 });
+
+test("timeblock templates and repeat rules round-trip; older backups keep local templates", async () => {
+  await db.timeblocks.add({ uid: "block-a", tag: "Study", startTime: at, endTime: new Date(at.getTime() + 3600000),
+    recurrence: { freq: "weekly", days: [1, 3] }, exceptions: ["2026-10-14"], timerMode: "pomodoro" });
+  await db.timeblockTemplates.add({ uid: "tpl-a", name: "Uni day", createdAt: at, updatedAt: at,
+    blocks: [{ tag: "Study", startMinutes: 540, endMinutes: 630 }] });
+  const backup = await SaveManager.exportJSON();
+  assert.equal(backupPreview(backup).counts.timeblockTemplates, 1);
+  await db.timeblockTemplates.clear();
+  await SaveManager.importJSON(backup);
+  const [template] = await db.timeblockTemplates.toArray();
+  assert.equal(template.name, "Uni day");
+  assert.ok(template.createdAt instanceof Date);
+  const [block] = await db.timeblocks.toArray();
+  assert.deepEqual(block.recurrence, { freq: "weekly", days: [1, 3] });
+  assert.deepEqual(block.exceptions, ["2026-10-14"]);
+  const { timeblockTemplates: _omit, ...older } = backup.indexedDB;
+  void _omit;
+  await SaveManager.importJSON({ ...backup, indexedDB: older });
+  assert.equal(await db.timeblockTemplates.count(), 1);
+});

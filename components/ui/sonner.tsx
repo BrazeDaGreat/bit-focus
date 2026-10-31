@@ -10,6 +10,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
+      {...props}
       style={
         {
           "--normal-bg": "var(--popover)",
@@ -17,7 +18,15 @@ const Toaster = ({ ...props }: ToasterProps) => {
           "--normal-border": "var(--border)",
         } as React.CSSProperties
       }
-      {...props}
+      // Sonner only knows light and dark; most of our themes are neither, so
+      // its built-in description grey can land on a dark popover. Use tokens.
+      toastOptions={{
+        ...props.toastOptions,
+        classNames: {
+          description: "!text-muted-foreground",
+          ...props.toastOptions?.classNames,
+        },
+      }}
     />
   )
 }

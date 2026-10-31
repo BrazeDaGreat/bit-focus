@@ -51,6 +51,7 @@ import {
 } from "react-icons/fa6";
 import { IoIosTimer } from "react-icons/io";
 import { GiTomato } from "react-icons/gi";
+import { BlockTimerLine } from "@/components/now/BlockTimerLine";
 
 export default function MiniTimer({
   className,
@@ -239,7 +240,7 @@ export default function MiniTimer({
   return (
     <div
       className={cn(
-        "flex h-8 items-center gap-1.5 rounded-full border bg-card pl-2 pr-0.5 sm:gap-2 sm:pl-2.5 sm:pr-1",
+        "flex h-8 items-center gap-1.5 rounded-full border bg-card pl-2 pr-0.5 has-[[data-block-timer-line]]:min-w-56 sm:gap-2 sm:pl-2.5 sm:pr-1",
         className
       )}
     >
@@ -257,13 +258,16 @@ export default function MiniTimer({
       />
 
       {/* Time */}
-      <span
-        role="timer"
-        aria-live="off"
-        className="min-w-[3.2rem] flex-1 font-mono text-sm font-semibold tracking-tight tabular-nums lg:flex-none"
-      >
-        {formatClock(total)}
-      </span>
+      <div className="min-w-0 flex-1 leading-tight lg:flex-none">
+        <span
+          role="timer"
+          aria-live="off"
+          className="block min-w-[3.2rem] font-mono text-sm font-semibold leading-none tracking-tight tabular-nums"
+        >
+          {formatClock(total)}
+        </span>
+        <BlockTimerLine className="mt-0.5 max-w-28 text-[10px] leading-none lg:max-w-40" />
+      </div>
 
       {/* Start / Pause */}
       <Button
@@ -272,6 +276,7 @@ export default function MiniTimer({
         onClick={isRunning ? pause : start}
         className="size-6 rounded-full"
         title={isRunning ? "Pause" : "Start"}
+        aria-label={isRunning ? "Pause timer" : "Start timer"}
       >
         {isRunning ? (
           <FaPause className="size-2.5" />

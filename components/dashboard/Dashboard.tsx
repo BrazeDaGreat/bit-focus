@@ -65,6 +65,7 @@ import {
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { DEFAULT_TAG_COLOR } from "./ManageTagsContent";
 import type { TrendDatum } from "./TrendChart";
+import NowCard from "./NowCard";
 
 dayjs.extend(isSameOrAfter);
 
@@ -384,6 +385,7 @@ function TodayPanel(): JSX.Element {
           loading={loadingFocusSessions}
         />
       </div>
+      <NowCard />
     </section>
   );
 }

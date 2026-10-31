@@ -570,7 +570,7 @@ test("v14 upgrade drops the Excalidraw table and its sync records", async () => 
 
 test("v15 provides indexed parents and local blob attachments", async () => {
   await db.open();
-  assert.equal(db.verno, 16);
+  assert.equal(db.verno, 17);
   assert.ok(db.tasks.schema.indexes.some((index) => index.name === "parentId"));
   assert.deepEqual(db.taskAttachments.schema.indexes.map((index) => index.name), ["uid", "taskUid", "createdAt"]);
   assert.equal(COLLECTION_BY_KEY.has("taskAttachments"), false);

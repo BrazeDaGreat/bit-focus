@@ -161,6 +161,15 @@ export const COLLECTIONS: readonly SyncCollection[] = [
     order: 1,
   },
   {
+    key: "timeblockTemplates",
+    table: () => db.timeblockTemplates as unknown as Dexie.Table<LocalRow, string | number>,
+    pk: "id",
+    autoKey: true,
+    uidField: "uid",
+    dates: ["createdAt", "updatedAt"],
+    order: 1,
+  },
+  {
     key: "rewards",
     table: () => db.rewards as unknown as Dexie.Table<LocalRow, string | number>,
     pk: "id",

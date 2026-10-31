@@ -70,16 +70,16 @@ export default function FocusTableRow({
 
       <TableCell className="font-mono text-xs tabular-nums text-muted-foreground">
         <span className="text-foreground">{start.format("MMM D, YYYY")}</span>{" "}
-        {start.format("HH:mm")}
+        {start.format("h:mm A")}
       </TableCell>
 
       <TableCell className="font-mono text-xs tabular-nums text-muted-foreground">
         {sameDay ? (
-          end.format("HH:mm")
+          end.format("h:mm A")
         ) : (
           <>
             <span className="text-foreground">{end.format("MMM D, YYYY")}</span>{" "}
-            {end.format("HH:mm")}
+            {end.format("h:mm A")}
           </>
         )}
       </TableCell>

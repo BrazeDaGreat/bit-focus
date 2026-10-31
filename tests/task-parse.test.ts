@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseTaskInput, parsedToTaskFields, PARSE_EXAMPLES } from "../lib/task-parse";
+import { blockTimes, parseTaskInput, parsedToTaskFields, PARSE_EXAMPLES } from "../lib/task-parse";
 
 const now = new Date(2026, 9, 10, 14);
 const projects = [{ id: 1, title: "University" }, { id: 2, title: "Work" }, { id: 3, title: "Work Stuff" }];
@@ -126,4 +126,104 @@ test("help examples document calendar-week and midnight conventions", () => {
   const help = PARSE_EXAMPLES.flatMap(group => group.items).map(item => item.result).join(" ");
   assert.match(help, /following calendar week/);
   assert.match(help, /11:59 PM/);
+});
+
+test("time ranges take precedence over single times with exact ordered spans", () => {
+  const cases: [string, string, string, string][] = [
+    ["2-4pm", "14:00", "16:00", "2:00–4:00 PM"],
+    ["2pm-4pm", "14:00", "16:00", "2:00–4:00 PM"],
+    ["2:30-4pm", "14:30", "16:00", "2:30–4:00 PM"],
+    ["9am-12:30pm", "09:00", "12:30", "9:00 AM–12:30 PM"],
+    ["14:00-16:00", "14:00", "16:00", "2:00–4:00 PM"],
+    ["from 2 to 4pm", "14:00", "16:00", "2:00–4:00 PM"],
+    ["from 2pm to 4:30pm", "14:00", "16:30", "2:00–4:30 PM"],
+    ["2pm for 1h", "14:00", "15:00", "2:00–3:00 PM"],
+    ["2pm for 90m", "14:00", "15:30", "2:00–3:30 PM"],
+    ["at 2pm for 1h30m", "14:00", "15:30", "2:00–3:30 PM"],
+    ["11-1pm", "11:00", "13:00", "11:00 AM–1:00 PM"],
+    ["11:30-1pm", "11:30", "13:00", "11:30 AM–1:00 PM"],
+    ["12-1pm", "12:00", "13:00", "12:00–1:00 PM"],
+    ["9-11am", "09:00", "11:00", "9:00–11:00 AM"],
+    ["2 PM – 4 PM", "14:00", "16:00", "2:00–4:00 PM"],
+  ];
+  for (const [syntax, start, end, label] of cases) {
+    const input = `Study tomorrow ${syntax} #uni p2 ~2h`;
+    const p = parse(input);
+    assert.deepEqual(p.block, { start, end }, syntax);
+    assert.equal(p.title, "Study", syntax);
+    assert.equal(p.dueTime, undefined, syntax);
+    assert.equal(p.dueDay, undefined, syntax);
+    assert.equal(p.blockDay, "2026-10-11", syntax);
+    assert.equal(p.priority, 2, syntax);
+    assert.equal(p.estimateMinutes, 120, syntax);
+    assert.deepEqual(p.tokens.map(t => t.kind), ["date", "block", "tag", "priority", "estimate"], syntax);
+    const token = p.tokens.find(t => t.kind === "block")!;
+    assert.equal(token.text, syntax);
+    assert.equal(input.slice(token.start, token.end), syntax);
+    assert.equal(token.label, label);
+    assert.equal(token.key, `block:${syntax.toLowerCase()}`);
+  }
+});
+
+test("ranges reject invalid clocks, nonpositive lengths and unrelated numeric syntax", () => {
+  for (const syntax of ["2pm-2pm", "4pm-2pm", "16:00-14:00", "2-2pm", "25:00-26:00", "13pm-4pm", "2:99-4pm", "2pm for 0m", "2pm for -1h", "2pm for 0h0m", "2pm for 999999999h", "11pm for 2h", "2-4", "p2", "~2h", "2026-10-17", "foo2-4pm", "#2-4pm", "~2-4pm"]) {
+    assert.equal(parse(`Study ${syntax}`).block, undefined, syntax);
+  }
+  assert.equal(parse("Study p2 ~2h").priority, 2);
+  assert.equal(parse("Study p2 ~2h").estimateMinutes, 120);
+  assert.equal(parse("Call 5pm").dueTime, "17:00");
+  assert.equal(parse("Call 5pm").block, undefined);
+});
+
+test("quoted and ignored ranges remain literal without extracting their single times", () => {
+  for (const syntax of ["2-4pm", "2pm-4pm", "from 2 to 4pm", "from 2pm to 4:30pm", "at 2pm for 1h30m"]) {
+    const quoted = parse(`Study "${syntax}" tomorrow`);
+    assert.equal(quoted.title, `Study ${syntax}`);
+    assert.equal(quoted.block, undefined);
+    assert.equal(quoted.dueTime, undefined);
+    const input = `Study ${syntax} tomorrow`;
+    const ignored = parseTaskInput(input, { now, ignore: [`block:${syntax.toLowerCase()}`] });
+    assert.equal(ignored.title, `Study ${syntax}`);
+    assert.equal(ignored.block, undefined);
+    assert.equal(ignored.dueTime, undefined);
+    assert.equal(ignored.dueDay, "2026-10-11");
+  }
+});
+
+test("plain dates schedule blocks while explicit deadline dates still create deadlines", () => {
+  for (const [syntax, day] of [["tomorrow", "2026-10-11"], ["friday", "2026-10-16"], ["on friday", "2026-10-16"], ["oct 17", "2026-10-17"]]) {
+    for (const input of [`Study ${syntax} 2-4pm`, `Study 2-4pm ${syntax}`]) {
+      const p = parse(input);
+      assert.equal(p.blockDay, day, input);
+      assert.equal(p.dueDay, undefined, input);
+      assert.deepEqual(parsedToTaskFields(p, now), {}, input);
+      assert.equal(blockTimes(p, now)!.start.getTime(), new Date(`${day}T14:00`).getTime(), input);
+    }
+  }
+  for (const word of ["by", "due", "before", "until"]) {
+    const p = parse(`Study 2-4pm ${word} Friday`);
+    assert.equal(p.dueDay, "2026-10-16", word);
+    assert.equal(parsedToTaskFields(p, now).dueTime, false, word);
+    assert.equal(blockTimes(p, now)!.start.getDate(), 16, word);
+  }
+  for (const input of ["Study tomorrow 2-4pm by Friday", "Study by Friday 2-4pm tomorrow"]) {
+    const p = parse(input);
+    assert.equal(p.blockDay, "2026-10-11");
+    assert.equal(p.dueDay, "2026-10-16");
+    assert.equal(blockTimes(p, now)!.start.getDate(), 11);
+  }
+  assert.equal(parse("Study tonight 2-4pm").dueTime, undefined);
+  assert.equal(parse("Study 2-4pm by tonight").dueTime, "20:00");
+  assert.equal(parse("Study 2-4pm by Friday 5pm").dueTime, "17:00");
+});
+
+test("block dates use local days and roll only undated finished ranges forward", () => {
+  const p = parse("Study 2-4pm");
+  assert.deepEqual(blockTimes(p, now), { start: new Date(2026, 9, 10, 14), end: new Date(2026, 9, 10, 16) });
+  assert.equal(blockTimes(p, new Date(2026, 9, 10, 15))!.start.getDate(), 10);
+  assert.equal(blockTimes(p, new Date(2026, 9, 10, 16))!.start.getDate(), 11);
+  assert.equal(blockTimes(p, new Date(2026, 11, 31, 17))!.start.getFullYear(), 2027);
+  assert.equal(blockTimes(parse("Study today 2-4pm"), new Date(2026, 9, 10, 17))!.start.getDate(), 10);
+  assert.equal(blockTimes(parse("Study"), now), null);
+  assert.ok(PARSE_EXAMPLES.some(group => group.group === "Time blocks"));
 });

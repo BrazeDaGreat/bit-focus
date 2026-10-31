@@ -1,9 +1,9 @@
 "use client";
 
-import { CalendarDays, Clock3, Flag, Hash, Folder, Hourglass, X } from "lucide-react";
+import { CalendarDays, CalendarClock, Clock3, Flag, Hash, Folder, Hourglass, X } from "lucide-react";
 import type { ParseToken, ParseTokenKind } from "@/lib/task-parse";
 
-const icons = { date: CalendarDays, time: Clock3, priority: Flag, tag: Hash, project: Folder, estimate: Hourglass } satisfies Record<ParseTokenKind, typeof CalendarDays>;
+const icons = { date: CalendarDays, time: Clock3, block: CalendarClock, priority: Flag, tag: Hash, project: Folder, estimate: Hourglass } satisfies Record<ParseTokenKind, typeof CalendarDays>;
 
 export function ParsePreview({ tokens, onIgnore }: { tokens: ParseToken[]; onIgnore: (key: string) => void }) {
   if (!tokens.length) return null;
