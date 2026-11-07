@@ -59,6 +59,10 @@ const CHANGELOG = `
 - Added: "Summarise week" in Week in review asks your AI Chat model to write a review of the last 7 days: where your time went, what got done, what's carrying over, and a few gentle suggestions. The review is saved as a new page in Notes. If saving fails, the text is kept on this device so you can retry, copy, or download it.
 - Fixed: The Notepad footer no longer crowds instructions and counts together. Compact Solve, help, and clear controls keep it tidy, with shortcuts and jot instructions in a help popover.
 - Technical: Added tests for repeat parsing and scheduling, logged time, and the weekly review summary. No database version change.
+### \`v0.24.4-beta\` (2026-11-07) — Stay Signed In
+- Fixed: Connected accounts no longer sign out on their own after a few days. Your session is renewed when the app opens, every hour while it's open, and when you come back to it or reconnect to the internet, so sync keeps working as long as you open BIT Focus now and then.
+- Fixed: A device clock that runs ahead no longer signs you out on startup. The server now decides whether a session has ended, and being offline never signs you out.
+- Technical: Added tests for session refresh timing. No database version change.
 ***
 
 ## \`v0.23.0 (LTS)\` (2026-09-29) — Settings, Commands & Review

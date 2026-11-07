@@ -10,9 +10,15 @@
  * rather than hardcoded, so enabling Discord or GitHub in the PocketBase admin
  * makes the button appear here with no code change.
  *
+ * Sessions are kept alive in the background. A PocketBase token expires a fixed
+ * time after it was issued unless it is refreshed, so the store refreshes it on
+ * startup, hourly while the app is open, and whenever the app comes back into
+ * view or back online.
+ *
  * @fileoverview Account connection state and OAuth2 sign-in actions.
  * @author BIT Focus Development Team
  * @since v0.19.0
+ * @updated v0.24.4-beta - Background session refresh.
  */
 
 import { create } from "zustand";
@@ -23,6 +29,7 @@ import {
   type AuthUser,
   type ProviderName,
 } from "@/lib/pocketbase";
+import { REFRESH_CHECK_MS, isRefreshDue } from "@/lib/auth-session";
 
 /** A provider the backend has configured and is ready to authenticate with. */
 export interface AvailableProvider {
@@ -84,6 +91,26 @@ function orderProviders(providers: AvailableProvider[]): AvailableProvider[] {
  */
 let initPromise: Promise<void> | null = null;
 
+/** In-flight refresh, shared so overlapping triggers send one request. */
+let refreshPromise: Promise<void> | null = null;
+
+/**
+ * The token this device last saw issued, and when.
+ *
+ * A token restored from storage starts at 0 so it counts as due: its real
+ * issue time is unknown, and it may be close to expiring.
+ */
+let issuedToken = "";
+let issuedAt = 0;
+
+/** Note a newly issued token (sign-in, refresh, or another tab's refresh). */
+function noteToken(): void {
+  const token = pb.authStore.token;
+  if (token === issuedToken) return;
+  issuedToken = token;
+  issuedAt = token ? Date.now() : 0;
+}
+
 /**
  * Whether a failed refresh means the session is genuinely gone.
  *
@@ -112,6 +139,65 @@ function messageFor(error: unknown, fallback: string): string {
   return fallback;
 }
 
+/**
+ * Refresh the stored session, renewing its lifetime.
+ *
+ * Signs out only when the server rejects the token. Any other failure keeps
+ * the session and leaves it due, so the next check tries again.
+ *
+ * @param set - Store setter, to publish the refreshed account.
+ */
+function refreshSession(set: (patch: Partial<AuthState>) => void): Promise<void> {
+  if (refreshPromise) return refreshPromise;
+  if (!pb.authStore.token) return Promise.resolve();
+
+  refreshPromise = (async () => {
+    const token = pb.authStore.token;
+    try {
+      // `requestKey: null` opts this request out of deduplication so a
+      // concurrent caller cannot abort it.
+      const result = await pb
+        .collection(USERS_COLLECTION)
+        .authRefresh({ requestKey: null });
+      issuedToken = pb.authStore.token;
+      issuedAt = Date.now();
+      set({ user: result.record as AuthUser });
+    } catch (error) {
+      // Signed out, or signed in again in another tab, while this was in
+      // flight: the answer is about a token that is no longer in use.
+      if (pb.authStore.token !== token) return;
+      if (isSessionRejected(error)) {
+        pb.authStore.clear();
+        set({ user: null });
+      }
+      // Offline, aborted, or the server is unwell — keep the cached account.
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+}
+
+/**
+ * Refresh the session whenever it is due while the app is open.
+ *
+ * The interval covers a tab left open. Visibility and connectivity cover a
+ * device waking from sleep, when throttled background timers may not have run.
+ *
+ * @param refresh - Starts a refresh.
+ */
+function keepSessionAlive(refresh: () => void): void {
+  const check = () => {
+    if (isRefreshDue(pb.authStore.token, issuedAt, Date.now())) refresh();
+  };
+  window.setInterval(check, REFRESH_CHECK_MS);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") check();
+  });
+  window.addEventListener("online", check);
+}
+
 export const useAuth = create<AuthState>((set, get) => ({
   // Always signed-out until `init` runs after mount: PocketBase restores its
   // session from localStorage as soon as it loads in the browser, which the
@@ -131,10 +217,17 @@ export const useAuth = create<AuthState>((set, get) => ({
     initPromise = (async () => {
       // Mirror every future auth store change into React state.
       pb.authStore.onChange(() => {
+        noteToken();
         set({ user: (pb.authStore.record as AuthUser | null) ?? null });
       }, false);
 
-      if (!pb.authStore.isValid) {
+      issuedToken = pb.authStore.token;
+      keepSessionAlive(() => void refreshSession(set));
+
+      // Only a missing token means signed out. A token this device's clock
+      // calls expired still goes to the server: the clock may be wrong, and
+      // only the server can say the session is over.
+      if (!pb.authStore.token) {
         set({ user: null, ready: true });
         return;
       }
@@ -142,26 +235,10 @@ export const useAuth = create<AuthState>((set, get) => ({
       // Trust the stored session immediately. The refresh below only ever
       // confirms or revokes it, and the app should not flicker through a
       // signed-out state while that round trip is in flight.
-      const cached = (pb.authStore.record as AuthUser | null) ?? null;
-      set({ user: cached, ready: true });
+      set({ user: (pb.authStore.record as AuthUser | null) ?? null, ready: true });
 
-      try {
-        // Catch a revoked or deleted account. `requestKey: null` opts this
-        // request out of deduplication so a concurrent caller cannot abort it.
-        const result = await pb
-          .collection(USERS_COLLECTION)
-          .authRefresh({ requestKey: null });
-        set({ user: result.record as AuthUser });
-      } catch (error) {
-        if (isSessionRejected(error)) {
-          pb.authStore.clear();
-          set({ user: null });
-          return;
-        }
-        // Offline, aborted, or the server is unwell — keep the session and
-        // carry on with the cached account.
-        set({ user: cached });
-      }
+      // Renew the session's lifetime and catch a revoked or deleted account.
+      await refreshSession(set);
     })();
 
     return initPromise;
