@@ -1,16 +1,18 @@
 "use client";
 
-import { Check, Play, Clock3, ChevronRight } from "lucide-react";
+import { Check, Play, Clock3, ChevronRight, Repeat2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import {
   formatMinutes,
+  describeTaskRecurrence,
   isTaskOverdue,
   taskDeadline,
   type Task,
 } from "@/lib/tasks";
 import { useTag } from "@/hooks/useTag";
 import { ProjectIcon } from "./ProjectIcon";
+import { TaskRowActions } from "./TaskRowActions";
 
 interface TaskRowProps {
   task: Task;
@@ -45,6 +47,7 @@ export function TaskRow({
   const savedTags = useTag((s) => s.savedTags);
   const deadline = taskDeadline(task);
   return (
+    <TaskRowActions task={task} onOpen={onSelect} onComplete={onComplete} onFocus={onFocus}>
     <div
       className={cn(
         "group flex min-w-0 items-start gap-2.5 rounded-lg px-2 py-2.5 transition-colors duration-150 hover:bg-muted/50",
@@ -102,6 +105,7 @@ export function TaskRow({
           {task.title}
         </span>
         <span className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+          {task.recurrence && <span title={describeTaskRecurrence(task.recurrence)} aria-label={`Repeats: ${describeTaskRecurrence(task.recurrence)}`}><Repeat2 className="size-3" aria-hidden="true" /></span>}
           {subtaskProgress && (
             <span
               className="font-mono tabular-nums"
@@ -171,5 +175,6 @@ export function TaskRow({
         </button>
       )}
     </div>
+    </TaskRowActions>
   );
 }

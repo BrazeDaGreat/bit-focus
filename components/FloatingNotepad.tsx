@@ -50,11 +50,29 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { FaTrash, FaStickyNote, FaTimes, FaEquals } from "react-icons/fa";
+import { CheckCircle2, Circle, Trash2, Calculator, Trash } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useNotepad } from "@/hooks/useNotepad";
 import { KeyboardKey } from "./ui/keyboard-key";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import {
+  countJots,
+  clearCompletedJots,
+  clearAllJots,
+  getLineAtCaret,
+  isJotLine,
+  isCompletedJotLine,
+  toggleJotLine,
+} from "@/components/notepad/jot-utils";
 
 /**
  * Default window dimensions
@@ -362,6 +380,78 @@ export default function FloatingNotepad(): JSX.Element {
     textareaRef.current?.focus();
   }, [clearContent, confirmClear]);
 
+  // Context menu state for right-clicking in the notepad
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    lineIndex: number;
+    lineText: string;
+    isJot: boolean;
+    isCompleted: boolean;
+  } | null>(null);
+
+  const jotCounts = countJots(content);
+
+  const handleContextMenu = useCallback(
+    (event: React.MouseEvent<HTMLTextAreaElement>) => {
+      event.preventDefault();
+      const textarea = textareaRef.current;
+      const caret = textarea?.selectionStart ?? 0;
+      const { lineIndex, lineText } = getLineAtCaret(content, caret);
+      const isJot = isJotLine(lineText);
+      const isCompleted = isCompletedJotLine(lineText);
+      setContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        lineIndex,
+        lineText,
+        isJot,
+        isCompleted,
+      });
+    },
+    [content]
+  );
+
+  const handleToggleCurrentJot = useCallback(() => {
+    if (!contextMenu) return;
+    const lines = content.split("\n");
+    if (contextMenu.lineIndex >= 0 && contextMenu.lineIndex < lines.length) {
+      lines[contextMenu.lineIndex] = toggleJotLine(lines[contextMenu.lineIndex]);
+      setContent(lines.join("\n"));
+      toast(
+        contextMenu.isCompleted
+          ? "Jot marked as active"
+          : "Jot marked as done"
+      );
+    }
+    setContextMenu(null);
+  }, [contextMenu, content, setContent]);
+
+  const handleDeleteCurrentJot = useCallback(() => {
+    if (!contextMenu) return;
+    const lines = content.split("\n");
+    if (contextMenu.lineIndex >= 0 && contextMenu.lineIndex < lines.length) {
+      lines.splice(contextMenu.lineIndex, 1);
+      setContent(lines.join("\n"));
+      toast("Jot deleted");
+    }
+    setContextMenu(null);
+  }, [contextMenu, content, setContent]);
+
+  const handleClearCompletedJots = useCallback(() => {
+    const updated = clearCompletedJots(content);
+    setContent(updated);
+    toast("Completed jots cleared");
+    setContextMenu(null);
+  }, [content, setContent]);
+
+  const handleClearAllJots = useCallback(() => {
+    const updated = clearAllJots(content);
+    setContent(updated);
+    toast("All jots cleared");
+    setContextMenu(null);
+  }, [content, setContent]);
+
   /**
    * Close on Escape from anywhere inside the window
    */
@@ -480,7 +570,8 @@ export default function FloatingNotepad(): JSX.Element {
           value={content}
           onChange={handleContentChange}
           onKeyDown={handleKeyDown}
-          placeholder={"Notes and sums, one per line\n6*(4+27) ="}
+          onContextMenu={handleContextMenu}
+          placeholder={"Notes and sums, one per line\n6*(4+27) =\n- 3:42 PM  stray thought (J to jot)"}
           aria-label="Notepad text"
           spellCheck={false}
           autoCapitalize="off"
@@ -503,14 +594,16 @@ export default function FloatingNotepad(): JSX.Element {
           <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
             {isMobile ? (
               <span className="truncate">
-                End a line with = to solve it
+                End line with = to solve · Hold for menu
               </span>
             ) : (
               <>
                 <KeyboardKey className="text-[10px]">Ctrl</KeyboardKey>
                 <span>+</span>
                 <KeyboardKey className="text-[10px]">Enter</KeyboardKey>
-                <span className="ml-0.5">solves every line ending in =</span>
+                <span className="ml-0.5">solves =</span>
+                <span className="mx-1 text-muted-foreground/30">·</span>
+                <span>Right-click for options</span>
               </>
             )}
           </div>
@@ -518,6 +611,14 @@ export default function FloatingNotepad(): JSX.Element {
           <div className="flex shrink-0 items-center gap-1">
             {lineCount > 0 && !isMobile && (
               <span className="mr-1 font-mono text-[11px] tabular-nums text-muted-foreground">
+                {jotCounts.total > 0 && (
+                  <>
+                    <span>
+                      {jotCounts.pending} {jotCounts.pending === 1 ? "jot" : "jots"}
+                    </span>
+                    <span className="mx-1 text-muted-foreground/30">·</span>
+                  </>
+                )}
                 {lineCount} {lineCount === 1 ? "line" : "lines"}
               </span>
             )}
@@ -554,6 +655,99 @@ export default function FloatingNotepad(): JSX.Element {
           </div>
         </div>
       </div>
+
+      {/* Right-click Context Menu */}
+      <DropdownMenu
+        open={contextMenu !== null}
+        onOpenChange={(open) => {
+          if (!open) setContextMenu(null);
+        }}
+      >
+        <DropdownMenuTrigger
+          tabIndex={-1}
+          aria-hidden
+          className="pointer-events-none fixed size-px opacity-0"
+          style={{ left: contextMenu?.x ?? 0, top: contextMenu?.y ?? 0 }}
+        />
+        <DropdownMenuContent
+          align="start"
+          sideOffset={2}
+          collisionPadding={12}
+          className="w-56 rounded-xl p-1.5 shadow-md"
+        >
+          {contextMenu?.isJot && (
+            <>
+              <DropdownMenuItem
+                onSelect={handleToggleCurrentJot}
+                className="gap-2 rounded-lg text-xs font-medium cursor-pointer"
+              >
+                {contextMenu.isCompleted ? (
+                  <>
+                    <Circle className="size-3.5 text-muted-foreground" />
+                    <span>Mark jot as active</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="size-3.5 text-primary" />
+                    <span>Mark jot as done</span>
+                  </>
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={handleDeleteCurrentJot}
+                className="gap-2 rounded-lg text-xs font-medium text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer"
+              >
+                <Trash2 className="size-3.5" />
+                <span>Delete this jot</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="my-1" />
+            </>
+          )}
+
+          {jotCounts.completed > 0 && (
+            <DropdownMenuItem
+              onSelect={handleClearCompletedJots}
+              className="gap-2 rounded-lg text-xs font-medium cursor-pointer"
+            >
+              <CheckCircle2 className="size-3.5 text-muted-foreground" />
+              <span>Clear completed jots ({jotCounts.completed})</span>
+            </DropdownMenuItem>
+          )}
+
+          {jotCounts.total > 0 && (
+            <DropdownMenuItem
+              onSelect={handleClearAllJots}
+              className="gap-2 rounded-lg text-xs font-medium text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer"
+            >
+              <Trash className="size-3.5" />
+              <span>Clear all jots ({jotCounts.total})</span>
+            </DropdownMenuItem>
+          )}
+
+          {(jotCounts.completed > 0 || jotCounts.total > 0) && (
+            <DropdownMenuSeparator className="my-1" />
+          )}
+
+          <DropdownMenuItem
+            onSelect={handleCalculation}
+            className="gap-2 rounded-lg text-xs font-medium cursor-pointer"
+          >
+            <Calculator className="size-3.5 text-muted-foreground" />
+            <span>Solve lines ending in =</span>
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator className="my-1" />
+
+          <DropdownMenuItem
+            onSelect={handleClear}
+            disabled={!content}
+            className="gap-2 rounded-lg text-xs font-medium text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer"
+          >
+            <FaTrash className="size-3" />
+            <span>Clear entire notepad</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 

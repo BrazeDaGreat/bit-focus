@@ -30,6 +30,7 @@ import { Kbd } from "@/components/ui/kbd";
 import CurrencySelect from "@/components/CurrencySelect";
 import AccountSettings from "@/components/auth/AccountSettings";
 import PomodoroSettings from "@/components/PomodoroSettings";
+import SoundSettings from "@/components/SoundSettings";
 import { useConfig, type FeatureKey } from "@/hooks/useConfig";
 import { usePreferences } from "@/hooks/usePreferences";
 import { usePomo } from "@/hooks/PomoContext";
@@ -59,13 +60,15 @@ export default function SettingsPage(): JSX.Element {
   const { name, featureToggles, webhook } = useConfig();
   const { user } = useAuth();
   const { state } = usePomo();
-  const { autoBackup, phaseNotifications } = usePreferences();
+  const { autoBackup, phaseNotifications, focusEndSound, breakEndSound, soundVolume } = usePreferences();
   const [active, setActive] = useState<SectionId>("profile");
 
   const hasName = !!name && name !== "NULL";
   const lastBackup = lastAutoBackupAt();
   const enabledFeatures = Object.values(featureToggles).filter(Boolean).length;
   const { focusDuration, breakDuration } = state.pomodoroSettings;
+  const soundOn = soundVolume > 0 && (focusEndSound !== "none" || breakEndSound !== "none");
+  const notifyWays = [soundOn && "Sound", phaseNotifications && "System", webhook && "Webhook"].filter(Boolean);
 
   const sections: { id: SectionId; title: string; status: string }[] = [
     { id: "profile", title: "Profile", status: hasName ? name : "Not set" },
@@ -74,7 +77,7 @@ export default function SettingsPage(): JSX.Element {
     {
       id: "notifications",
       title: "Notifications",
-      status: [phaseNotifications && "System", webhook && "Webhook"].filter(Boolean).join(" + ") || "Sound only",
+      status: notifyWays.length === 1 && soundOn ? "Sound only" : notifyWays.join(" + ") || "Off",
     },
     {
       id: "data",
@@ -202,8 +205,11 @@ export default function SettingsPage(): JSX.Element {
             </div>
           </Section>
 
-          <Section id="notifications" title="Notifications" description="Ways to hear about the timer when BIT Focus isn't the tab you're looking at.">
-            <NotificationRow />
+          <Section id="notifications" title="Notifications" description="The sound a Pomodoro phase ends with, and ways to hear about the timer when BIT Focus isn't the tab you're looking at.">
+            <SoundSettings />
+            <div className="mt-4 border-t pt-4">
+              <NotificationRow />
+            </div>
             <div className="mt-4 border-t pt-5">
               <WebhookForm />
             </div>

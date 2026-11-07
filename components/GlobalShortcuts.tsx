@@ -31,6 +31,7 @@ import { usePomo } from "@/hooks/PomoContext";
 import { cycleSavedTag } from "@/hooks/useTag";
 import { toast } from "sonner";
 import { useNotepad } from "@/hooks/useNotepad";
+import { QuickJot } from "@/components/notepad/QuickJot";
 import {
   activeShortcuts,
   useCommandPalette,
@@ -110,6 +111,13 @@ export default function GlobalShortcuts(): JSX.Element {
       // Leave browser/OS combos alone (sidebar's own Ctrl+B included)
       if (e.ctrlKey || e.metaKey || e.altKey) return;
 
+      // ── Quick Jot (J key opens distraction jot) ──
+      if (!e.shiftKey && e.key.toLowerCase() === "j") {
+        e.preventDefault();
+        useNotepad.getState().setIsJotOpen(true);
+        return;
+      }
+
       // ── Help dialog ──
       if (e.key === "?") {
         e.preventDefault();
@@ -171,6 +179,7 @@ export default function GlobalShortcuts(): JSX.Element {
     <>
       <ShortcutsDialog shortcuts={shortcuts} />
       {paletteRequested && <CommandPalette />}
+      <QuickJot />
     </>
   );
 }

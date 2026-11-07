@@ -27,10 +27,12 @@ import { useTag } from "@/hooks/useTag";
 import { useFocusGoal, GOAL_PRESETS } from "@/hooks/useFocusGoal";
 import { useConfig, type FeatureKey } from "@/hooks/useConfig";
 import { useProjects } from "@/hooks/useProjects";
+import { useTasks } from "@/hooks/useTasks";
 import { useTimeblocks } from "@/hooks/useTimeblocks";
 import { blockTimes, parseTaskInput } from "@/lib/task-parse";
 import { useNotes } from "@/hooks/useNotes";
 import { isTrashed, noteHref, noteTitle } from "@/lib/notes";
+import { isTaskOverdue, taskDeadline, type Task } from "@/lib/tasks";
 import { ProjectIcon } from "@/components/tasks/ProjectIcon";
 import { useNotepad } from "@/hooks/useNotepad";
 import { useCommandPalette, useShortcutsDialog } from "@/hooks/useShortcuts";
@@ -49,6 +51,7 @@ import {
   FaForwardFast,
   FaGear,
   FaHashtag,
+  FaListCheck,
   FaMagnifyingGlass,
   FaNoteSticky,
   FaPlus,
@@ -79,11 +82,12 @@ export default function CommandPalette(): JSX.Element {
   const [search, setSearch] = useState("");
   const router = useRouter();
   const { setTheme, theme } = useTheme();
-  const { state, start, pause, reset, extend, setMode, resetCycle } = usePomo();
+  const { state, start, pause, reset, extend, setMode, resetCycle, startTask } = usePomo();
   const { tag, savedTags, setTag, removeTag } = useTag();
   const { goalMinutes, setGoal, clearGoal } = useFocusGoal();
   const { featureToggles } = useConfig();
   const { projects, loadProjects } = useProjects();
+  const { tasks, loadTasks } = useTasks();
   const { notes, loadNotes } = useNotes();
   const addTimeblock = useTimeblocks((s) => s.addTimeblock);
   const planning = useRef(false);
@@ -116,6 +120,12 @@ export default function CommandPalette(): JSX.Element {
   }, [paletteOpen, featureToggles.projects, loadProjects]);
 
   useEffect(() => {
+    if (paletteOpen && featureToggles.projects) {
+      void loadTasks().catch(() => toast.error("Could not load tasks"));
+    }
+  }, [paletteOpen, featureToggles.projects, loadTasks]);
+
+  useEffect(() => {
     if (paletteOpen && featureToggles.notes) {
       void loadNotes().catch(() => toast.error("Could not load notes"));
     }
@@ -129,6 +139,59 @@ export default function CommandPalette(): JSX.Element {
   const run = (action: () => void) => () => {
     setPaletteOpen(false);
     action();
+  };
+
+  const activeTasks = useMemo(() => {
+    return tasks.filter((t) => {
+      if (t.completedAt || t.deletedAt) return false;
+      const project = projects.find((p) => p.id === t.projectId);
+      if (project && project.status === "Closed") return false;
+      return true;
+    });
+  }, [tasks, projects]);
+
+  const displayedTasks = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    const sortTasks = (list: Task[]) => {
+      return [...list].sort((a, b) => {
+        const aDue = taskDeadline(a)?.getTime() ?? Infinity;
+        const bDue = taskDeadline(b)?.getTime() ?? Infinity;
+        if (aDue !== bDue) return aDue - bDue;
+        if (b.priority !== a.priority) return b.priority - a.priority;
+        return (b.order ?? 0) - (a.order ?? 0) || (b.id ?? 0) - (a.id ?? 0);
+      });
+    };
+
+    const sorted = sortTasks(activeTasks);
+
+    if (!query) {
+      return sorted.slice(0, 5);
+    }
+
+    const tokens = query.split(/\s+/).filter(Boolean);
+    const matched = sorted.filter((task) => {
+      const project = projects.find((p) => p.id === task.projectId);
+      const haystack = `${task.title} ${project?.title ?? ""} ${task.tags.join(" ")}`.toLowerCase();
+      return tokens.every((tok) => haystack.includes(tok));
+    });
+
+    return matched.slice(0, 15);
+  }, [activeTasks, projects, search]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && e.shiftKey) {
+      const selected = document.querySelector<HTMLElement>(
+        '[cmdk-item][data-selected="true"], [cmdk-item][aria-selected="true"]'
+      );
+      const taskUid = selected?.getAttribute("data-task-uid");
+      if (taskUid) {
+        e.preventDefault();
+        e.stopPropagation();
+        setPaletteOpen(false);
+        router.push(`/projects?task=${encodeURIComponent(taskUid)}`);
+      }
+    }
   };
 
   const isPomodoro = state.mode === "pomodoro";
@@ -145,6 +208,7 @@ export default function CommandPalette(): JSX.Element {
     <Command.Dialog
       open={paletteOpen}
       onOpenChange={setPaletteOpen}
+      onKeyDown={handleKeyDown}
       label="Command palette"
       loop
       overlayClassName="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] motion-safe:animate-in motion-safe:fade-in-0"
@@ -177,6 +241,7 @@ export default function CommandPalette(): JSX.Element {
         <Command.Input
           value={search}
           onValueChange={setSearch}
+          onKeyDown={handleKeyDown}
           placeholder="Type a command or plan “Study tomorrow 2-4pm”…"
           className="h-12 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
@@ -344,6 +409,98 @@ export default function CommandPalette(): JSX.Element {
           </Command.Group>
         )}
 
+        {/* ── Tasks ── */}
+        {featureToggles.projects && displayedTasks.length > 0 && (
+          <Command.Group heading="Tasks">
+            {displayedTasks.map((task) => {
+              const project = projects.find((p) => p.id === task.projectId);
+              const deadline = taskDeadline(task);
+              const dueLabel = deadline
+                ? format(deadline, task.dueTime ? "MMM d · h:mm a" : "MMM d")
+                : null;
+              const overdue = deadline ? isTaskOverdue(task) : false;
+              const primaryTag = task.primaryTag || task.tags[0];
+
+              return (
+                <Item
+                  key={task.uid ?? task.id}
+                  icon={<FaListCheck />}
+                  value={`task ${task.title} ${project?.title ?? ""} ${task.tags.join(" ")} ${task.uid ?? task.id}`}
+                  keywords={["task", ...(project?.title ? [project.title] : []), ...task.tags]}
+                  dataTaskUid={task.uid}
+                  onClick={(e) => {
+                    if (e.shiftKey && task.uid) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      run(() => router.push(`/projects?task=${encodeURIComponent(task.uid!)}`))();
+                    }
+                  }}
+                  onSelect={run(() => {
+                    if (task.uid) {
+                      startTask({
+                        uid: task.uid,
+                        projectUid: project?.uid,
+                        title: task.title,
+                        tag: primaryTag || "Focus",
+                      });
+                    }
+                  })}
+                  actions={
+                    <span className="hidden items-center gap-1.5 text-[11px] text-muted-foreground group-data-[selected=true]:inline-flex shrink-0">
+                      <span className="inline-flex items-center gap-1">
+                        <Kbd>↵</Kbd>
+                        <span>Focus</span>
+                      </span>
+                      {task.uid && (
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            run(() => router.push(`/projects?task=${encodeURIComponent(task.uid!)}`))();
+                          }}
+                          title="Open in Projects (Shift+Enter)"
+                          aria-label={`Open ${task.title} in Projects`}
+                          className="inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-background/80 hover:text-foreground transition-colors"
+                        >
+                          <Kbd>⇧↵</Kbd>
+                          <span>Open</span>
+                        </button>
+                      )}
+                    </span>
+                  }
+                >
+                  <span className="inline-flex min-w-0 max-w-full items-center gap-2">
+                    <span className="truncate font-medium">{task.title}</span>
+                    {(project || dueLabel || primaryTag) && (
+                      <span className="inline-flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                        {project && (
+                          <span className="inline-flex items-center gap-1">
+                            <span className="text-muted-foreground/60">·</span>
+                            <span className="max-w-28 truncate">{project.title}</span>
+                          </span>
+                        )}
+                        {dueLabel && (
+                          <span className="inline-flex items-center gap-1 font-mono tabular-nums">
+                            <span className="text-muted-foreground/60">·</span>
+                            <span className={cn(overdue && "text-destructive font-medium")}>{dueLabel}</span>
+                          </span>
+                        )}
+                        {primaryTag && (
+                          <span className="inline-flex items-center gap-1">
+                            <span className="text-muted-foreground/60">·</span>
+                            <span>#{primaryTag}</span>
+                          </span>
+                        )}
+                      </span>
+                    )}
+                  </span>
+                </Item>
+              );
+            })}
+          </Command.Group>
+        )}
+
         {featureToggles.notes && (
           <Command.Group heading="Notes">
             <Item icon={<FaPlus />} onSelect={run(() => router.push("/notes?new=1"))} keywords={["notes", "create"]}>
@@ -418,6 +575,24 @@ export default function CommandPalette(): JSX.Element {
           })}
         </Command.Group>
       </Command.List>
+
+      {/* Palette footer */}
+      <div className="flex items-center justify-between border-t bg-muted/40 px-4 py-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-3">
+          <span className="flex items-center gap-1.5">
+            <Kbd>↵</Kbd>
+            <span>Focus</span>
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Kbd>⇧↵</Kbd>
+            <span>Open task</span>
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Kbd>Esc</Kbd>
+          <span>Close</span>
+        </div>
+      </div>
     </Command.Dialog>
   );
 }
@@ -430,6 +605,9 @@ function Item({
   shortcut,
   hint,
   children,
+  dataTaskUid,
+  actions,
+  onClick,
 }: {
   icon: ReactNode;
   onSelect: () => void;
@@ -438,16 +616,22 @@ function Item({
   shortcut?: string;
   hint?: string;
   children: ReactNode;
+  dataTaskUid?: string;
+  actions?: ReactNode;
+  onClick?: (e: React.MouseEvent<HTMLDivElement>) => void;
 }): JSX.Element {
   return (
     <Command.Item
       onSelect={onSelect}
       value={value}
       keywords={keywords}
-      className="flex h-10 cursor-pointer items-center gap-3 rounded-lg px-2.5 text-sm text-foreground/90 data-[selected=true]:bg-muted data-[selected=true]:text-foreground [&_svg]:size-3.5 [&_svg]:shrink-0 [&_svg]:text-muted-foreground"
+      data-task-uid={dataTaskUid}
+      onClick={onClick}
+      className="group flex h-10 cursor-pointer items-center gap-3 rounded-lg px-2.5 text-sm text-foreground/90 data-[selected=true]:bg-muted data-[selected=true]:text-foreground [&_svg]:size-3.5 [&_svg]:shrink-0 [&_svg]:text-muted-foreground"
     >
       <span className="grid size-5 shrink-0 place-items-center">{icon}</span>
       <span className="min-w-0 flex-1 truncate">{children}</span>
+      {actions}
       {hint && <span className="shrink-0 text-[11px] text-muted-foreground">{hint}</span>}
       {shortcut && (
         <span className="flex shrink-0 gap-1">

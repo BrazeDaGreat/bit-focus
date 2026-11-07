@@ -9,7 +9,7 @@
  * downloaded when someone actually opens the popover.
  */
 
-import { type JSX } from "react";
+import { type JSX, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaPlus, FaTrash } from "react-icons/fa6";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import ColorPicker from "@/components/ui/color-picker";
 import { useTag } from "@/hooks/useTag";
+import { formatGoalMinutes, parseGoalDuration, useTagGoals } from "@/hooks/useTagGoals";
 
 export const DEFAULT_TAG_COLOR = "#3b82f6";
 
@@ -28,6 +29,8 @@ export default function ManageTagsContent({
   onColorChange: (color: string) => void;
 }): JSX.Element {
   const { savedTags, addSavedTag, removeSavedTag } = useTag();
+  const goals = useTagGoals((s) => s.goals);
+  const removeGoal = useTagGoals((s) => s.removeGoal);
 
   const {
     register,
@@ -72,7 +75,10 @@ export default function ManageTagsContent({
 
       {savedTags.length > 0 && (
         <div className="mt-5 border-t pt-4 md:mt-3 md:pt-3">
-          <p className="mb-2 text-sm text-muted-foreground md:text-xs">Saved tags</p>
+          <p className="mb-2 flex items-baseline justify-between gap-2 text-sm text-muted-foreground md:text-xs">
+            <span>Saved tags</span>
+            <span className="pr-12 md:pr-5">Weekly goal</span>
+          </p>
           <div className="flex max-h-56 flex-col gap-1 overflow-y-auto overscroll-contain md:max-h-40 md:gap-0.5">
             {savedTags.map((savedTag) => (
               <div
@@ -86,9 +92,17 @@ export default function ManageTagsContent({
                 <span className="min-w-0 flex-1 truncate text-sm md:text-xs">
                   {savedTag.t}
                 </span>
+                <GoalField
+                  key={`${savedTag.t}:${goals[savedTag.t] ?? ""}`}
+                  tag={savedTag.t}
+                  minutes={goals[savedTag.t]}
+                />
                 <button
                   type="button"
-                  onClick={() => removeSavedTag(savedTag.t)}
+                  onClick={() => {
+                    removeSavedTag(savedTag.t);
+                    removeGoal(savedTag.t);
+                  }}
                   className="grid size-10 shrink-0 touch-manipulation place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:size-auto md:opacity-0 md:transition-opacity md:hover:bg-transparent md:group-hover:opacity-100"
                   title={`Remove ${savedTag.t}`}
                   aria-label={`Remove ${savedTag.t}`}
@@ -101,5 +115,59 @@ export default function ManageTagsContent({
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * Weekly goal for one saved tag, edited in place. Saves on blur or Enter;
+ * clearing the field removes the goal.
+ */
+function GoalField({ tag, minutes }: { tag: string; minutes: number | undefined }): JSX.Element {
+  const setGoal = useTagGoals((s) => s.setGoal);
+  const removeGoal = useTagGoals((s) => s.removeGoal);
+  const initial = minutes !== undefined ? formatGoalMinutes(minutes) : "";
+  const [text, setText] = useState(initial);
+  const [invalid, setInvalid] = useState(false);
+
+  const commit = () => {
+    if (text.trim() === "") {
+      if (minutes !== undefined) removeGoal(tag);
+      setInvalid(false);
+      return;
+    }
+    const parsed = parseGoalDuration(text);
+    if (parsed === null) {
+      setInvalid(true);
+      return;
+    }
+    setGoal(tag, parsed);
+    setText(formatGoalMinutes(parsed));
+    setInvalid(false);
+  };
+
+  return (
+    <Input
+      value={text}
+      onChange={(event) => {
+        setText(event.target.value);
+        setInvalid(false);
+      }}
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          commit();
+        } else if (event.key === "Escape" && text !== initial) {
+          event.stopPropagation();
+          setText(initial);
+          setInvalid(false);
+        }
+      }}
+      placeholder="Goal"
+      aria-label={`Weekly goal for ${tag}`}
+      aria-invalid={invalid}
+      title={invalid ? "Enter a duration like 10h, 90m or 1h30" : "Weekly goal, e.g. 10h or 1h30"}
+      className="h-10 w-20 shrink-0 rounded-lg px-2 text-right font-mono text-sm md:h-6 md:w-16 md:rounded-md md:text-xs"
+    />
   );
 }

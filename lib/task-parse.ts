@@ -1,7 +1,8 @@
 import { addDays, addMonths, addWeeks, endOfMonth, format, startOfDay, startOfWeek } from "date-fns";
 import type { Task } from "./tasks";
+import { describeTaskRecurrence, type TaskRecurrence } from "./tasks";
 
-export type ParseTokenKind = "date" | "time" | "block" | "priority" | "tag" | "project" | "estimate";
+export type ParseTokenKind = "date" | "time" | "block" | "priority" | "tag" | "project" | "estimate" | "recurrence";
 export interface ParseToken {
   kind: ParseTokenKind;
   /** Exact matched substring in the input. */
@@ -24,11 +25,28 @@ export interface ParsedTask {
   tags: string[];
   projectId?: number;
   estimateMinutes?: number;
+  recurrence?: TaskRecurrence;
   tokens: ParseToken[];
 }
 
 const weekdays = "mon(?:day)?|tue(?:sday)?|wed(?:nesday)?|thu(?:rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?";
 const months = "jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?";
+const repeatDays = new RegExp(`^every\\s+(?:${weekdays})\\b(?:(?:\\s*,\\s*(?:and\\s+)?|\\s+and\\s+|\\s*&\\s*)(?:${weekdays})\\b)*`, "i");
+
+function readRecurrence(rest: string): { text: string; rule: TaskRecurrence } | null {
+  const days = rest.match(repeatDays);
+  if (days) return {
+    text: days[0],
+    rule: { freq: "weekly", days: [...new Set([...days[0].matchAll(new RegExp(`\\b(${weekdays})\\b`, "gi"))].map(match => ["sun", "mon", "tue", "wed", "thu", "fri", "sat"].indexOf(match[1].slice(0, 3).toLowerCase())))] },
+  };
+  const match = rest.match(/^(daily|every\s+day|every\s+weekdays?|weekly|monthly|every\s+(\d+)\s+(days?|weeks?|months?))\b/i);
+  if (!match) return null;
+  const text = match[0].toLowerCase();
+  const interval = match[2] ? Number(match[2]) : undefined;
+  if (interval !== undefined && (!Number.isSafeInteger(interval) || interval < 1 || interval > 10000)) return null;
+  const freq = /weekday/.test(text) ? "weekdays" : /week/.test(text) ? "weekly" : /month/.test(text) ? "monthly" : "daily";
+  return { text: match[0], rule: { freq, ...(interval !== undefined ? { interval } : {}) } };
+}
 const connector = "(?:(?:by|on|due|before|until)\\s+)?";
 const relative = new RegExp(`^${connector}(day after tomorrow|today|tonight|tomorrow|tmrw|tmr|in \\d+ (?:days?|weeks?|months?)|next week|this weekend|end of week|eow|end of month|eom|next month)\\b`, "i");
 const weekday = new RegExp(`^${connector}(?:(this|next)\\s+)?(${weekdays})\\b`, "i");
@@ -148,6 +166,14 @@ export function parseTaskInput(input: string, opts?: { now?: Date; projects?: { 
     const rest = input.slice(i);
     const ignoredPhrase = [...ignored].map(key => key.slice(key.indexOf(":") + 1)).find(text => text && rest.slice(0, text.length).toLowerCase() === text && !/[\p{L}\p{N}_]/u.test(rest[text.length] ?? ""));
     if (ignoredPhrase) { i += ignoredPhrase.length - 1; continue; }
+    // Consume the whole rule before weekdays can be mistaken for deadlines.
+    const repeat = readRecurrence(rest);
+    if (repeat) {
+      if (parsed.recurrence === undefined && accept("recurrence", repeat.text, i, describeTaskRecurrence(repeat.rule), () => { parsed.recurrence = repeat.rule; })) continue;
+      // A second rule stays literal as a whole, including its weekday names.
+      i += repeat.text.length - 1;
+      continue;
+    }
     const rel = rest.match(relative), week = rest.match(weekday), abs = rest.match(absolute);
     const dateMatch = rel ?? week ?? abs;
     const deadlineDate = dateMatch && /^(by|due|before|until)\s/i.test(dateMatch[0]);
@@ -252,10 +278,18 @@ export function parsedToTaskFields(p: ParsedTask, now = new Date()): Partial<Tas
   if (p.tags.length) { fields.tags = p.tags; fields.primaryTag = p.tags[0]; }
   if (p.projectId !== undefined) fields.projectId = p.projectId;
   if (p.estimateMinutes !== undefined) fields.estimateMinutes = p.estimateMinutes;
+  if (p.recurrence !== undefined) fields.recurrence = p.recurrence;
   return fields;
 }
 
 export const PARSE_EXAMPLES: { group: string; items: { input: string; result: string }[] }[] = [
+  { group: "Repeating tasks", items: [
+    { input: "Read every day", result: "Daily; daily and every weekday work too" },
+    { input: "Review every mon and wed", result: "Weekly on Monday and Wednesday; every mon works too" },
+    { input: "Clean every 2 weeks", result: "Every two weeks; weekly and every 3 days work too" },
+    { input: "Pay rent monthly by Nov 1", result: "Repeat monthly on the deadline date; short months use their last day" },
+    { input: "Study daily 2-4pm #uni ~2h", result: "Repeats the task on completion; calendar block stays a single block" },
+  ] },
   { group: "Dates", items: [
     { input: "Submit assignment by Saturday", result: "Next Saturday, strictly after today" },
     { input: "Review next Monday", result: "Monday in the following calendar week (weeks start Monday)" },

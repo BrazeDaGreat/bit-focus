@@ -1,4 +1,16 @@
 import type { FocusSession } from "@/hooks/useFocus";
+import { addDays, addMonths, differenceInCalendarWeeks } from "date-fns";
+
+/** Plain data, matching timeblock recurrence. Weeks start Monday; until is inclusive. */
+export interface TaskRecurrence {
+  freq: "daily" | "weekdays" | "weekly" | "monthly";
+  interval?: number;
+  /** JavaScript weekdays: Sunday = 0. */
+  days?: number[];
+  until?: string;
+  /** Keeps the original monthly date through shorter months. */
+  dayOfMonth?: number;
+}
 
 export interface Task {
   id?: number;
@@ -14,6 +26,11 @@ export interface Task {
   dueTime?: boolean;
   dueDay?: string | null;
   estimateMinutes: number;
+  /** Task-level time only; never creates focus sessions or earns rewards. */
+  loggedMinutes?: number;
+  recurrence?: TaskRecurrence | null;
+  /** Retained on reopen (and after successor deletion) to prevent duplicate spawns. */
+  recurrenceNextUid?: string;
   priority: number;
   order: number;
   section?: string;
@@ -120,9 +137,9 @@ export function matchesTask(
 }
 
 export function taskMinutes(task: Task, sessions: FocusSession[]) {
-  if (!task.uid) return 0;
-  return sessions
-    .filter((s) => s.taskUid === task.uid)
+  const logged = Number.isFinite(task.loggedMinutes) ? Math.max(0, task.loggedMinutes!) : 0;
+  return logged + sessions
+    .filter((s) => !!task.uid && s.taskUid === task.uid)
     .reduce(
       (sum, s) =>
         sum +
@@ -133,6 +150,110 @@ export function taskMinutes(task: Task, sessions: FocusSession[]) {
         ),
       0,
     );
+}
+
+/** Accept minutes or compact durations: 2h, 90m, 1h30, 1h 30m. */
+export function parseLoggedMinutes(input: string): number | null {
+  const value = input.trim().toLowerCase();
+  const match = value.match(/^(?:(\d+(?:\.\d+)?)h(?:\s*(\d+)m?)?|(\d+(?:\.\d+)?)m?)$/);
+  if (!match) return null;
+  const minutes = Math.round(match[1] ? Number(match[1]) * 60 + Number(match[2] ?? 0) : Number(match[3]));
+  return Number.isSafeInteger(minutes) && minutes >= 0 ? minutes : null;
+}
+
+export function validTaskRecurrence(value: unknown): value is TaskRecurrence {
+  if (!value || typeof value !== "object") return false;
+  const rule = value as TaskRecurrence;
+  return ["daily", "weekdays", "weekly", "monthly"].includes(rule.freq) &&
+    (rule.interval === undefined || (Number.isSafeInteger(rule.interval) && rule.interval >= 1 && rule.interval <= 10000)) &&
+    (rule.days === undefined || (Array.isArray(rule.days) && rule.days.every(day => Number.isInteger(day) && day >= 0 && day <= 6))) &&
+    (rule.dayOfMonth === undefined || (Number.isInteger(rule.dayOfMonth) && rule.dayOfMonth >= 1 && rule.dayOfMonth <= 31)) &&
+    (rule.until === undefined || (typeof rule.until === "string" && /^\d{4}-\d{2}-\d{2}$/.test(rule.until) &&
+      dateInput(new Date(`${rule.until}T00:00:00`)) === rule.until));
+}
+
+export function describeTaskRecurrence(rule: TaskRecurrence) {
+  const interval = rule.interval ?? 1;
+  if (rule.freq === "weekdays") return "Every weekday";
+  if (rule.freq === "daily") return interval === 1 ? "Every day" : `Every ${interval} days`;
+  if (rule.freq === "monthly") return interval === 1 ? "Monthly" : `Every ${interval} months`;
+  const days = rule.days?.length
+    ? [...new Set(rule.days)].sort((a, b) => (a + 6) % 7 - (b + 6) % 7).map(day => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][day]).join(", ")
+    : "";
+  return `${interval === 1 ? "Weekly" : `Every ${interval} weeks`}${days ? ` · ${days}` : ""}`;
+}
+
+/** Date shifts retain timed deadlines' local clock; date-only deadlines use dueDay. */
+export function taskDeadlineFields(task: Task, day: string | null): Partial<Task> {
+  if (!day) return { dueDate: null, dueDay: null, dueTime: false };
+  const date = new Date(`${day}T00:00:00`);
+  const previous = taskDeadline(task);
+  if (task.dueTime && previous) date.setHours(previous.getHours(), previous.getMinutes(), previous.getSeconds(), previous.getMilliseconds());
+  return { dueDate: date, dueDay: day, dueTime: !!task.dueTime };
+}
+
+/** Advance exactly one occurrence, even if overdue. Undated tasks start on completion day. */
+export function nextTaskDeadline(task: Task, completedAt = new Date()): Date | null {
+  const rule = task.recurrence;
+  if (!rule || !validTaskRecurrence(rule)) return null;
+  const base = taskDeadline(task) ?? new Date(completedAt);
+  if (!Number.isFinite(base.getTime())) return null;
+  const interval = rule.interval ?? 1;
+  let next: Date;
+  if (rule.freq === "monthly") {
+    next = addMonths(base, interval);
+    const day = rule.dayOfMonth ?? base.getDate();
+    const last = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
+    next.setDate(Math.min(day, last));
+  } else if (rule.freq === "weekly") {
+    const days = rule.days?.length ? rule.days : [base.getDay()];
+    const candidates = days.map(day => {
+      let candidate = addDays(base, (day - base.getDay() + 7) % 7 || interval * 7);
+      const weeks = differenceInCalendarWeeks(candidate, base, { weekStartsOn: 1 });
+      if (weeks % interval !== 0) candidate = addDays(candidate, (interval - weeks % interval) * 7);
+      return candidate.getTime();
+    });
+    next = new Date(Math.min(...candidates));
+  } else {
+    next = addDays(base, rule.freq === "daily" ? interval : 1);
+    if (rule.freq === "weekdays") while (next.getDay() === 0 || next.getDay() === 6) next = addDays(next, 1);
+  }
+  if (!Number.isFinite(next.getTime()) || (rule.until && dateInput(next) > rule.until)) return null;
+  if (!task.dueTime) next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+/** Stable across devices completing the same occurrence while offline. */
+export function taskSuccessorUid(uid: string) {
+  const match = uid.match(/^(.*):repeat:(\d+)$/);
+  return match ? `${match[1]}:repeat:${Number(match[2]) + 1}` : `${uid}:repeat:1`;
+}
+
+/** Subtasks are not copied; the successor starts with no logged time or legacy source. */
+export function taskSuccessor(task: Task, completedAt = new Date()): Task | null {
+  if (task.recurrenceNextUid || task.deletedAt || !task.uid) return null;
+  const dueDate = nextTaskDeadline(task, completedAt);
+  if (!dueDate) return null;
+  const recurrence = { ...task.recurrence! };
+  if (recurrence.days) recurrence.days = [...recurrence.days];
+  if (recurrence.freq === "monthly") recurrence.dayOfMonth ??= (taskDeadline(task) ?? completedAt).getDate();
+  const { id: _id, legacyIssueUid: _legacy, recurrenceNextUid: _next, ...fields } = task;
+  void _id; void _legacy; void _next;
+  return {
+    ...fields,
+    uid: taskSuccessorUid(task.uid),
+    tags: [...task.tags],
+    recurrence,
+    dueDate,
+    dueDay: dateInput(dueDate),
+    dueTime: !!task.dueTime,
+    loggedMinutes: 0,
+    completedAt: null,
+    deletedAt: null,
+    createdAt: completedAt,
+    updatedAt: completedAt,
+    order: completedAt.getTime(),
+  };
 }
 
 export function formatMinutes(minutes: number) {

@@ -3,8 +3,9 @@
  *
  * Small opt-in behaviours that are not tied to a profile: whether the timer
  * keeps running across a reload, whether phase changes raise a system
- * notification, whether Pomodoro phases start on their own, and whether the
- * app downloads a daily backup.
+ * notification, whether Pomodoro phases start on their own, which sound
+ * each phase ending plays and how loud, and whether the app downloads a
+ * daily backup.
  *
  * Persisted to localStorage (`app-preferences`) through zustand's persist
  * middleware, the same way {@link useFocusGoal} is, so it rides along with
@@ -17,6 +18,7 @@
 
 import { create } from "zustand";
 import { persist, PersistStorage } from "zustand/middleware";
+import type { SoundPreset } from "@/lib/sound";
 
 export interface Preferences {
   /** Keep a running timer running through a reload or a closed tab */
@@ -29,13 +31,21 @@ export interface Preferences {
   autoStartFocus: boolean;
   /** Download a backup file once every 24 hours */
   autoBackup: boolean;
+  /** Sound played when a focus block ends and the break starts */
+  focusEndSound: SoundPreset;
+  /** Sound played when a break ends and focus starts */
+  breakEndSound: SoundPreset;
+  /** Phase sound volume, 0–100 */
+  soundVolume: number;
+  /** Fade phase sounds in rather than starting at full volume */
+  gentleSound: boolean;
 }
 
 export type PreferenceKey = keyof Preferences;
 
 interface PreferencesState extends Preferences {
   /** Set a single preference */
-  setPreference: (key: PreferenceKey, value: boolean) => void;
+  setPreference: <K extends PreferenceKey>(key: K, value: Preferences[K]) => void;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -44,6 +54,10 @@ export const DEFAULT_PREFERENCES: Preferences = {
   autoStartBreaks: false,
   autoStartFocus: false,
   autoBackup: false,
+  focusEndSound: "chime",
+  breakEndSound: "chime",
+  soundVolume: 100,
+  gentleSound: false,
 };
 
 const storage: PersistStorage<PreferencesState> = {

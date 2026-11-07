@@ -130,13 +130,23 @@ export function DeadlinePicker({
   value,
   overdue,
   onChange,
+  open: controlledOpen,
+  onOpenChange,
+  triggerClassName,
+  onReturnFocus,
 }: {
   value: Date | null;
   overdue?: boolean;
   /** Local day as YYYY-MM-DD, or null to clear. */
   onChange: (day: string | null) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  triggerClassName?: string;
+  onReturnFocus?: () => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [localOpen, setLocalOpen] = useState(false);
+  const open = controlledOpen ?? localOpen;
+  const setOpen = (value: boolean) => { setLocalOpen(value); onOpenChange?.(value); };
   const today = new Date();
   const choose = (day: string | null) => {
     onChange(day);
@@ -146,18 +156,14 @@ export function DeadlinePicker({
   const quick = [
     { label: "Today", date: today },
     { label: "Tomorrow", date: addDays(today, 1) },
-    // On Sundays next Monday is tomorrow, so skip to the one after.
     {
       label: "Next week",
-      date:
-        differenceInCalendarDays(monday, today) === 1
-          ? addDays(monday, 7)
-          : monday,
+      date: monday,
     },
   ];
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger aria-label="Task deadline" className={triggerClass}>
+      <PopoverTrigger aria-label="Task deadline" aria-hidden={triggerClassName ? true : undefined} className={triggerClassName ?? triggerClass} tabIndex={triggerClassName ? -1 : undefined}>
         <CalendarDays
           className={cn(
             "size-4 shrink-0",
@@ -175,7 +181,7 @@ export function DeadlinePicker({
         </span>
         <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-auto rounded-xl p-0">
+      <PopoverContent align="end" aria-label="Task deadline" className="w-auto rounded-xl p-0 shadow-xs motion-reduce:animate-none" onCloseAutoFocus={onReturnFocus ? (event) => { event.preventDefault(); onReturnFocus(); } : undefined}>
         <div className="grid grid-cols-3 gap-1 p-2 pb-0">
           {quick.map(({ label, date }) => {
             const selected = !!value && dateInput(value) === dateInput(date);
