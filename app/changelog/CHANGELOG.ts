@@ -57,6 +57,7 @@ const CHANGELOG = `
 - Added: Choose a separate sound for when focus ends and when a break ends, from Chime, Bell, Soft marimba, Digital beep, Wood block, or None, with a preview button for each. A volume slider and a "Fade in gently" option sit beside them under Settings → Notifications. Existing setups keep the current chime at the current volume.
 - Added: Weekly goals per tag, such as 10 hours on #uni. Home shows a small ring for each goal with how much you've focused this week (Monday to Sunday) and fills it in when you reach it. Every minute of focus on the tag counts, planned or not. Set goals by right-clicking a tag in "Where the time went", from the goals on Home, or in Manage tags.
 - Added: "Summarise week" in Week in review asks your AI Chat model to write a review of the last 7 days: where your time went, what got done, what's carrying over, and a few gentle suggestions. The review is saved as a new page in Notes. If saving fails, the text is kept on this device so you can retry, copy, or download it.
+- Fixed: The Notepad footer no longer crowds instructions and counts together. Compact Solve, help, and clear controls keep it tidy, with shortcuts and jot instructions in a help popover.
 - Technical: Added tests for repeat parsing and scheduling, logged time, and the weekly review summary. No database version change.
 ***
 

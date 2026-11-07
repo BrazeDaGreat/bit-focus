@@ -50,9 +50,10 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { FaTrash, FaStickyNote, FaTimes, FaEquals } from "react-icons/fa";
-import { CheckCircle2, Circle, Trash2, Calculator, Trash } from "lucide-react";
+import { CheckCircle2, Circle, CircleHelp, Trash2, Calculator, Trash } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -584,33 +585,71 @@ export default function FloatingNotepad(): JSX.Element {
           )}
         />
 
-        {/* Help Text and Controls */}
+        {/* Compact actions and status; detailed help stays out of the footer. */}
         <div
           className={cn(
-            "flex shrink-0 items-center justify-between gap-2",
+            "flex shrink-0 items-center gap-2 border-t border-border/60 pt-2",
             isMobile && "pb-[env(safe-area-inset-bottom)]"
           )}
         >
-          <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
-            {isMobile ? (
-              <span className="truncate">
-                End line with = to solve · Hold for menu
-              </span>
-            ) : (
-              <>
-                <KeyboardKey className="text-[10px]">Ctrl</KeyboardKey>
-                <span>+</span>
-                <KeyboardKey className="text-[10px]">Enter</KeyboardKey>
-                <span className="ml-0.5">solves =</span>
-                <span className="mx-1 text-muted-foreground/30">·</span>
-                <span>Right-click for options</span>
-              </>
-            )}
+          <div className="flex shrink-0 items-center gap-1">
+            <Button
+              variant="ghost"
+              onClick={handleCalculation}
+              className={cn(
+                "gap-1.5 rounded-lg px-2 text-xs text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                isMobile ? "h-11" : "h-8"
+              )}
+              aria-label="Solve lines ending in ="
+              title="Solve lines ending in = (Ctrl / ⌘ + Enter)"
+            >
+              <FaEquals className="size-3" />
+              Solve
+            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                    isMobile ? "size-11" : "size-8"
+                  )}
+                  aria-label="Notepad help"
+                  title="Notepad help"
+                >
+                  <CircleHelp className="size-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                side="top"
+                align="start"
+                collisionPadding={12}
+                className="max-w-[calc(100vw-1.5rem)] space-y-3 rounded-xl p-3 text-xs"
+              >
+                <p className="font-semibold">Notepad tips</p>
+                <p className="leading-relaxed text-muted-foreground">
+                  End a line with = to solve it automatically, or press Solve.
+                </p>
+                {!isMobile && (
+                  <p className="flex items-center gap-1.5 text-muted-foreground">
+                    <KeyboardKey className="text-[10px]">Ctrl / ⌘</KeyboardKey>
+                    <span>+</span>
+                    <KeyboardKey className="text-[10px]">Enter</KeyboardKey>
+                    <span>to solve</span>
+                  </p>
+                )}
+                <p className="leading-relaxed text-muted-foreground">
+                  {isMobile ? "Touch and hold" : "Right-click"} a jot to mark it
+                  done or delete it, or to clear completed jots.
+                </p>
+              </PopoverContent>
+            </Popover>
           </div>
 
-          <div className="flex shrink-0 items-center gap-1">
-            {lineCount > 0 && !isMobile && (
-              <span className="mr-1 font-mono text-[11px] tabular-nums text-muted-foreground">
+          <div className="ml-auto flex min-w-0 items-center justify-end gap-2">
+            {lineCount > 0 && (
+              <span className="truncate whitespace-nowrap text-[11px] tabular-nums text-muted-foreground">
                 {jotCounts.total > 0 && (
                   <>
                     <span>
@@ -622,24 +661,13 @@ export default function FloatingNotepad(): JSX.Element {
                 {lineCount} {lineCount === 1 ? "line" : "lines"}
               </span>
             )}
-            {isMobile && (
-              <Button
-                variant="ghost"
-                onClick={handleCalculation}
-                className="h-11 gap-2 rounded-lg px-3 text-sm font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                aria-label="Solve lines ending in ="
-              >
-                <FaEquals className="size-3" />
-                Solve
-              </Button>
-            )}
             <Button
               variant="ghost"
               onClick={handleClear}
               disabled={!content && !confirmClear}
               className={cn(
-                "gap-2 rounded-lg text-sm font-medium transition-colors duration-150",
-                isMobile ? "h-11 px-3" : "h-8 px-2",
+                "shrink-0 gap-1.5 rounded-lg text-xs font-medium transition-colors duration-150",
+                isMobile ? "h-11 min-w-11 px-2" : "h-8 min-w-8 px-2",
                 confirmClear
                   ? "bg-destructive/12 text-destructive hover:bg-destructive/20 hover:text-destructive"
                   : "text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
@@ -648,9 +676,7 @@ export default function FloatingNotepad(): JSX.Element {
               title={confirmClear ? "Press again to clear" : "Clear notepad"}
             >
               <FaTrash className="size-3" />
-              {(confirmClear || isMobile) && (
-                <span>{confirmClear ? "Clear all?" : "Clear"}</span>
-              )}
+              {confirmClear && <span>Clear all?</span>}
             </Button>
           </div>
         </div>
