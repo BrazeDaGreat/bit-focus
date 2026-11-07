@@ -47,6 +47,7 @@ export interface ShortcutDef {
     | "open-help"
     | "open-palette"
     | "toggle-notepad"
+    | "quick-jot"
     /** Handled by the page or widget itself; documented here only */
     | "page-local";
 }
@@ -82,6 +83,7 @@ export const SHORTCUTS: ShortcutDef[] = [
   { keys: ["Ctrl", "K"], description: "Open the command palette", category: "General", action: "open-palette" },
   { keys: ["Ctrl", "B"], description: "Toggle the sidebar", category: "General", action: "toggle-sidebar" },
   { keys: ["Alt", "N"], description: "Toggle Notepad view", category: "General", action: "toggle-notepad" },
+  { keys: ["J"], description: "Distraction jot to notepad", category: "General", action: "quick-jot" },
   { keys: ["W"], description: "Export backup (data menu open)", category: "General", action: "page-local" },
   { keys: ["Q"], description: "Import backup (data menu open)", category: "General", action: "page-local" },
   { keys: ["A"], description: "Upload backup (data menu open)", category: "General", action: "page-local" },

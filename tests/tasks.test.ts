@@ -14,7 +14,15 @@ import {
   taskMinutes,
   subtaskProgress,
   descriptionText,
+  dateInput,
+  nextTaskDeadline,
+  taskDeadlineFields,
+  taskSuccessor,
+  taskSuccessorUid,
+  parseLoggedMinutes,
+  validTaskRecurrence,
   type Task,
+  type TaskRecurrence,
 } from "../lib/tasks";
 import {
   serializeTask,
@@ -779,4 +787,193 @@ test("failed project deletion rolls back persisted data and leaves both stores u
   } finally {
     db.projects.hook("deleting").unsubscribe(failDelete);
   }
+});
+
+test("recurrence advances local deadlines for daily, weekdays, chosen weekdays and custom intervals", () => {
+  const due: Task = { ...task, dueDate: new Date(2026, 9, 9, 17, 30), dueTime: true };
+  const cases: [TaskRecurrence, string][] = [
+    [{ freq: "daily" }, "2026-10-10"],
+    [{ freq: "daily", interval: 3 }, "2026-10-12"],
+    [{ freq: "weekdays" }, "2026-10-12"],
+    [{ freq: "weekly" }, "2026-10-16"],
+    [{ freq: "weekly", interval: 2 }, "2026-10-23"],
+    [{ freq: "weekly", days: [1, 3] }, "2026-10-12"],
+    [{ freq: "weekly", interval: 2, days: [1, 3] }, "2026-10-19"],
+  ];
+  for (const [recurrence, expected] of cases) {
+    const next = nextTaskDeadline({ ...due, recurrence });
+    assert.equal(dateInput(next), expected);
+    assert.equal(next!.getHours(), 17);
+    assert.equal(next!.getMinutes(), 30);
+  }
+  const monday = { ...due, dueDate: new Date(2026, 9, 12), recurrence: { freq: "weekly" as const, interval: 2, days: [1, 3] } };
+  const wednesday = nextTaskDeadline(monday)!;
+  assert.equal(dateInput(wednesday), "2026-10-14");
+  assert.equal(dateInput(nextTaskDeadline({ ...monday, dueDate: wednesday })), "2026-10-26");
+  assert.equal(dateInput(nextTaskDeadline({ ...task, recurrence: { freq: "daily" } }, new Date(2026, 11, 31, 21))), "2027-01-01");
+});
+
+test("monthly recurrence clamps short months without losing the original day and respects inclusive end dates", () => {
+  let current: Task = { ...task, dueDate: new Date(2028, 0, 31), dueDay: "2028-01-31", recurrence: { freq: "monthly" } };
+  current = taskSuccessor(current, at)!;
+  assert.equal(current.dueDay, "2028-02-29");
+  current = taskSuccessor(current, at)!;
+  assert.equal(current.dueDay, "2028-03-31");
+  assert.equal(current.recurrence!.dayOfMonth, 31);
+  const daily: Task = { ...task, dueDate: new Date(2026, 9, 9), dueDay: "2026-10-09", recurrence: { freq: "daily", until: "2026-10-10" } };
+  assert.equal(dateInput(nextTaskDeadline(daily)), "2026-10-10");
+  assert.equal(nextTaskDeadline({ ...daily, dueDate: new Date(2026, 9, 10), dueDay: "2026-10-10" }), null);
+  assert.equal(nextTaskDeadline({ ...daily, recurrence: { freq: "daily", interval: 0 } }), null);
+  assert.equal(nextTaskDeadline(task), null);
+});
+
+test("date-only recurrence and snoozing keep dueDay across zones; timed deadlines retain their clock across DST", () => {
+  const original = process.env.TZ;
+  try {
+    for (const zone of ["Asia/Karachi", "America/Los_Angeles", "Pacific/Auckland"]) {
+      process.env.TZ = zone;
+      const due: Task = { ...task, dueDay: "2026-10-09", dueDate: new Date("2026-10-08T19:00:00Z"), recurrence: { freq: "daily" } };
+      const next = nextTaskDeadline(due)!;
+      assert.equal(dateInput(next), "2026-10-10");
+      assert.equal(next.getHours(), 0);
+      const snoozed = taskDeadlineFields(due, "2026-10-12");
+      assert.equal(snoozed.dueDay, "2026-10-12");
+      assert.equal(snoozed.dueTime, false);
+      assert.equal(taskDeadline({ ...due, ...snoozed })!.getDate(), 12);
+    }
+    process.env.TZ = "America/New_York";
+    const timed: Task = { ...task, dueDate: new Date(2026, 2, 7, 9, 30), dueTime: true, recurrence: { freq: "daily" } };
+    assert.equal(nextTaskDeadline(timed)!.getHours(), 9);
+    assert.equal(nextTaskDeadline(timed)!.getMinutes(), 30);
+    const moved = taskDeadlineFields(timed, "2026-03-09");
+    assert.equal(moved.dueDate!.getHours(), 9);
+    assert.equal(moved.dueDate!.getMinutes(), 30);
+    assert.equal(moved.dueTime, true);
+    assert.deepEqual(taskDeadlineFields(timed, null), { dueDate: null, dueDay: null, dueTime: false });
+  } finally {
+    if (original === undefined) delete process.env.TZ;
+    else process.env.TZ = original;
+  }
+});
+
+test("completion creates one successor, preserves history and metadata, resets manual time and leaves subtasks on the original", async () => {
+  await db.open();
+  const store = useTasks.getState();
+  const id = await store.addTask(task.title, { ...task, uid: undefined, projectId: 12, primaryTag: "Work", dueDate: new Date(2026, 9, 9), dueDay: "2026-10-09", recurrence: { freq: "daily" }, loggedMinutes: 120, legacyIssueUid: "legacy" });
+  const child = await store.addTask("Subtask", { parentId: id, completedAt: at });
+  await Promise.all([store.updateTask(id, { completedAt: at }), store.updateTask(id, { completedAt: at })]);
+  const before = (await db.tasks.get(id))!;
+  const successor = (await db.tasks.where("uid").equals(before.recurrenceNextUid!).first())!;
+  assert.equal(await db.tasks.count(), 3);
+  assert.equal(successor.uid, taskSuccessorUid(before.uid!));
+  assert.notEqual(successor.uid, before.uid);
+  assert.deepEqual(before.completedAt, at);
+  for (const field of ["title", "description", "tags", "primaryTag", "projectId", "estimateMinutes", "priority", "recurrence"] as const) assert.deepEqual(successor[field], before[field], field);
+  assert.equal(successor.loggedMinutes, 0);
+  assert.equal(successor.completedAt, null);
+  assert.equal(successor.legacyIssueUid, undefined);
+  assert.equal(successor.dueDay, "2026-10-10");
+  assert.equal((await db.tasks.get(child))!.parentId, id);
+  assert.deepEqual((await db.tasks.get(child))!.completedAt, at);
+  assert.equal(useTasks.getState().tasks.length, 3);
+  await store.updateTask(id, { completedAt: null, recurrenceNextUid: "" });
+  assert.equal((await db.tasks.get(id))!.recurrenceNextUid, successor.uid);
+  await store.removeForever(successor.id!);
+  await store.updateTask(id, { completedAt: at });
+  assert.equal(await db.tasks.count(), 2);
+});
+
+test("bulk completion, undated tasks, ended repeats and trash each follow their recurrence rules", async () => {
+  await db.open();
+  const store = useTasks.getState();
+  const a = await store.addTask("Undated", { recurrence: { freq: "daily" } });
+  const b = await store.addTask("Every two weeks", { dueDate: new Date(2026, 8, 29), dueDay: "2026-09-29", recurrence: { freq: "weekly", interval: 2 } });
+  const ended = await store.addTask("Ended", { recurrence: { freq: "daily", until: "2020-01-01" } });
+  const trash = await store.addTask("Trash", { recurrence: { freq: "daily" }, deletedAt: at });
+  await store.updateMany([a, b, ended, trash], { completedAt: new Date(2026, 9, 10, 14) });
+  const rows = await db.tasks.toArray();
+  assert.equal(rows.length, 6);
+  const next = (id: number) => rows.find(row => row.uid === rows.find(row => row.id === id)!.recurrenceNextUid);
+  assert.equal(next(a)!.dueDay, "2026-10-11");
+  assert.equal(next(b)!.dueDay, "2026-10-13");
+  assert.equal(next(ended), undefined);
+  assert.equal(next(trash), undefined);
+});
+
+test("a synced successor is reused, and failed successor writes roll back completion and store state", async () => {
+  await db.open();
+  const store = useTasks.getState();
+  const id = await store.addTask("Daily", { recurrence: { freq: "daily" } });
+  const before = (await db.tasks.get(id))!;
+  const synced = taskSuccessor(before, at)!;
+  await db.tasks.add(synced);
+  await store.loadTasks();
+  await store.updateTask(id, { completedAt: at });
+  assert.equal(await db.tasks.count(), 2);
+  assert.equal((await db.tasks.get(id))!.recurrenceNextUid, synced.uid);
+  const other = await store.addTask("Other daily", { recurrence: { freq: "daily" } });
+  const state = useTasks.getState().tasks;
+  const fail = () => { throw new Error("Insert failed"); };
+  db.tasks.hook("creating", fail);
+  try {
+    await assert.rejects(store.updateTask(other, { completedAt: at }), /Insert failed/);
+    assert.equal((await db.tasks.get(other))!.completedAt, undefined);
+    assert.equal((await db.tasks.get(other))!.recurrenceNextUid, undefined);
+    assert.equal(await db.tasks.count(), 3);
+    assert.equal(useTasks.getState().tasks, state);
+  } finally { db.tasks.hook("creating").unsubscribe(fail); }
+});
+
+test("manual durations parse strictly and contribute alongside only linked focus sessions", () => {
+  for (const [input, expected] of [["2h", 120], ["90m", 90], ["1h30", 90], ["1h30m", 90], ["1h 30m", 90], ["1.5h", 90], ["45", 45], [" 2H ", 120], ["0", 0]] as const) assert.equal(parseLoggedMinutes(input), expected, input);
+  for (const input of ["", "-5", "-1h", "1h-30", "2 hours", "2h junk", "Infinity", "NaN", "99999999999999999h"]) assert.equal(parseLoggedMinutes(input), null, input);
+  const session = { taskUid: task.uid, tag: "Work", startTime: at, endTime: new Date(at.getTime() + 30 * 60000) };
+  assert.equal(taskMinutes({ ...task, loggedMinutes: 120 }, [session, { ...session, taskUid: "other" }, { ...session, taskUid: undefined }]), 150);
+  assert.equal(taskMinutes({ ...task, uid: undefined, loggedMinutes: 120 }, [session, { ...session, taskUid: undefined }]), 120);
+  assert.equal(taskMinutes({ ...task, loggedMinutes: -5 }, []), 0);
+});
+
+test("manual logging is additive under concurrent clicks, editable and clearable without sessions or rewards", async () => {
+  await db.open();
+  const store = useTasks.getState();
+  const id = await store.addTask("Offline work", { estimateMinutes: 60 });
+  const beforeRewards = await db.rewards.toArray();
+  await Promise.all([store.logTime(id, 15), store.logTime(id, 30), store.logTime(id, 60)]);
+  assert.equal((await db.tasks.get(id))!.loggedMinutes, 105);
+  assert.equal(taskMinutes(useTasks.getState().tasks.find(row => row.id === id)!, []), 105);
+  await store.updateTask(id, { loggedMinutes: 120 });
+  assert.equal((await db.tasks.get(id))!.loggedMinutes, 120);
+  await store.updateTask(id, { loggedMinutes: 0 });
+  assert.equal((await db.tasks.get(id))!.loggedMinutes, 0);
+  assert.equal(await db.focus.count(), 0);
+  assert.deepEqual(await db.rewards.toArray(), beforeRewards);
+  for (const loggedMinutes of [-1, NaN, Infinity]) {
+    await assert.rejects(store.logTime(id, loggedMinutes), /Logged time/);
+    await assert.rejects(store.updateTask(id, { loggedMinutes }), /Logged time/);
+    await assert.rejects(store.addTask("Invalid", { loggedMinutes }), /Logged time/);
+  }
+  await assert.rejects(store.updateTask(id, { recurrence: { freq: "daily", interval: 0 } }), /repeat rule/);
+});
+
+test("recurrence, spawn guards and manual totals survive backups and sync untouched; malformed values are rejected", async () => {
+  await db.open();
+  const repeated: Task = { ...task, recurrence: { freq: "weekly", interval: 2, days: [1, 3], until: "2027-01-01" }, recurrenceNextUid: "next-task", loggedMinutes: 120 };
+  const restored = deserializeTask(JSON.parse(JSON.stringify(serializeTask(repeated))));
+  assert.deepEqual(restored.recurrence, repeated.recurrence);
+  assert.equal(restored.recurrenceNextUid, repeated.recurrenceNextUid);
+  assert.equal(restored.loggedMinutes, 120);
+  const col = COLLECTION_BY_KEY.get("tasks")!;
+  const wire = await toWire(col, repeated as unknown as Record<string, unknown>, new IdCache());
+  const decoded = await fromWire(col, JSON.parse(JSON.stringify(wire)), repeated.uid!, new IdCache());
+  assert.deepEqual(decoded.row.recurrence, repeated.recurrence);
+  assert.equal(decoded.row.loggedMinutes, 120);
+  assert.equal(decoded.row.recurrenceNextUid, "next-task");
+  await db.tasks.add(repeated);
+  const backup = await SaveManager.exportJSON();
+  await SaveManager.importJSON(JSON.parse(JSON.stringify(backup)));
+  assert.deepEqual((await db.tasks.toArray())[0].recurrence, repeated.recurrence);
+  assert.equal((await db.tasks.toArray())[0].loggedMinutes, 120);
+  for (const invalid of [null, { freq: "yearly" }, { freq: "daily", interval: 0 }, { freq: "weekly", days: [7] }, { freq: "monthly", until: "2026-02-30" }]) assert.equal(validTaskRecurrence(invalid), false);
+  assert.throws(() => deserializeTask({ ...serializeTask(task), loggedMinutes: -1 }), /invalid task/);
+  assert.throws(() => deserializeTask({ ...serializeTask(task), recurrence: { freq: "daily", interval: 0 } }), /invalid task/);
 });

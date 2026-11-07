@@ -551,7 +551,10 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
             : "Time for a break."
           : "Ready to focus again?";
 
-        playNotificationSound();
+        playNotificationSound(wasFocus ? prefs.focusEndSound : prefs.breakEndSound, {
+          volume: prefs.soundVolume,
+          gentle: prefs.gentleSound,
+        });
         toast(`${title}. ${body}`, { icon: <IoIosTimer /> });
         if (prefs.phaseNotifications && typeof document !== "undefined" && document.hidden) {
           showSystemNotification(title, body);

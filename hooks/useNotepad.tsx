@@ -45,6 +45,11 @@
 
 import { create } from "zustand";
 import { persist, PersistStorage } from "zustand/middleware";
+import {
+  clearAllJots,
+  clearCompletedJots,
+  formatJotLine,
+} from "@/components/notepad/jot-utils";
 
 /**
  * Notepad State Interface
@@ -61,12 +66,22 @@ interface NotepadState {
   clearContent: () => void;
   /** Function to append text to current content */
   appendContent: (text: string) => void;
+  /** Function to append a distraction jot with timestamp and optional tag */
+  appendJot: (text: string, tag?: string | null) => void;
+  /** Function to clear completed jots from content */
+  clearCompletedJots: () => void;
+  /** Function to clear all jots from content */
+  clearAllJots: () => void;
   /** Function to process mathematical expressions and insert results */
   processCalculation: (text: string) => string;
   /** Whether the notepad is open */
   isOpen: boolean;
   /** Set open state of the notepad */
   setIsOpen: (isOpen: boolean) => void;
+  /** Whether the quick jot capture dialog is open */
+  isJotOpen: boolean;
+  /** Set open state of the quick jot capture dialog */
+  setIsJotOpen: (open: boolean) => void;
 }
 
 /**
@@ -246,11 +261,18 @@ export const useNotepad = create<NotepadState>()(
       content: "",
       /** Whether the notepad is open */
       isOpen: false,
-      
+      /** Whether the quick jot capture dialog is open */
+      isJotOpen: false,
+
       /**
        * Set open state of the notepad
        */
       setIsOpen: (isOpen: boolean) => set({ isOpen }),
+
+      /**
+       * Set open state of the quick jot capture dialog
+       */
+      setIsJotOpen: (isJotOpen: boolean) => set({ isJotOpen }),
 
       /**
        * Set Notepad Content
@@ -283,6 +305,48 @@ export const useNotepad = create<NotepadState>()(
       appendContent: (text: string) => {
         const currentContent = get().content;
         set({ content: currentContent + text });
+      },
+
+      /**
+       * Append Distraction Jot to Notepad
+       *
+       * Adds a new formatted distraction jot to the notepad with a 12-hour
+       * timestamp and optional tag.
+       *
+       * @param {string} text - Raw distraction note
+       * @param {string | null} [tag] - Active focus session tag, if any
+       */
+      appendJot: (text: string, tag?: string | null) => {
+        const trimmed = text.trim();
+        if (!trimmed) return;
+        const line = formatJotLine(trimmed, { tag });
+        const current = get().content;
+        const updated = current
+          ? current.endsWith("\n")
+            ? `${current}${line}`
+            : `${current}\n${line}`
+          : line;
+        set({ content: updated });
+      },
+
+      /**
+       * Clear Completed Jots
+       *
+       * Removes all lines matching completed distraction jots (`- [x] ...`).
+       */
+      clearCompletedJots: () => {
+        const current = get().content;
+        set({ content: clearCompletedJots(current) });
+      },
+
+      /**
+       * Clear All Jots
+       *
+       * Removes all lines matching distraction jots (pending and completed).
+       */
+      clearAllJots: () => {
+        const current = get().content;
+        set({ content: clearAllJots(current) });
       },
       
       /**
@@ -358,6 +422,10 @@ export const useNotepad = create<NotepadState>()(
     {
       name: "notepad-storage", // Storage key for localStorage
       storage: storage, // Custom storage configuration
+      partialize: (state) => ({
+        content: state.content,
+        isOpen: state.isOpen,
+      }) as NotepadState,
     }
   )
 );

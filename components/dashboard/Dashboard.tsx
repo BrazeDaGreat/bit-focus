@@ -66,6 +66,8 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { DEFAULT_TAG_COLOR } from "./ManageTagsContent";
 import type { TrendDatum } from "./TrendChart";
 import NowCard from "./NowCard";
+import WeeklyDigestButton from "./WeeklyDigestButton";
+import { WeeklyGoals, useTagGoalMenu } from "./TagGoals";
 
 dayjs.extend(isSameOrAfter);
 
@@ -385,6 +387,7 @@ function TodayPanel(): JSX.Element {
           loading={loadingFocusSessions}
         />
       </div>
+      <WeeklyGoals className="mt-3" />
       <NowCard />
     </section>
   );
@@ -573,7 +576,7 @@ function WeekReviewPanel(): JSX.Element {
   const rate = pomodoros.total > 0 ? Math.round((pomodoros.finished / pomodoros.total) * 100) : null;
 
   return (
-    <Panel title="Week in review" subtitle="Last 7 days, compared with the 7 before">
+    <Panel title="Week in review" subtitle="Last 7 days, compared with the 7 before" action={<WeeklyDigestButton />}>
       {loadingFocusSessions ? (
         <Skeleton className="h-[260px] w-full rounded-xl" />
       ) : (
@@ -836,6 +839,7 @@ function TrendPanel(): JSX.Element {
 function TagBreakdownPanel(): JSX.Element {
   const { focusSessions, loadingFocusSessions } = useFocus();
   const { savedTags } = useTag();
+  const goalMenu = useTagGoalMenu();
 
   const rows = useMemo(() => {
     const start = dayjs().subtract(7, "day").valueOf();
@@ -859,8 +863,10 @@ function TagBreakdownPanel(): JSX.Element {
     }
 
     const max = top[0]?.[1] ?? 0;
-    return top.map(([tag, seconds]) => ({
+    return top.map(([tag, seconds], i) => ({
       tag,
+      // Only a real tag can carry a weekly goal; not "Untagged" or "N more".
+      goalTag: i < 6 && tag !== "Untagged" ? tag : null,
       seconds,
       share: max > 0 ? (seconds / max) * 100 : 0,
       color: getTagColor(savedTags, tag)[0],
@@ -887,9 +893,16 @@ function TagBreakdownPanel(): JSX.Element {
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-2.5">
+        <div
+          className="flex flex-col gap-2.5"
+          onContextMenu={(event) => goalMenu.open(event, null)}
+        >
           {rows.map((row) => (
-            <div key={row.tag} className="flex items-center gap-3">
+            <div
+              key={row.tag}
+              className="flex items-center gap-3"
+              onContextMenu={(event) => goalMenu.open(event, row.goalTag)}
+            >
               <span className="w-24 shrink-0 truncate text-xs font-medium sm:w-28">
                 {row.tag}
               </span>
@@ -909,6 +922,7 @@ function TagBreakdownPanel(): JSX.Element {
           ))}
         </div>
       )}
+      {goalMenu.element}
     </Panel>
   );
 }

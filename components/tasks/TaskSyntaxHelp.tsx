@@ -15,6 +15,7 @@ export function TaskSyntaxHelp({ onInsert }: { onInsert?: (example: string) => v
       <PopoverContent align="end" aria-label="Quick add syntax" className="w-[min(22rem,calc(100vw-2rem))] rounded-2xl bg-popover p-4 shadow-xs motion-reduce:animate-none">
         <h2 className="mb-3 text-sm font-semibold tracking-tight">Type naturally</h2>
         <p className="mb-3 text-xs text-muted-foreground">Add a time range to plan a calendar block. Dates schedule the block; use “by” or “due” to also set a deadline.</p>
+        <p className="mb-3 text-xs text-muted-foreground">Repeats create the next task when completed, from its deadline or completion day if undated. Logged time and subtasks are not carried over. Set an end date in task details.</p>
         <div className="max-h-[min(28rem,60vh)] space-y-3 overflow-y-auto overscroll-contain">
           {PARSE_EXAMPLES.map(({ group, items }) => (
             <section key={group}>

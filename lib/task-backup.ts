@@ -1,4 +1,5 @@
 import type { Task, TaskFilter } from "./tasks";
+import { validTaskRecurrence } from "./tasks";
 import type { TaskAttachment } from "./db";
 
 export interface SavedTask extends Omit<
@@ -42,6 +43,9 @@ export function deserializeTask(task: SavedTask): Task {
     typeof task.description !== "string" ||
     !Number.isFinite(task.estimateMinutes) ||
     task.estimateMinutes < 0 ||
+    (task.loggedMinutes !== undefined && (!Number.isFinite(task.loggedMinutes) || task.loggedMinutes < 0)) ||
+    (task.recurrence != null && !validTaskRecurrence(task.recurrence)) ||
+    (task.recurrenceNextUid !== undefined && (typeof task.recurrenceNextUid !== "string" || !task.recurrenceNextUid)) ||
     !Number.isInteger(task.priority) ||
     task.priority < 0 ||
     task.priority > 3 ||

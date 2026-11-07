@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { TaskNotesEditor } from "./TaskNotesEditor";
 import { TaskSubtasks } from "./TaskSubtasks";
+import { TaskRepeatPicker } from "./TaskRepeatPicker";
+import { TaskTimeLog } from "./TaskTimeLog";
 import { useTaskAttachments } from "@/hooks/useAttachments";
 import { Button } from "@/components/ui/button";
 import { useTasks } from "@/hooks/useTasks";
@@ -21,6 +23,7 @@ import { DeadlinePicker, ProjectPicker } from "./TaskPickers";
 import {
   isTaskOverdue,
   taskDeadline,
+  taskDeadlineFields,
   taskMinutes,
   formatMinutes,
   type Task,
@@ -67,17 +70,7 @@ export function TaskDetails({
     }
   };
   const changeDeadline = (day: string | null) => {
-    if (!day) {
-      void save({ dueDate: null, dueDay: null, dueTime: false });
-      return;
-    }
-    // Keep an existing time of day when only the date changes.
-    const time = task.dueTime && deadline ? format(deadline, "HH:mm") : "00:00";
-    void save({
-      dueDate: new Date(`${day}T${time}`),
-      dueDay: day,
-      dueTime: !!task.dueTime,
-    });
+    void save(taskDeadlineFields(task, day));
   };
   const toggleTag = (tag: string) => {
     const tags = task.tags.includes(tag)
@@ -210,6 +203,11 @@ export function TaskDetails({
           </div>
         </div>
 
+        <div className="text-xs text-muted-foreground">
+          Repeat
+          <TaskRepeatPicker value={task.recurrence} baseDate={deadline} onChange={(recurrence) => void save({ recurrence })} />
+        </div>
+
         <div>
           <label
             htmlFor={`task-estimate-${task.id}`}
@@ -253,6 +251,13 @@ export function TaskDetails({
               className="h-8 w-20 font-mono text-xs tabular-nums"
             />
           </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <TaskTimeLog task={task} />
+          <span className="font-mono text-xs tabular-nums text-muted-foreground">
+            {formatMinutes(taskMinutes(task, focusSessions) - (task.loggedMinutes ?? 0))} focused + {formatMinutes(task.loggedMinutes ?? 0)} logged
+          </span>
         </div>
 
         <div role="group" aria-label="Task priority">
@@ -321,7 +326,7 @@ export function TaskDetails({
             {formatMinutes(taskMinutes(task, focusSessions))} /{" "}
             {task.estimateMinutes ? formatMinutes(task.estimateMinutes) : "—"}
           </span>{" "}
-          focused
+          actual / planned
           {sessions.length > 0 &&
             ` · ${sessions.length} session${sessions.length === 1 ? "" : "s"}`}
         </p>

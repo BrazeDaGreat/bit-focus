@@ -48,6 +48,16 @@ const CHANGELOG = `
 - Changed: Times use the 12-hour clock everywhere: calendar blocks and sessions, the selection outline, toasts, the Focus session log, the focus table, subtask deadlines, and the last automatic backup.
 - Changed: The "Plan" button is gone from the Calendar's unscheduled task list to keep it uncluttered. Drag a task onto the calendar, right-click a time to plan a task there, or focus a task and press Enter to drop it into the next free slot.
 - Fixed: The second line of notifications was hard to read in most themes. It now uses the theme's own muted text colour.
+### \`v0.24.3-beta\` (2026-11-07) — Quality of Life
+- Added: Repeating tasks. Set a task to repeat every day, on weekdays, on chosen days of the week, every few days or weeks, or monthly, with an optional end date. Completing it creates the next one with its deadline moved forward. Typing "every mon", "daily", "every 2 weeks", or "monthly" in the task box sets the repeat, and repeating tasks show a small repeat icon.
+- Added: Right-click a task (or long-press it on touch) to snooze its deadline to tomorrow or next week, pick a new date, or remove it, alongside the task's other actions.
+- Added: Log time on a task you worked on away from the timer. Add 15 minutes, 30 minutes, or an hour, or type an amount like "2h" or "1h30", and edit or clear it later. Logged time counts toward the task's actual time next to its estimate, and task details show how much came from focus sessions and how much was logged. It doesn't add focus sessions or reward points.
+- Added: Tasks in the command palette (Ctrl + K). Search by title, project, or tag. Enter starts focusing on the task, and Shift + Enter opens it in Projects.
+- Added: Jot down a stray thought without leaving what you're doing. Press J anywhere to open a one-line box, type, and press Enter. The thought goes into the Notepad with the time (and the session's tag if the timer is running), and the timer keeps going. Right-click a jot in the Notepad to tick it off or delete it, or to clear finished or all jots.
+- Added: Choose a separate sound for when focus ends and when a break ends, from Chime, Bell, Soft marimba, Digital beep, Wood block, or None, with a preview button for each. A volume slider and a "Fade in gently" option sit beside them under Settings → Notifications. Existing setups keep the current chime at the current volume.
+- Added: Weekly goals per tag, such as 10 hours on #uni. Home shows a small ring for each goal with how much you've focused this week (Monday to Sunday) and fills it in when you reach it. Every minute of focus on the tag counts, planned or not. Set goals by right-clicking a tag in "Where the time went", from the goals on Home, or in Manage tags.
+- Added: "Summarise week" in Week in review asks your AI Chat model to write a review of the last 7 days: where your time went, what got done, what's carrying over, and a few gentle suggestions. The review is saved as a new page in Notes. If saving fails, the text is kept on this device so you can retry, copy, or download it.
+- Technical: Added tests for repeat parsing and scheduling, logged time, and the weekly review summary. No database version change.
 ***
 
 ## \`v0.23.0 (LTS)\` (2026-09-29) — Settings, Commands & Review

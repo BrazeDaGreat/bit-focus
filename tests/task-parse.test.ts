@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { blockTimes, parseTaskInput, parsedToTaskFields, PARSE_EXAMPLES } from "../lib/task-parse";
+import type { TaskRecurrence } from "../lib/tasks";
 
 const now = new Date(2026, 9, 10, 14);
 const projects = [{ id: 1, title: "University" }, { id: 2, title: "Work" }, { id: 3, title: "Work Stuff" }];
@@ -226,4 +227,79 @@ test("block dates use local days and roll only undated finished ranges forward",
   assert.equal(blockTimes(parse("Study today 2-4pm"), new Date(2026, 9, 10, 17))!.start.getDate(), 10);
   assert.equal(blockTimes(parse("Study"), now), null);
   assert.ok(PARSE_EXAMPLES.some(group => group.group === "Time blocks"));
+});
+
+test("recurrence phrases produce one whole preview token before weekday date parsing", () => {
+  const cases: [string, TaskRecurrence][] = [
+    ["every day", { freq: "daily" }],
+    ["daily", { freq: "daily" }],
+    ["every weekday", { freq: "weekdays" }],
+    ["every weekdays", { freq: "weekdays" }],
+    ["weekly", { freq: "weekly" }],
+    ["every mon", { freq: "weekly", days: [1] }],
+    ["every mon and wed", { freq: "weekly", days: [1, 3] }],
+    ["every Monday, Wednesday and Friday", { freq: "weekly", days: [1, 3, 5] }],
+    ["every Mon, Wed, and Fri", { freq: "weekly", days: [1, 3, 5] }],
+    ["every 2 weeks", { freq: "weekly", interval: 2 }],
+    ["every 3 days", { freq: "daily", interval: 3 }],
+    ["monthly", { freq: "monthly" }],
+  ];
+  for (const [phrase, rule] of cases) {
+    const input = `Review ${phrase} #uni ~1h30m !high`;
+    const parsed = parse(input);
+    assert.equal(parsed.title, "Review", phrase);
+    assert.deepEqual(parsed.recurrence, rule, phrase);
+    assert.equal(parsed.dueDay, undefined, phrase);
+    assert.deepEqual(parsedToTaskFields(parsed, now).recurrence, rule);
+    const token = parsed.tokens.find(token => token.kind === "recurrence")!;
+    assert.equal(token.text, phrase);
+    assert.equal(input.slice(token.start, token.end), phrase);
+    assert.equal(token.key, `recurrence:${phrase.toLowerCase()}`);
+    assert.ok(token.label);
+    assert.equal(parsed.estimateMinutes, 90);
+    assert.equal(parsed.priority, 3);
+  }
+  assert.deepEqual(parse("Read EVERY MON AND WED").recurrence, { freq: "weekly", days: [1, 3] });
+  assert.ok(PARSE_EXAMPLES.some(group => group.group === "Repeating tasks"));
+});
+
+test("repeating tasks compose with deadlines, time ranges, tags, project, estimates and priority", () => {
+  for (const connector of ["by", "due", "before", "until"]) {
+    const parsed = parse(`Study every mon and wed tomorrow 2-4pm ${connector} Friday 5pm #uni @University ~2h p2`);
+    assert.equal(parsed.title, "Study");
+    assert.deepEqual(parsed.recurrence, { freq: "weekly", days: [1, 3] });
+    assert.deepEqual(parsed.block, { start: "14:00", end: "16:00" });
+    assert.equal(parsed.blockDay, "2026-10-11");
+    assert.equal(parsed.dueDay, "2026-10-16");
+    assert.equal(parsed.dueTime, "17:00");
+    assert.equal(parsedToTaskFields(parsed, now).dueTime, true);
+    assert.equal(parsed.priority, 2);
+    assert.equal(parsed.estimateMinutes, 120);
+    assert.equal(parsed.projectId, 1);
+    assert.deepEqual(parsed.tags, ["uni"]);
+  }
+  assert.equal(parse("Pay rent monthly by Nov 1").dueDay, "2026-11-01");
+  assert.equal(parse("Read daily tomorrow").dueDay, "2026-10-11");
+});
+
+test("quoted, ignored, invalid and embedded recurrence phrases remain literal", () => {
+  for (const phrase of ["every mon and wed", "every 2 weeks", "daily", "monthly"]) {
+    const quoted = parse(`Read "${phrase}" tomorrow`);
+    assert.equal(quoted.title, `Read ${phrase}`);
+    assert.equal(quoted.recurrence, undefined);
+    const ignored = parseTaskInput(`Read ${phrase} tomorrow`, { now, ignore: [`recurrence:${phrase}`] });
+    assert.equal(ignored.title, `Read ${phrase}`);
+    assert.equal(ignored.recurrence, undefined);
+    assert.equal(ignored.dueDay, "2026-10-11");
+  }
+  for (const title of ["Read dailyish", "Read every money", "Read every 0 weeks", "Read every 2 weeksish", "Read @weekly", "Read ~monthly", "Read every 999999999 weeks"]) {
+    assert.equal(parse(title).title, title);
+    assert.equal(parse(title).recurrence, undefined);
+  }
+  assert.equal(parse("Read #daily").recurrence, undefined);
+  assert.deepEqual(parse("Read #daily").tags, ["daily"]);
+  const duplicate = parse("Read daily every mon and wed");
+  assert.deepEqual(duplicate.recurrence, { freq: "daily" });
+  assert.equal(duplicate.dueDay, undefined);
+  assert.equal(duplicate.title, "Read every mon and wed");
 });
