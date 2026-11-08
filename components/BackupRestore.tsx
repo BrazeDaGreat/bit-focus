@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 const countLabels = {
   tasks: "Tasks", notes: "Notes (including Trash)", projects: "Projects", milestones: "Milestones",
   issues: "Legacy issues", focusSessions: "Focus sessions", timeblocks: "Calendar blocks", timeblockTemplates: "Day templates",
-  rewards: "Rewards", discounts: "Discounts", chats: "AI chats", savedFilters: "Saved task filters",
+  rewards: "Rewards", discounts: "Discounts", rewardLedger: "Gem history entries", chats: "AI chats", savedFilters: "Saved task filters",
 };
 
 /** One file-restore flow for Settings and the data menu. Reading never mutates data. */

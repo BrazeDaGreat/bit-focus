@@ -200,9 +200,77 @@ export interface RewardItem extends Syncable {
   id?: number;
   title: string;
   description?: string;
+  /**
+   * Price. In hundredths of a gem once `unit` is "gem"; rows without `unit`
+   * predate v0.25.0 and hold focus minutes (converted on load).
+   */
   cost: number;
   category?: string;
+  /** Legacy icon: an index into the pre-v0.25.0 icon list. Replaced by `icon`. */
   emoji?: string;
+  /** Icon id from `REWARD_ICONS`, or a literal emoji. */
+  icon?: string;
+  /** Set once `cost` is stored in hundredths of a gem. */
+  unit?: "gem";
+  /** Shown before unpinned items. */
+  pinned?: boolean;
+  /** Kept but left out of the shop until shown again. */
+  hidden?: boolean;
+  /** The one item being saved up for. */
+  goal?: boolean;
+  /** At most `count` redemptions per calendar day or week (Monday start). */
+  limit?: { count: number; period: "day" | "week" };
+  /** Percent added to the price for each redemption this week. */
+  priceStep?: number;
+  /** Uids of the items this bundle contains. Present only on bundles. */
+  bundle?: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/** Kinds of balance change in the rewards ledger. */
+export type RewardTxKind =
+  | "opening" // Balance carried over from before the ledger existed
+  | "earn" // Focus session
+  | "redeem" // Shop item or bundle
+  | "add" // Added by hand
+  | "throw" // Thrown away
+  | "loan" // Loan paid out
+  | "repay"; // Loan repayment, by hand or taken from earnings
+
+/**
+ * One balance change. The balance is the sum of every `amount`.
+ *
+ * Rows sync individually, so earning on two devices merges rather than one
+ * device's balance overwriting the other's.
+ */
+export interface RewardTransaction extends Syncable {
+  id?: number;
+  uid: string;
+  kind: RewardTxKind;
+  /** Signed change in hundredths of a gem. */
+  amount: number;
+  at: Date;
+  /** Rows written by one action share a group; undo removes the group. */
+  group?: string;
+  note?: string;
+  /** Redeemed item (or bundle) uid. */
+  itemUid?: string;
+  /** Item title at redemption, so history survives deleting the item. */
+  itemTitle?: string;
+  /** Contents of a redeemed bundle, for limits and stats. */
+  bundleItemUids?: string[];
+  /** Category at redemption, for stats. */
+  category?: string;
+  /** Tag and focused seconds of an earning. */
+  tag?: string;
+  seconds?: number;
+  /** For "repay": the loan's uid. For "loan": unset (the row's own uid). */
+  loanUid?: string;
+  /** For "loan": interest charged on top of the principal, in percent. */
+  interestPercent?: number;
+  /** For "loan": share of each earning taken to repay it, in percent. */
+  repayPercent?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -316,6 +384,9 @@ class BitFocusDB extends Dexie {
    * Special Discounts Table
    */
   discounts: Dexie.Table<SpecialDiscount, number>;
+
+  /** Rewards balance changes; the balance is their sum. */
+  rewardLedger: Dexie.Table<RewardTransaction, number>;
 
   timeblocks: Dexie.Table<TimeBlock, number>;
   timeblockTemplates: Dexie.Table<TimeblockTemplate, number>;
@@ -603,6 +674,12 @@ class BitFocusDB extends Dexie {
       timeblock_templates: "++id, &uid, name, updatedAt",
     });
 
+    // Rewards ledger (v0.25.0). Item price conversion happens on load, not
+    // here, because rows from devices not yet updated keep arriving by sync.
+    this.version(18).stores({
+      reward_ledger: "++id, &uid, kind, at, itemUid, loanUid, group",
+    });
+
     // Table reference assignment
     this.tasks = this.table("task_items");
     this.taskAttachments = this.table("task_attachments");
@@ -618,6 +695,7 @@ class BitFocusDB extends Dexie {
     this.issues = this.table("issues");
     this.rewards = this.table("rewards");
     this.discounts = this.table("discounts");
+    this.rewardLedger = this.table("reward_ledger");
     this.aiChats = this.table("ai_chats");
     this.aiConfig = this.table("ai_config");
     this.syncState = this.table("sync_state");

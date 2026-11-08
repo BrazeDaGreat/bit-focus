@@ -1,30 +1,15 @@
 "use client";
 
+import { useEffect, type JSX } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { SidebarTrigger } from "./ui/sidebar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "./ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { MobileDrawer } from "@/components/ui/mobile-drawer";
-import { useRewards } from "@/hooks/useRewards";
-import { useIsMobile } from "@/hooks/useIsMobile";
-import { useState, useEffect, type JSX } from "react";
-import { toast } from "sonner";
+import { Tooltip, TooltipTrigger, TooltipContent } from "./ui/tooltip";
+import { useRewards, selectBalance } from "@/hooks/useRewards";
+import { useRewardSettings } from "@/hooks/useRewardSettings";
+import { useConfig } from "@/hooks/useConfig";
+import { GemIcon, Gems } from "@/components/rewards/Gem";
+import { debtOf, formatGems, goalOf, priceOf, progressToward, shortfall, startOfDay } from "@/lib/rewards";
 import { cn } from "@/lib/utils";
 import BITFdata from "./BITFdata";
 import FloatingNotepad from "./FloatingNotepad";
@@ -32,10 +17,6 @@ import QuickMessageDialog from "./QuickMessageDialog";
 import MiniTimer from "./MiniTimer";
 import SyncChip from "./auth/SyncChip";
 import OfflineIndicator from "./OfflineIndicator";
-import { usePathname } from "next/navigation";
-import { FaArrowLeft, FaTrash, FaHandHoldingDollar, FaCoins } from "react-icons/fa6";
-
-type PointsDrawerView = "menu" | "throw-away" | "loan";
 
 /** Map of pathname patterns to display names */
 const PAGE_TITLES: Record<string, string> = {
@@ -61,69 +42,50 @@ function usePageTitle(): string {
 }
 
 export default function TopBar(): JSX.Element {
-  const { rewardPoints, throwAwayPoints, takeLoan, loadRewards } = useRewards();
-  const [throwAwayDialogOpen, setThrowAwayDialogOpen] = useState(false);
-  const [loanDialogOpen, setLoanDialogOpen] = useState(false);
-  const [throwAwayAmount, setThrowAwayAmount] = useState("");
-  const [loanAmount, setLoanAmount] = useState("");
-  const [pointsDrawerOpen, setPointsDrawerOpen] = useState(false);
-  const [pointsDrawerView, setPointsDrawerView] = useState<PointsDrawerView>("menu");
-  const isMobile = useIsMobile();
+  const { items, ledger, ensureLoaded, getTotalDiscount } = useRewards();
+  const balance = useRewards(selectBalance);
+  const debtCap = useRewardSettings((s) => s.debtCap);
+  const { featureToggles } = useConfig();
   const pageTitle = usePageTitle();
+  useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
 
-  useEffect(() => {
-    loadRewards();
-  }, [loadRewards]);
-
-  const handleThrowAway = () => {
-    const amount = parseInt(throwAwayAmount);
-    if (isNaN(amount) || amount <= 0) {
-      toast.error("Please enter a valid amount");
-      return;
-    }
-    if (amount > rewardPoints) {
-      toast.error("You don't have enough points to throw away");
-      return;
-    }
-    throwAwayPoints(amount);
-    if (isMobile) setPointsDrawerOpen(false);
-    else setThrowAwayDialogOpen(false);
-    setThrowAwayAmount("");
-  };
-
-  const handleLoan = () => {
-    const amount = parseInt(loanAmount);
-    if (isNaN(amount) || amount <= 0) {
-      toast.error("Please enter a valid loan amount");
-      return;
-    }
-    takeLoan(amount);
-    if (isMobile) setPointsDrawerOpen(false);
-    else setLoanDialogOpen(false);
-    setLoanAmount("");
-  };
-
-  const pointsTrigger = (
-    <Button
-      size="sm"
-      variant="ghost"
-      title="Reward points"
-      aria-label={`Reward points: ${(rewardPoints / 100).toFixed(2)}`}
-      className={cn(
-        "h-9 touch-manipulation gap-1.5 rounded-full bg-muted/70 px-2.5 font-mono text-xs tabular-nums transition-[background-color,color,transform] hover:bg-muted active:scale-95 motion-reduce:transition-none md:h-11 md:gap-2 md:px-3 md:text-sm lg:h-10",
-        rewardPoints < 0 && "bg-red-500/10 text-red-500 hover:bg-red-500/15"
-      )}
-    >
-      <FaCoins
-        className={cn(
-          "size-3.5",
-          rewardPoints < 0 ? "text-red-500" : "text-primary"
-        )}
-      />
-      {(rewardPoints / 100).toFixed(2)}
-    </Button>
+  const now = new Date();
+  const today = startOfDay(now).getTime();
+  const earnedToday = ledger.reduce((sum, tx) => sum + (tx.kind === "earn" && tx.at.getTime() >= today ? tx.amount : 0), 0);
+  const debt = debtOf(ledger);
+  const goal = goalOf(items);
+  const goalPrice = goal ? priceOf(goal, ledger, getTotalDiscount(), now).final : 0;
+  const progress = progressToward(goalPrice, balance, debtCap);
+  const remaining = shortfall(goalPrice, balance, debtCap);
+  const balanceTrigger = (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Link href="/rewards" aria-label={`Balance ${formatGems(balance)} gems. Open rewards`}
+          className={cn("inline-flex h-9 touch-manipulation items-center gap-1.5 rounded-full bg-muted/70 px-2.5 font-mono text-xs tabular-nums transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-11 md:gap-2 md:px-3 md:text-sm lg:h-10", balance < 0 && "bg-destructive/12 text-destructive hover:bg-destructive/15")}>
+          <span className="relative grid size-6 shrink-0 place-items-center">
+            {goal && <svg viewBox="0 0 24 24" className="absolute inset-0 size-6 -rotate-90" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground/20" />
+              <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.5" pathLength="1" strokeDasharray={`${progress} 1`} strokeLinecap="round" className="text-primary motion-safe:transition-[stroke-dasharray] motion-safe:duration-700 motion-safe:ease-out" />
+            </svg>}
+            <GemIcon className={cn("size-3.5", balance >= 0 && "text-primary")} />
+          </span>
+          <Gems amount={balance} hideIcon />
+        </Link>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" align="end" sideOffset={8} className="w-64 rounded-2xl border bg-card p-4 text-card-foreground shadow-xs animate-none data-[state=closed]:animate-none motion-safe:animate-in motion-safe:fade-in">
+        <div className="grid gap-2 text-xs">
+          <div className="flex justify-between gap-3"><span>Balance</span><Gems amount={balance} /></div>
+          <div className="flex justify-between gap-3"><span>Earned today</span><Gems amount={earnedToday} /></div>
+          {debt > 0 && <div className="flex justify-between gap-3"><span>Owed</span><Gems amount={debt} /></div>}
+          {goal && <div className="mt-1 grid gap-2 rounded-xl bg-muted/60 p-2">
+            <span className="font-medium">Goal: {goal.title}</span>
+            <div role="progressbar" aria-label={`Savings for ${goal.title}`} aria-valuenow={Math.round(progress * 100)} aria-valuemin={0} aria-valuemax={100} className="h-1 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${progress * 100}%` }} /></div>
+            <span>{remaining > 0 ? <><Gems amount={remaining} /> to go</> : "Ready to redeem"}</span>
+          </div>}
+        </div>
+      </TooltipContent>
+    </Tooltip>
   );
-
   return (
     <>
       <header className="sticky top-0 z-20 shrink-0 border-b border-border/60 bg-background/95 backdrop-blur-xl supports-[backdrop-filter]:bg-background/85">
@@ -157,249 +119,11 @@ export default function TopBar(): JSX.Element {
 
           {/* The balance is a compact tonal action, like an Android status chip. */}
           <div className="ml-1 shrink-0 md:col-start-2 md:row-start-1 md:ml-0 lg:col-start-3">
-            {isMobile ? (
-              <MobileDrawer
-                open={pointsDrawerOpen}
-                onOpenChange={(nextOpen) => {
-                  setPointsDrawerOpen(nextOpen);
-                  if (nextOpen) setPointsDrawerView("menu");
-                }}
-                trigger={pointsTrigger}
-                title={
-                  pointsDrawerView === "menu"
-                    ? "Manage points"
-                    : pointsDrawerView === "throw-away"
-                    ? "Throw away points"
-                    : "Take a loan"
-                }
-                description={
-                  pointsDrawerView === "menu"
-                    ? `Current balance: ${(rewardPoints / 100).toFixed(2)} pts`
-                    : pointsDrawerView === "throw-away"
-                    ? "Remove points from your balance. This cannot be undone."
-                    : "Borrow reward points now and return them later."
-                }
-              >
-                {pointsDrawerView === "menu" && (
-                  <div className="grid gap-2 pt-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => setPointsDrawerView("throw-away")}
-                      className="h-14 touch-manipulation justify-start rounded-xl px-4"
-                    >
-                      <FaTrash className="size-4 text-muted-foreground" />
-                      Throw away
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => setPointsDrawerView("loan")}
-                      className="h-14 touch-manipulation justify-start rounded-xl px-4"
-                    >
-                      <FaHandHoldingDollar className="size-4 text-muted-foreground" />
-                      Loan
-                    </Button>
-                  </div>
-                )}
-
-                {pointsDrawerView === "throw-away" && (
-                  <form
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      handleThrowAway();
-                    }}
-                    className="grid gap-5 pt-2"
-                  >
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setPointsDrawerView("menu")}
-                      className="w-fit rounded-full"
-                    >
-                      <FaArrowLeft /> Back
-                    </Button>
-                    <div className="grid gap-2">
-                      <Label htmlFor="mobile-throwaway">Amount</Label>
-                      <Input
-                        id="mobile-throwaway"
-                        type="number"
-                        inputMode="numeric"
-                        autoFocus
-                        value={throwAwayAmount}
-                        onChange={(event) => setThrowAwayAmount(event.target.value)}
-                        placeholder="0"
-                        className="h-12 rounded-xl text-base"
-                        min="1"
-                        max={rewardPoints.toString()}
-                      />
-                    </div>
-                    <Button type="submit" variant="destructive" className="h-12 rounded-full">
-                      Throw away
-                    </Button>
-                  </form>
-                )}
-
-                {pointsDrawerView === "loan" && (
-                  <form
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      handleLoan();
-                    }}
-                    className="grid gap-5 pt-2"
-                  >
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setPointsDrawerView("menu")}
-                      className="w-fit rounded-full"
-                    >
-                      <FaArrowLeft /> Back
-                    </Button>
-                    <div className="grid gap-2">
-                      <Label htmlFor="mobile-loan">Amount</Label>
-                      <Input
-                        id="mobile-loan"
-                        type="number"
-                        inputMode="numeric"
-                        autoFocus
-                        value={loanAmount}
-                        onChange={(event) => setLoanAmount(event.target.value)}
-                        placeholder="0"
-                        className="h-12 rounded-xl text-base"
-                        min="1"
-                      />
-                      <p className="text-sm text-muted-foreground">
-                        Balance after loan:{" "}
-                        {((rewardPoints + parseInt(loanAmount || "0")) / 100).toFixed(2)} pts
-                      </p>
-                    </div>
-                    <Button type="submit" className="h-12 rounded-full">
-                      Take loan
-                    </Button>
-                  </form>
-                )}
-              </MobileDrawer>
-            ) : (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>{pointsTrigger}</DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 rounded-2xl p-1.5">
-                  <DropdownMenuLabel>Manage points</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => setThrowAwayDialogOpen(true)}
-                    className="min-h-11 gap-3 rounded-xl px-3"
-                  >
-                    <FaTrash className="size-3.5" />
-                    Throw away points
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => setLoanDialogOpen(true)}
-                    className="min-h-11 gap-3 rounded-xl px-3"
-                  >
-                    <FaHandHoldingDollar className="size-3.5" />
-                    Take a loan
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+            {featureToggles.rewards && balanceTrigger}
           </div>
         </div>
       </header>
 
-      {/* Desktop point actions remain conventional dialogs. */}
-      {!isMobile && <Dialog open={throwAwayDialogOpen} onOpenChange={setThrowAwayDialogOpen}>
-        <DialogContent className="top-auto bottom-0 max-w-none translate-y-0 rounded-b-none rounded-t-[1.75rem] border-x-0 border-b-0 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] data-[state=closed]:slide-out-to-bottom-6 data-[state=closed]:zoom-out-100 data-[state=open]:slide-in-from-bottom-6 data-[state=open]:zoom-in-100 sm:top-1/2 sm:bottom-auto sm:max-w-md sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:p-6">
-          <form onSubmit={(event) => { event.preventDefault(); handleThrowAway(); }} className="grid gap-5">
-            <DialogHeader className="pr-8 text-left">
-              <DialogTitle>Throw away reward points?</DialogTitle>
-              <DialogDescription>
-                Choose how many points to remove. This action cannot be undone.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-2">
-              <Label htmlFor="throwaway">Amount</Label>
-              <Input
-                id="throwaway"
-                type="number"
-                inputMode="numeric"
-                autoFocus
-                value={throwAwayAmount}
-                onChange={(e) => setThrowAwayAmount(e.target.value)}
-                placeholder="0"
-                className="h-12 rounded-xl text-base"
-                min="1"
-                max={rewardPoints.toString()}
-              />
-              <p className="text-sm text-muted-foreground">
-                Current balance: {(rewardPoints / 100).toFixed(2)} pts
-              </p>
-            </div>
-            <DialogFooter className="grid grid-cols-2 gap-3 sm:flex">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setThrowAwayDialogOpen(false)}
-                className="h-12 rounded-full px-5"
-              >
-                Cancel
-              </Button>
-              <Button type="submit" variant="destructive" className="h-12 rounded-full px-5">
-                Throw away
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>}
-
-      {/* Take Loan Dialog */}
-      {!isMobile && <Dialog open={loanDialogOpen} onOpenChange={setLoanDialogOpen}>
-        <DialogContent className="top-auto bottom-0 max-w-none translate-y-0 rounded-b-none rounded-t-[1.75rem] border-x-0 border-b-0 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] data-[state=closed]:slide-out-to-bottom-6 data-[state=closed]:zoom-out-100 data-[state=open]:slide-in-from-bottom-6 data-[state=open]:zoom-in-100 sm:top-1/2 sm:bottom-auto sm:max-w-md sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:p-6">
-          <form onSubmit={(event) => { event.preventDefault(); handleLoan(); }} className="grid gap-5">
-            <DialogHeader className="pr-8 text-left">
-              <DialogTitle>Take a loan</DialogTitle>
-              <DialogDescription>
-                Choose how many reward points to borrow. You can return them later.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-2">
-              <Label htmlFor="loan">Amount</Label>
-              <Input
-                id="loan"
-                type="number"
-                inputMode="numeric"
-                autoFocus
-                value={loanAmount}
-                onChange={(e) => setLoanAmount(e.target.value)}
-                placeholder="0"
-                className="h-12 rounded-xl text-base"
-                min="1"
-              />
-              <div className="flex items-center justify-between gap-4 text-sm text-muted-foreground">
-                <span>Current: {(rewardPoints / 100).toFixed(2)} pts</span>
-                <span>
-                  After: {((rewardPoints + parseInt(loanAmount || "0")) / 100).toFixed(2)} pts
-                </span>
-              </div>
-            </div>
-            <DialogFooter className="grid grid-cols-2 gap-3 sm:flex">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setLoanDialogOpen(false)}
-                className="h-12 rounded-full px-5"
-              >
-                Cancel
-              </Button>
-              <Button type="submit" className="h-12 rounded-full px-5">
-                Take loan
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>}
     </>
   );
 }

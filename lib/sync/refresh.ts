@@ -46,6 +46,8 @@ const RELOADERS: Record<string, Reloader> = {
     import("@/hooks/useRewards").then((m) => m.useRewards.getState().loadRewards()),
   discounts: () =>
     import("@/hooks/useRewards").then((m) => m.useRewards.getState().loadRewards()),
+  rewardLedger: () =>
+    import("@/hooks/useRewards").then((m) => m.useRewards.getState().loadRewards()),
   notes: () =>
     import("@/hooks/useNotes").then((m) => m.useNotes.getState().loadNotes()),
   projects: () =>
@@ -66,10 +68,9 @@ const RELOADERS: Record<string, Reloader> = {
 
 /** localStorage keys whose owning store needs a nudge beyond rehydration. */
 const KV_RELOADERS: Record<string, Reloader> = {
+  // A device that has not carried its old balance over may now have one to carry.
   rewardPoints: () =>
-    import("@/hooks/useRewards").then((m) =>
-      Promise.resolve(m.useRewards.getState().initializePoints()),
-    ),
+    import("@/hooks/useRewards").then((m) => m.useRewards.getState().loadRewards()),
 };
 
 /**

@@ -108,6 +108,7 @@ export const PERSISTED_STORE_KEYS: readonly string[] = [
   "ambience-storage",
   "notepad-storage",
   "task-preferences",
+  "reward-settings",
 ];
 
 /** Every localStorage key currently eligible for sync. */

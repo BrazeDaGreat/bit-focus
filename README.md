@@ -21,7 +21,7 @@ BIT Focus is designed around a practical daily loop:
 1. Plan work with projects, tasks, deadlines, estimates, and calendar timeblocks.
 2. Start a standard or Pomodoro focus session from any page.
 3. Compare planned time with completed sessions and review trends by tag.
-4. Use earned points for self-defined rewards.
+4. Use earned gems for self-defined rewards.
 5. Export a local backup or opt into account sync when you need another device.
 
 ## Features
@@ -81,7 +81,7 @@ Older `.bitf.json` backups remain supported. If a backup omits files, restoring 
 
 Account session tokens and device recovery drafts are excluded from backups. Backups can contain saved API keys and webhook URLs, so store them privately.
 
-Finished focus sessions are saved before completion messages and reward points are issued. Failed saves offer Retry and are recovered on reload when browser storage is available. Switching timer modes finishes the current focus session if it meets the one-minute minimum, then starts the selected mode from zero. Pauses and breaks do not earn focus time.
+Finished focus sessions are saved before completion messages and gems are issued. Failed saves offer Retry and are recovered on reload when browser storage is available. Switching timer modes finishes the current focus session if it meets the one-minute minimum, then starts the selected mode from zero. Pauses and breaks do not earn focus time.
 
 Task notes keep unsaved drafts on this device and show save status. If saving fails, retry from the editor. Reload recovery needs working local storage; when storage is blocked or full, keep the editor or timer tab open and follow its recovery message.
 

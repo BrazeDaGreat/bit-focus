@@ -91,6 +91,8 @@ import { useAITools } from "@/hooks/useAITools";
 import { useFocus } from "@/hooks/useFocus";
 import { useConfig } from "@/hooks/useConfig";
 import { useRewards } from "@/hooks/useRewards";
+import { useRewardSettings } from "@/hooks/useRewardSettings";
+import { goalOf, priceOf, summarizeLedger } from "@/lib/rewards";
 import { useTasks } from "@/hooks/useTasks";
 import { useProjects } from "@/hooks/useProjects";
 import { useTag } from "@/hooks/useTag";
@@ -176,7 +178,8 @@ export default function AIPage(): JSX.Element {
   } = useAIChat();
   const { focusSessions, loadFocusSessions } = useFocus();
   const { name, dob, loadConfig } = useConfig();
-  const { rewardPoints, loadRewards } = useRewards();
+  const { items: rewardsItems, ledger: rewardsLedger, ensureLoaded, getTotalDiscount } = useRewards();
+  const { rate, tagRates, debtCap } = useRewardSettings();
   const { projects, loadProjects } = useProjects();
   const { tasks, loadTasks } = useTasks();
   const { state: timerState } = usePomo();
@@ -195,7 +198,7 @@ export default function AIPage(): JSX.Element {
     loadAIConfig();
     loadFocusSessions();
     loadConfig();
-    loadRewards();
+    void ensureLoaded();
     loadProjects();
     loadTasks();
   }, [
@@ -204,7 +207,7 @@ export default function AIPage(): JSX.Element {
     loadAIConfig,
     loadFocusSessions,
     loadConfig,
-    loadRewards,
+    ensureLoaded,
     loadProjects,
     loadTasks,
   ]);
@@ -218,11 +221,17 @@ export default function AIPage(): JSX.Element {
     aiConfig?.apiKey || aiConfig?.groqApiKey || aiConfig?.googleApiKey || "";
   const configured = Boolean(baseUrl && (apiKey || isLocalEndpoint(baseUrl)));
 
+  const rewardDiscount = getTotalDiscount();
   const contextInput: ContextInput = useMemo(
     () => ({
       name,
       dob,
-      rewardPoints,
+      rewards: (() => {
+        const now = new Date();
+        const goal = goalOf(rewardsItems);
+        return { summary: summarizeLedger(rewardsLedger, now), rate, tagRates, debtCap,
+          goal: goal ? { title: goal.title, price: priceOf(goal, rewardsLedger, rewardDiscount, now).final } : undefined };
+      })(),
       focusSessions,
       projects,
       tasks,
@@ -237,7 +246,7 @@ export default function AIPage(): JSX.Element {
     [
       name,
       dob,
-      rewardPoints,
+      rewardsItems, rewardsLedger, rate, tagRates, debtCap, rewardDiscount,
       focusSessions,
       projects,
       tasks,

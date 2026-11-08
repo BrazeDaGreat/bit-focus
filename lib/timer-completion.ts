@@ -32,7 +32,7 @@ export interface PendingCompletion {
   projectUid?: string;
   /** Active stretches to save, already merged by sessionSegments */
   segments: FocusSegment[];
-  /** Reward points granted once the stretches are saved */
+  /** Whole focused minutes. Rewards are worked out from `seconds` and `tag`. */
   points: number;
   /** Focused seconds, for messages */
   seconds: number;
@@ -67,8 +67,8 @@ export interface CompletionDeps {
    * Resolves with how many rows were inserted.
    */
   save(rows: CompletionRow[]): Promise<number>;
-  /** Grant reward points. A throw is logged; the saved session stands. */
-  award(points: number): void;
+  /** Grant rewards for a saved session. A throw is logged; the saved session stands. */
+  award(points: number, completion: PendingCompletion): void;
   /** Side effects that depend on a newly committed session. */
   onSaved?(completion: PendingCompletion): void;
 }
@@ -221,7 +221,7 @@ export class CompletionQueue {
       }
       if (inserted > 0 && c.points > 0) {
         try {
-          this.deps.award(c.points);
+          this.deps.award(c.points, c);
         } catch (error) {
           // The session is saved; only the points balance could not be
           // written. A retry would insert nothing and so award nothing, so

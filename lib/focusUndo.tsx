@@ -3,8 +3,8 @@
  *
  * Adds, edits, deletes and bulk re-tags that show a toast with an Undo button.
  * The store returns what each action replaced, and Undo writes it straight
- * back. Sessions don't award reward points (only the live timer does), so
- * undoing never touches the points balance.
+ * back. Sessions don't award gems (only the live timer does), so
+ * undoing never touches the gem balance.
  *
  * @fileoverview Focus session actions with undo toasts
  * @author BIT Focus Development Team

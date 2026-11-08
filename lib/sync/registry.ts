@@ -188,6 +188,16 @@ export const COLLECTIONS: readonly SyncCollection[] = [
     order: 1,
   },
   {
+    // Items are referenced by uid, which is already portable.
+    key: "rewardLedger",
+    table: () => db.rewardLedger as unknown as Dexie.Table<LocalRow, string | number>,
+    pk: "id",
+    autoKey: true,
+    uidField: "uid",
+    dates: ["at", "createdAt", "updatedAt"],
+    order: 1,
+  },
+  {
     key: "notes",
     table: () => db.notes as unknown as Dexie.Table<LocalRow, string | number>,
     pk: "id",

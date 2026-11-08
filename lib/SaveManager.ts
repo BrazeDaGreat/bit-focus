@@ -41,7 +41,7 @@
  */
 
 import Dexie from "dexie";
-import db, { type AIConfig, QuickLink, type TimeblockTemplate } from "./db";
+import db, { type AIConfig, QuickLink, type RewardTransaction, type TimeblockTemplate } from "./db";
 import type { NoteAsset } from "./notes";
 import { serializeTasks, deserializeTasks, serializeAttachment, deserializeAttachment, deserializeTaskFilter, type SavedTask, type SavedTaskFilter, type SavedTaskAttachment } from "./task-backup";
 import { migrateTasks } from "./task-migration";
@@ -215,6 +215,11 @@ type ExportedData = {
     }[];
     /** AI config */
     aiConfig: AIConfig[];
+    /**
+     * Rewards balance changes. Absent before v0.25.0, when the balance was the
+     * `rewardPoints` storage key; restoring such a backup rebuilds it from that.
+     */
+    rewardLedger?: (Omit<RewardTransaction, "at" | "createdAt" | "updatedAt"> & { at: string; createdAt: string; updatedAt: string })[];
     /** Saved day plans. Absent in backups made before v0.24.1. */
     timeblockTemplates?: (Omit<TimeblockTemplate, "createdAt" | "updatedAt"> & { createdAt: string; updatedAt: string })[];
     /** Calendar timeblock records */
@@ -395,6 +400,12 @@ class SaveManager {
           createdAt: d.createdAt.toISOString(),
           updatedAt: d.updatedAt.toISOString(),
         })),
+        rewardLedger: (await db.rewardLedger.toArray()).map((tx) => ({
+          ...tx,
+          at: tx.at.toISOString(),
+          createdAt: tx.createdAt.toISOString(),
+          updatedAt: tx.updatedAt.toISOString(),
+        })),
         aiChats: (await db.aiChats.toArray()).map((c) => ({
           ...c,
           createdAt: c.createdAt.toISOString(),
@@ -507,6 +518,13 @@ class SaveManager {
       updatedAt: new Date(d.updatedAt),
     }));
 
+    const rewardLedger = (data.indexedDB.rewardLedger || []).map((tx) => ({
+      ...tx,
+      at: new Date(tx.at),
+      createdAt: new Date(tx.createdAt),
+      updatedAt: new Date(tx.updatedAt),
+    }));
+
     const aiChats = (data.indexedDB.aiChats || []).map((c) => ({
       ...c,
       createdAt: new Date(c.createdAt),
@@ -546,6 +564,7 @@ class SaveManager {
         db.issues,
         db.rewards,
         db.discounts,
+        db.rewardLedger,
         db.aiChats,
         db.aiConfig,
         db.timeblocks,
@@ -567,6 +586,9 @@ class SaveManager {
         await db.issues.clear();
         await db.rewards.clear();
         await db.discounts.clear();
+        // Always cleared: an older backup's balance is rebuilt from its
+        // `rewardPoints` key on the next load, not added to this device's.
+        await db.rewardLedger.clear();
         await db.aiChats.clear();
         await db.aiConfig.clear();
         await db.timeblocks.clear();
@@ -596,6 +618,9 @@ class SaveManager {
         }
         if (discounts.length > 0) {
           await db.discounts.bulkAdd(discounts);
+        }
+        if (rewardLedger.length > 0) {
+          await db.rewardLedger.bulkAdd(rewardLedger);
         }
         if (aiChats.length > 0) {
           await db.aiChats.bulkAdd(aiChats);
