@@ -7,7 +7,7 @@
  * the server side of the boundary and this beneath it). Two zones with a deliberate seam between them:
  *
  * 1. **Now** — what to do in the next minute. Today's focus total, the start
- *    control, and the issues due soonest.
+ *    control, starred tasks, and the issues due soonest.
  * 2. **Review** — what already happened. A 30-day trend, where the time went
  *    by tag, and the year heatmap.
  *
@@ -66,6 +66,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { DEFAULT_TAG_COLOR } from "./ManageTagsContent";
 import type { TrendDatum } from "./TrendChart";
 import NowCard from "./NowCard";
+import StarredTasks from "./StarredTasks";
 import WeeklyDigestButton from "./WeeklyDigestButton";
 import { WeeklyGoals, useTagGoalMenu } from "./TagGoals";
 
@@ -781,7 +782,7 @@ function DuePanel(): JSX.Element {
     { name: "Next 7 days", tasks: due.filter((t) => !isTaskOverdue(t, now) && !matchesTask(t, { date: "today" }, now)).sort((a,b) => taskDeadline(a)!.getTime() - taskDeadline(b)!.getTime()) },
   ];
   return <Panel title="Due" subtitle={due.length ? `${due.length} tasks need attention` : NBSP} action={<button onClick={() => router.push("/projects")} className="text-xs text-muted-foreground hover:text-foreground">All tasks <FaArrowRightLong className="ml-1 inline size-2.5" /></button>}>
-    <DueBody>{loading ? <Skeleton className="h-28 w-full rounded-xl" /> : error ? <p className="text-xs text-destructive">Could not load tasks. Open Projects to retry.</p> : due.length === 0 ? <div className="rounded-xl bg-muted/40 p-4"><p className="text-sm font-medium">Nothing due this week</p><p className="mt-1 text-xs text-muted-foreground">Add a task with a deadline in Projects.</p></div> : <div className="space-y-3">{groups.filter((g) => g.tasks.length).map((g) => <div key={g.name}><p className="mb-1 text-xs font-medium text-muted-foreground">{g.name}</p>{g.tasks.map((task) => <TaskRow key={task.id} task={task} project={projects.find((p) => p.id === task.projectId)?.title} actualMinutes={taskMinutes(task, focusSessions)} active={state.isRunning && state.task?.uid === task.uid} onSelect={() => router.push(`/projects?task=${encodeURIComponent(task.uid!)}`)} onComplete={() => void updateTask(task.id!, { completedAt: new Date() }).catch(() => toast.error("Could not complete task"))} onFocus={() => startTask({ uid: task.uid!, projectUid: projects.find((p) => p.id === task.projectId)?.uid, title: task.title, tag: task.primaryTag || task.tags[0] || "Focus" })} />)}</div>)}</div>}</DueBody>
+    <DueBody>{loading ? <Skeleton className="h-28 w-full rounded-xl" /> : error ? <p className="text-xs text-destructive">Could not load tasks. Open Projects to retry.</p> : <><StarredTasks className="mb-3 border-b pb-3" />{due.length === 0 ? <div className="rounded-xl bg-muted/40 p-4"><p className="text-sm font-medium">Nothing due this week</p><p className="mt-1 text-xs text-muted-foreground">Add a task with a deadline in Projects.</p></div> : <div className="space-y-3">{groups.filter((g) => g.tasks.length).map((g) => <div key={g.name}><p className="mb-1 text-xs font-medium text-muted-foreground">{g.name}</p>{g.tasks.map((task) => <TaskRow key={task.id} task={task} project={projects.find((p) => p.id === task.projectId)?.title} actualMinutes={taskMinutes(task, focusSessions)} active={state.isRunning && state.task?.uid === task.uid} onSelect={() => router.push(`/projects?task=${encodeURIComponent(task.uid!)}`)} onComplete={() => void updateTask(task.id!, { completedAt: new Date() }).catch(() => toast.error("Could not complete task"))} onFocus={() => startTask({ uid: task.uid!, projectUid: projects.find((p) => p.id === task.projectId)?.uid, title: task.title, tag: task.primaryTag || task.tags[0] || "Focus" })} />)}</div>)}</div>}</>}</DueBody>
   </Panel>;
 }
 

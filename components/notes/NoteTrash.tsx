@@ -27,13 +27,13 @@ const QUIET_BUTTON =
   "flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:bg-muted/60 hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary disabled:pointer-events-none disabled:opacity-50";
 
 /** Trashed pages whose parent is not trashed too, newest first. */
-export function trashedRoots(notes: readonly Note[]): Note[] {
+export function trashedRoots(notes: readonly Note[], templates = false): Note[] {
   const byId = new Map(notes.map((note) => [note.id, note]));
   return notes
     .filter((note) => {
-      if (!isTrashed(note)) return false;
+      if (!isTrashed(note) || !!note.isTemplate !== templates) return false;
       const parent = note.parentId != null ? byId.get(note.parentId) : undefined;
-      return !parent || !isTrashed(parent);
+      return !parent || !!parent.isTemplate !== templates || !isTrashed(parent);
     })
     .sort(
       (a, b) =>
@@ -121,6 +121,7 @@ export function NoteTrash({
   onOpen: (note: Note) => void;
 }) {
   const roots = useMemo(() => trashedRoots(notes), [notes]);
+  const templates = useMemo(() => trashedRoots(notes, true), [notes]);
   const [confirm, setConfirm] = useState<Note | "all" | null>(null);
   return (
     <div className="mx-auto w-full max-w-5xl px-5 pb-16 pt-6 sm:px-8 sm:pt-10">
@@ -136,7 +137,7 @@ export function NoteTrash({
             Restore a page to put it back where it was.
           </p>
         </div>
-        {roots.length > 0 && (
+        {roots.length + templates.length > 0 && (
           <button
             type="button"
             onClick={() => setConfirm("all")}
@@ -149,7 +150,7 @@ export function NoteTrash({
       </header>
       {roots.length === 0 ? (
         <div className="rounded-xl bg-muted/40 p-4">
-          <p className="text-sm font-medium">Trash is empty</p>
+          <p className="text-sm font-medium">{templates.length ? "No pages in Trash" : "Trash is empty"}</p>
           <p className="mt-1 text-xs text-muted-foreground">
             Pages you move to Trash wait here until you restore or delete them.
           </p>
@@ -204,6 +205,15 @@ export function NoteTrash({
           ))}
         </ul>
       )}
+      {templates.length > 0 && <details className="mt-6 rounded-xl bg-muted/40 p-3">
+        <summary className="cursor-pointer text-xs font-medium text-muted-foreground">Deleted templates · {templates.length}</summary>
+        <ul className="mt-2 space-y-1">{templates.map((template) => <li key={template.uid} className="flex min-w-0 items-center gap-2">
+          <ProjectIcon name={template.icon || NOTE_ICON} className="size-4 shrink-0 text-muted-foreground" />
+          <button type="button" onClick={() => onOpen(template)} className="min-w-0 flex-1 truncate text-left text-sm focus-visible:outline-2 focus-visible:outline-primary">{noteTitle(template)}</button>
+          <button type="button" onClick={() => void restorePage(template)} className={QUIET_BUTTON}><RotateCcw className="size-3.5" />Restore</button>
+          <button type="button" aria-label={`Delete template ${noteTitle(template)} forever`} title="Delete forever" onClick={() => setConfirm(template)} className={`${QUIET_BUTTON} w-9 justify-center px-0`}><Trash2 className="size-3.5" /></button>
+        </li>)}</ul>
+      </details>}
       {confirm && (
         <DeleteForeverDialog target={confirm} onClose={() => setConfirm(null)} />
       )}

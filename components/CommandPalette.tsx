@@ -506,7 +506,7 @@ export default function CommandPalette(): JSX.Element {
             <Item icon={<FaPlus />} onSelect={run(() => router.push("/notes?new=1"))} keywords={["notes", "create"]}>
               New page
             </Item>
-            {notes.filter((note) => !isTrashed(note)).map((note) => (
+            {notes.filter((note) => !isTrashed(note) && !note.isTemplate).map((note) => (
               <Item
                 key={note.uid ?? note.id}
                 icon={<ProjectIcon name={note.icon ?? "FileText"} />}

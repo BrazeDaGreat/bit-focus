@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { addDays, format } from "date-fns";
-import { Play, X, Trash2, RotateCcw, Check } from "lucide-react";
+import { Play, X, Trash2, RotateCcw, Check, Star } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { TaskNotesEditor } from "./TaskNotesEditor";
@@ -42,7 +42,7 @@ export function TaskDetails({
   onFocus: (task: Task) => void;
   onOpenTask?: (task: Task) => void;
 }) {
-  const { tasks, updateTask, removeForever } = useTasks();
+  const { tasks, updateTask, toggleStar, removeForever } = useTasks();
   const attachments = useTaskAttachments(task.uid);
   const parent = task.parentId != null ? tasks.find((row) => row.id === task.parentId) : undefined;
   const { projects } = useProjects();
@@ -116,6 +116,19 @@ export function TaskDetails({
           className="h-auto flex-1 border-0 bg-transparent px-0 py-1 text-lg font-semibold shadow-none md:text-lg focus-visible:ring-2"
           disabled={!!task.deletedAt}
         />
+        <button
+          onClick={() => void toggleStar(task.id!).catch(() => toast.error("Could not save task"))}
+          disabled={!!task.deletedAt}
+          aria-pressed={task.starredAt != null}
+          aria-label={task.starredAt != null ? "Unstar task" : "Star task"}
+          title={task.starredAt != null ? "Unstar" : "Star"}
+          className={cn(
+            "grid size-8 shrink-0 place-items-center rounded-lg hover:bg-muted focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-40",
+            task.starredAt != null ? "text-primary" : "text-muted-foreground",
+          )}
+        >
+          <Star className={cn("size-4", task.starredAt != null && "fill-current")} />
+        </button>
         <button
           onClick={onClose}
           aria-label="Close task details"

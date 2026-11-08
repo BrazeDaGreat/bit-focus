@@ -63,6 +63,14 @@ const CHANGELOG = `
 - Fixed: Connected accounts no longer sign out on their own after a few days. Your session is renewed when the app opens, every hour while it's open, and when you come back to it or reconnect to the internet, so sync keeps working as long as you open BIT Focus now and then.
 - Fixed: A device clock that runs ahead no longer signs you out on startup. The server now decides whether a session has ended, and being offline never signs you out.
 - Technical: Added tests for session refresh timing. No database version change.
+### \`v0.24.5-beta\` (2026-11-08) — Links, Templates & Stars
+- Added: Link notes to each other. Type [[ in a page to search for another page, or create a new one, and press Enter to link it. Links show the page's current icon and title, so renames carry through, and a link to a deleted page is greyed out. A quiet "Linked from" list at the bottom of each page shows the pages that link to it.
+- Added: Note templates. Right-click a page and choose "Save as template", or make one from the Templates section at the bottom of the page list. Start a new page from a template from the page menu, or type /template in a page to insert one where you are typing. Meeting notes, Daily log, and Weekly review are there to start with. Templates stay out of the page list, search, links, and the weekly summary, and they sync like any other page.
+- Added: Star tasks from the right-click menu or the star in the task panel. Starred tasks sit at the top of Due on Home, oldest first. Click one to start focusing on it, tick it off from there, or right-click it to unstar it or open it in Projects. A repeating task keeps its star when the next one is created.
+- Added: Right-click a quick jot in the Notepad and choose "Make task". The jot is read the same way as the task box in Projects, so #tags, @project, !priority, ~estimates, due dates, and repeats all work, and the session's tag is used when you don't give one. The jot is ticked off, and the message lets you open the new task or undo it.
+- Added: After an update, a small message names the new version and links straight to its release notes, which open with that release highlighted. Each device shows it once.
+- Improved: Editing a focus session (from Focus or the Calendar) and adding one by hand now show an Undo button, like deleting and re-tagging already did. Reward points aren't affected.
+- Technical: Added tests for starred tasks, note links, and templates. Template copies get their own copies of note images. No database version change.
 ***
 
 ## \`v0.23.0 (LTS)\` (2026-09-29) — Settings, Commands & Review

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type JSX } from "react";
+import { useEffect, useState, type JSX } from "react";
 import Markdown from "react-markdown";
 import {
   ArrowRightLeft,
@@ -351,7 +351,7 @@ function LatestReleasePanel({
   return (
     <section
       id={release.id}
-      className="scroll-mt-6 rounded-2xl border bg-card p-5 shadow-xs sm:p-6"
+      className={cn("scroll-mt-6 rounded-2xl border bg-card p-5 shadow-xs sm:p-6", HASH_HIGHLIGHT)}
     >
       <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-primary">
         Latest release
@@ -378,7 +378,7 @@ function ArchiveRelease({
   return (
     <article
       id={release.id}
-      className="scroll-mt-6 rounded-2xl border bg-card p-4 shadow-xs sm:p-5"
+      className={cn("scroll-mt-6 rounded-2xl border bg-card p-4 shadow-xs sm:p-5", HASH_HIGHLIGHT)}
     >
       <Collapsible open={open} onOpenChange={onOpenChange}>
         <div className="flex items-start gap-3">
@@ -491,6 +491,13 @@ function ReleaseIndex({
   );
 }
 
+/** How long a release linked by URL hash keeps its highlight */
+const HIGHLIGHT_MS = 1800;
+
+/** Outline shown while a release carries `data-hash-target` */
+const HASH_HIGHLIGHT =
+  "ring-0 ring-primary/50 transition-shadow duration-500 motion-reduce:transition-none data-[hash-target]:ring-2";
+
 export default function Changelog(): JSX.Element {
   const [openReleaseIds, setOpenReleaseIds] = useState<Set<string>>(
     () => new Set(),
@@ -511,6 +518,36 @@ export default function Changelog(): JSX.Element {
   function navigateToRelease(releaseId: string): void {
     setReleaseOpen(releaseId, true);
   }
+
+  // Arriving at /changelog#release-… (e.g. from the update toast): open that
+  // release, bring it into view, and flash its outline once
+  useEffect(() => {
+    let frame = 0;
+    let fade: ReturnType<typeof setTimeout> | undefined;
+    const reveal = () => {
+      const releaseId = decodeURIComponent(window.location.hash.slice(1));
+      if (!CHANGELOG_RELEASES.some((release) => release.id === releaseId)) return;
+      setOpenReleaseIds((current) => new Set(current).add(releaseId));
+      cancelAnimationFrame(frame);
+      clearTimeout(fade);
+      // Wait a frame so an archived release has expanded before scrolling
+      frame = requestAnimationFrame(() => {
+        const target = document.getElementById(releaseId);
+        if (!target) return;
+        const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        target.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
+        target.setAttribute("data-hash-target", "");
+        fade = setTimeout(() => target.removeAttribute("data-hash-target"), HIGHLIGHT_MS);
+      });
+    };
+    reveal();
+    window.addEventListener("hashchange", reveal);
+    return () => {
+      window.removeEventListener("hashchange", reveal);
+      cancelAnimationFrame(frame);
+      clearTimeout(fade);
+    };
+  }, []);
 
   return (
     <div className="mx-auto w-full max-w-screen-xl flex-1 px-4 py-6 sm:px-6 sm:py-8">

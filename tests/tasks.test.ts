@@ -19,6 +19,7 @@ import {
   taskDeadlineFields,
   taskSuccessor,
   taskSuccessorUid,
+  starredTasks,
   parseLoggedMinutes,
   validTaskRecurrence,
   type Task,
@@ -976,4 +977,35 @@ test("recurrence, spawn guards and manual totals survive backups and sync untouc
   for (const invalid of [null, { freq: "yearly" }, { freq: "daily", interval: 0 }, { freq: "weekly", days: [7] }, { freq: "monthly", until: "2026-02-30" }]) assert.equal(validTaskRecurrence(invalid), false);
   assert.throws(() => deserializeTask({ ...serializeTask(task), loggedMinutes: -1 }), /invalid task/);
   assert.throws(() => deserializeTask({ ...serializeTask(task), recurrence: { freq: "daily", interval: 0 } }), /invalid task/);
+});
+
+test("stars toggle, list only active tasks oldest first, carry to repeat successors and survive backups and sync", async () => {
+  await db.open();
+  const store = useTasks.getState();
+  const first = await store.addTask("First", { recurrence: { freq: "daily" } });
+  const second = await store.addTask("Second");
+  const done = await store.addTask("Done");
+  await store.toggleStar(done);
+  assert.equal(typeof useTasks.getState().tasks.find((t) => t.id === done)!.starredAt, "number");
+  await store.updateTask(second, { starredAt: 1000 });
+  await store.updateTask(first, { starredAt: 2000 });
+  await store.updateTask(done, { completedAt: at });
+  let tasks = useTasks.getState().tasks;
+  assert.deepEqual(starredTasks(tasks).map((t) => t.title), ["Second", "First"]);
+  assert.notEqual(tasks.find((t) => t.id === done)!.starredAt, null);
+  await store.updateTask(second, { deletedAt: at });
+  await store.updateTask(first, { completedAt: at });
+  tasks = useTasks.getState().tasks;
+  const original = tasks.find((t) => t.id === first)!;
+  const successor = tasks.find((t) => t.uid === original.recurrenceNextUid)!;
+  assert.equal(successor.starredAt, original.starredAt);
+  assert.deepEqual(starredTasks(tasks).map((t) => t.uid), [successor.uid]);
+  await store.toggleStar(successor.id!);
+  assert.equal((await db.tasks.get(successor.id!))!.starredAt, null);
+  const starred: Task = { ...task, starredAt: 1_700_000_000_000 };
+  assert.equal(deserializeTask(JSON.parse(JSON.stringify(serializeTask(starred)))).starredAt, starred.starredAt);
+  const col = COLLECTION_BY_KEY.get("tasks")!;
+  const wire = await toWire(col, starred as unknown as Record<string, unknown>, new IdCache());
+  const decoded = await fromWire(col, JSON.parse(JSON.stringify(wire)), starred.uid!, new IdCache());
+  assert.equal(decoded.row.starredAt, starred.starredAt);
 });

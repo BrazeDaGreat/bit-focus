@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Play, Clock3, ChevronRight, Repeat2 } from "lucide-react";
+import { Check, Play, Clock3, ChevronRight, Repeat2, Star } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import {
@@ -105,6 +105,7 @@ export function TaskRow({
           {task.title}
         </span>
         <span className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+          {task.starredAt != null && <span title="Starred" aria-label="Starred" className="text-primary"><Star className="size-3 fill-current" aria-hidden="true" /></span>}
           {task.recurrence && <span title={describeTaskRecurrence(task.recurrence)} aria-label={`Repeats: ${describeTaskRecurrence(task.recurrence)}`}><Repeat2 className="size-3" aria-hidden="true" /></span>}
           {subtaskProgress && (
             <span

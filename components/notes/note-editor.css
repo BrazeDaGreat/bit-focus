@@ -2,6 +2,13 @@
 .note-prose { color: var(--foreground); min-width: 0; }
 .note-prose .note-body { font-family: var(--font-sans), sans-serif; font-size: 15px; line-height: 1.75rem; overflow-wrap: anywhere; }
 .note-prose .note-body:focus, .note-prose .note-body:focus-visible { outline: none; }
+.note-prose .note-page-link-wrap { display: inline; }
+.note-prose .note-page-link { display: inline-flex; max-width: 100%; align-items: baseline; gap: .3rem; padding: 0 .2rem; border-radius: .25rem; color: var(--primary); font: inherit; line-height: inherit; text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--primary) 35%, transparent); text-underline-offset: 3px; cursor: pointer; vertical-align: baseline; }
+.note-prose .note-page-link svg { align-self: center; }
+.note-prose .note-page-link span { overflow-wrap: anywhere; }
+.note-prose .note-page-link:hover { background: var(--muted); }
+.note-prose .note-page-link:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.note-prose .note-page-link[data-unavailable] { color: var(--muted-foreground); text-decoration: line-through; cursor: default; }
 .note-prose .note-body p { margin: .5rem 0; }
 .note-prose .note-body > :first-child { margin-top: 0; }
 .note-prose .note-body h1, .note-prose .note-body h2, .note-prose .note-body h3 { font-family: var(--font-serif), serif; font-weight: 600; letter-spacing: -.025em; line-height: 1.3; margin: 1.75rem 0 .75rem; }

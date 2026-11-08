@@ -40,6 +40,7 @@ import SyncBridge from "@/components/auth/SyncBridge";
 import AutoBackup from "@/components/AutoBackup";
 import PipHost from "@/components/PipHost";
 import BlockEndNotice from "@/components/BlockEndNotice";
+import WhatsNewToast from "@/components/WhatsNewToast";
 import MobileDock, { DOCK_SPACER_CLASS } from "@/components/MobileDock";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
@@ -196,6 +197,7 @@ export default function AppShell({
       <AutoBackup />
       <PipHost />
       <BlockEndNotice />
+      <WhatsNewToast />
       <AppSidebar />
       <GlobalShortcuts />
       <div

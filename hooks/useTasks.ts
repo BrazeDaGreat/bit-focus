@@ -14,6 +14,7 @@ interface TasksState {
   addTask: (title: string, defaults?: Partial<Task>) => Promise<number>;
   updateTask: (id: number, updates: Partial<Task>) => Promise<void>;
   updateMany: (ids: number[], updates: Partial<Task>) => Promise<void>;
+  toggleStar: (id: number) => Promise<void>;
   logTime: (id: number, minutes: number) => Promise<void>;
   removeForever: (id: number) => Promise<void>;
   saveFilter: (name: string, criteria: TaskCriteria) => Promise<void>;
@@ -174,6 +175,11 @@ export const useTasks = create<TasksState>((set, get) => ({
         changed.get(task.id!) ?? task,
       ), ...added],
     }));
+  },
+  toggleStar: async (id) => {
+    const task = get().tasks.find((row) => row.id === id);
+    if (!task) throw new Error("Task not found");
+    await get().updateMany([id], { starredAt: task.starredAt != null ? null : Date.now() });
   },
   logTime: async (id, minutes) => {
     if (!Number.isFinite(minutes) || minutes < 0) throw new Error("Logged time must be zero or more minutes");

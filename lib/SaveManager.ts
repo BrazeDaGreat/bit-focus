@@ -61,6 +61,7 @@ const PROTECTED_LOCAL_KEYS: readonly string[] = [
   PB_AUTH_STORAGE_KEY,
   "bitfocus.sync.state",
   "bitfocus.sync.device",
+  "last-seen-version",
 ];
 
 /** True when a localStorage key belongs to the device rather than the backup. */

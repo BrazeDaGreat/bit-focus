@@ -79,13 +79,13 @@ interface FocusState {
   focusSessions: FocusSession[];
   /** Loading state indicator for UI feedback */
   loadingFocusSessions: boolean;
-  /** Function to create a new focus session */
+  /** Function to create a new focus session; resolves with the new id */
   addFocusSession: (
     tag: string,
     startTime: Date,
     endTime: Date,
     attribution?: { taskUid?: string; projectUid?: string }
-  ) => Promise<void>;
+  ) => Promise<number>;
   /**
    * Insert sessions that carry their own uid, skipping any uid already
    * stored. All-or-nothing; resolves with how many rows were inserted.
@@ -97,11 +97,11 @@ interface FocusState {
   loadFocusSessions: () => Promise<void>;
   /** Function to delete a focus session by ID; resolves with the removed row */
   removeFocusSession: (id: number) => Promise<FocusSession | undefined>;
-  /** Function to update an existing focus session */
+  /** Function to update an existing focus session; resolves with the row as it was before */
   editFocusSession: (
     id: number,
     updatedSession: Partial<FocusSession>
-  ) => Promise<void>;
+  ) => Promise<FocusSession | undefined>;
   /** Function to delete multiple focus sessions by ID; resolves with the removed rows */
   bulkRemoveFocusSessions: (ids: number[]) => Promise<FocusSession[]>;
   /** Function to re-tag multiple focus sessions at once; resolves with each previous tag */
@@ -199,7 +199,7 @@ export const useFocus = create<FocusState>((set) => ({
    * @param {string} tag - Category tag for the session
    * @param {Date} startTime - Session start timestamp
    * @param {Date} endTime - Session end timestamp
-   * @returns {Promise<void>} Resolves when session is created
+   * @returns {Promise<number>} Resolves with the new session id
    *
    * @example
    * ```typescript
@@ -219,6 +219,7 @@ export const useFocus = create<FocusState>((set) => ({
     set((state) => ({
       focusSessions: [{ id, tag, startTime, endTime, ...attribution }, ...state.focusSessions].sort(byStartDesc),
     }));
+    return id;
   },
 
   /**
@@ -334,7 +335,7 @@ export const useFocus = create<FocusState>((set) => ({
    * @async
    * @param {number} id - Unique identifier of the session to edit
    * @param {Partial<FocusSession>} updatedSession - Partial session data with updates
-   * @returns {Promise<void>} Resolves when session is updated
+   * @returns {Promise<FocusSession | undefined>} The row before the edit, for undo
    *
    * @example
    * ```typescript
@@ -361,7 +362,8 @@ export const useFocus = create<FocusState>((set) => ({
     id: number,
     updatedSession: Partial<FocusSession>
   ) => {
-    // Update database record
+    // Keep the full row (uid included) so the edit can be undone
+    const previous = await db.focus.get(id);
     await db.focus.update(id, updatedSession);
 
     // Update local state; an edited start time can move the session
@@ -372,6 +374,7 @@ export const useFocus = create<FocusState>((set) => ({
         )
         .sort(byStartDesc),
     }));
+    return previous;
   },
 
   /**

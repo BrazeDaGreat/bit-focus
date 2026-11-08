@@ -16,7 +16,7 @@ import { DialogFooter } from "@/components/ui/dialog";
 import { ResponsiveDialog } from "@/components/ui/mobile-drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useFocus } from "@/hooks/useFocus";
+import { addSessionWithUndo } from "@/lib/focusUndo";
 import { useTag } from "@/hooks/useTag";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
@@ -86,7 +86,6 @@ const getDefaults = (): FormData => {
  * ```
  */
 export default function ManualSessionDialog(): JSX.Element {
-  const { addFocusSession } = useFocus();
   const { savedTags } = useTag();
   const [open, setOpen] = useState(false);
 
@@ -124,7 +123,7 @@ export default function ManualSessionDialog(): JSX.Element {
       startTime.getTime() + data.minutes * 60000 + data.seconds * 1000,
     );
 
-    addFocusSession(data.tag, startTime, endTime);
+    void addSessionWithUndo(data.tag, startTime, endTime);
     setOpen(false);
   };
 
