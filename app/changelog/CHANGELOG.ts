@@ -3,6 +3,32 @@
 export { VERSION } from "./version";
 
 const CHANGELOG = `
+## \`v0.25.0-beta\` (2026-11-08) — Gems & Rewards
+- Changed: Reward points are now gems, shown with a gem icon everywhere: the shop, the balance, the TopBar, notifications, and AI Chat. One hour of focus earns one gem. Your balance and item prices were converted to match, so they're worth the same amount of focus as before (a balance from 100 hours of focus now reads 100.00 gems).
+- Added: Earn rates per tag. Settings → Rewards sets how many gems an hour of focus earns overall (1 by default) and lets each tag earn more or less, such as 1 gem an hour on #uni and 0.5 on #chores. Nudge a tag's rate up or down, type a value, or set it back to the overall rate. A rate of 0 means the tag earns nothing.
+- Changed: The Rewards page is redesigned to match the rest of the app. The top part is for spending: your balance with your savings goal, loans, and discounts, followed by the shop. Under a Review divider you can see where your gems came from and went.
+- Added: A gem history. Every change to your balance is recorded: focus sessions, redemptions, gems added or thrown away, and loans and repayments. Recent activity on the Rewards page lists them by day, and you can right-click one to undo it.
+- Added: Undo for redeeming, deleting an item, adding or throwing away gems, and loans.
+- Added: Right-click a shop item to redeem, edit, duplicate, pin it to the top, save up for it, hide it, move it to another category, or delete it. A quiet button on each card opens the same menu on touch screens. The old ⋮ menu is gone.
+- Added: Your own categories. Add, rename, reorder, or delete them by right-clicking a category. Categories with no items are hidden.
+- Added: More icons for shop items, or type any emoji.
+- Added: Search the shop and sort it by price, last redeemed, most redeemed, or name. Hidden items can be shown again from the view menu.
+- Added: Items you can't afford yet show how far off you are, as a progress bar and how many gems and how much focus time are left, instead of fading out. Every price also shows roughly how much focus it takes to earn.
+- Added: Shift-click Redeem to skip the confirmation. Press Enter in the confirmation to redeem.
+- Added: Savings goal. Choose "Save up for this" on an item to track it on the Rewards page and as a ring around the gem in the TopBar.
+- Added: Limits on how often you can redeem an item, such as once a day or three times a week. Set them when you add or edit the item; they're optional.
+- Added: Prices that rise each time you redeem an item in a week and reset every Monday. They're optional and set per item.
+- Added: Bundles. Group several items into one with its own price. Redeeming a bundle counts toward the limits of everything in it.
+- Added: Real loans. A loan is paid out now with optional interest and is repaid automatically from a share of each focus session's gems, or by hand. What you owe shows on the Rewards page and in the TopBar's hover card.
+- Added: A debt limit in Settings → Rewards sets how far below zero a redemption can take your balance (none by default). This fixes being able to keep redeeming once your balance was negative.
+- Added: Rewards stats: earned against spent for the last 8 weeks, your most redeemed rewards, spending by category, and earnings by tag.
+- Added: AI Chat's Rewards context now sees your gem history: balance, what you owe, what you earned and spent this week and month, your top rewards, earnings by tag, your earn rates, and your goal.
+- Added: Optional webhook messages for redemptions and for earnings above an amount you choose, turned on in Settings → Rewards.
+- Added: Rewards in the command palette (Ctrl + K): redeem an item by name, add or throw away gems, take a loan, or repay one.
+- Changed: Balance controls live in one place, the Rewards page. The TopBar points drawer is gone; the gem pill links to Rewards and shows your balance, what you earned today, what you owe, and your goal when you hover over it.
+- Technical: Added the rewards ledger table (database version 18) with sync, backup, and restore support. Restoring a backup made before this version rebuilds the balance from that backup. Update BIT Focus on all your devices: an older version still records points the old way, and those don't reach the new balance. Added tests for gem conversion, earn rates, loans, price steps, limits, and summaries.
+***
+
 ## \`v0.24.0 (LTS)\` (2026-10-30) — Save, Recover & Keep Working
 - Improved: Finished focus sessions save in one operation. Reward points, the saved-session message, and completion webhooks wait until focus history is stored.
 - Fixed: Changing timer modes while paused could discard accumulated focus. Switching modes now finishes eligible focus time first, then starts the new mode from zero, keeping the timer running or paused as it was. Break time is never carried into focus.
@@ -63,6 +89,14 @@ const CHANGELOG = `
 - Fixed: Connected accounts no longer sign out on their own after a few days. Your session is renewed when the app opens, every hour while it's open, and when you come back to it or reconnect to the internet, so sync keeps working as long as you open BIT Focus now and then.
 - Fixed: A device clock that runs ahead no longer signs you out on startup. The server now decides whether a session has ended, and being offline never signs you out.
 - Technical: Added tests for session refresh timing. No database version change.
+### \`v0.24.5-beta\` (2026-11-08) — Links, Templates & Stars
+- Added: Link notes to each other. Type [[ in a page to search for another page, or create a new one, and press Enter to link it. Links show the page's current icon and title, so renames carry through, and a link to a deleted page is greyed out. A quiet "Linked from" list at the bottom of each page shows the pages that link to it.
+- Added: Note templates. Right-click a page and choose "Save as template", or make one from the Templates section at the bottom of the page list. Start a new page from a template from the page menu, or type /template in a page to insert one where you are typing. Meeting notes, Daily log, and Weekly review are there to start with. Templates stay out of the page list, search, links, and the weekly summary, and they sync like any other page.
+- Added: Star tasks from the right-click menu or the star in the task panel. Starred tasks sit at the top of Due on Home, oldest first. Click one to start focusing on it, tick it off from there, or right-click it to unstar it or open it in Projects. A repeating task keeps its star when the next one is created.
+- Added: Right-click a quick jot in the Notepad and choose "Make task". The jot is read the same way as the task box in Projects, so #tags, @project, !priority, ~estimates, due dates, and repeats all work, and the session's tag is used when you don't give one. The jot is ticked off, and the message lets you open the new task or undo it.
+- Added: After an update, a small message names the new version and links straight to its release notes, which open with that release highlighted. Each device shows it once.
+- Improved: Editing a focus session (from Focus or the Calendar) and adding one by hand now show an Undo button, like deleting and re-tagging already did. Reward points aren't affected.
+- Technical: Added tests for starred tasks, note links, and templates. Template copies get their own copies of note images. No database version change.
 ***
 
 ## \`v0.23.0 (LTS)\` (2026-09-29) — Settings, Commands & Review

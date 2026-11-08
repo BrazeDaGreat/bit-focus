@@ -63,6 +63,8 @@ const DEVICE_LOCAL_KEYS: readonly string[] = [
   "piptimer",
   // Where a floating window sits on *this* screen.
   "notepad-window-position",
+  // Which release notes this browser has already offered.
+  "last-seen-version",
   // Superseded bookkeeping from the snapshot-era engine.
   "bitfocus.sync.state",
   "bitfocus.sync.device",
@@ -106,6 +108,7 @@ export const PERSISTED_STORE_KEYS: readonly string[] = [
   "ambience-storage",
   "notepad-storage",
   "task-preferences",
+  "reward-settings",
 ];
 
 /** Every localStorage key currently eligible for sync. */

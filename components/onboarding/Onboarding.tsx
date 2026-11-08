@@ -112,7 +112,7 @@ const FEATURES = [
   {
     icon: FaGift,
     title: "Rewards",
-    desc: "Turn focused hours into points you can spend.",
+    desc: "Turn focused hours into gems you can spend.",
   },
 ] as const;
 

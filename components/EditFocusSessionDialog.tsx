@@ -13,7 +13,8 @@ import { DialogFooter } from "@/components/ui/dialog";
 import { ResponsiveDialog } from "@/components/ui/mobile-drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FocusSession, useFocus } from "@/hooks/useFocus";
+import type { FocusSession } from "@/hooks/useFocus";
+import { editSessionWithUndo } from "@/lib/focusUndo";
 import { calculateTime } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
@@ -60,8 +61,6 @@ export function EditFocusSessionDialog({
   open,
   onOpenChange,
 }: EditFocusSessionDialogProps): JSX.Element | null {
-  const { editFocusSession } = useFocus();
-
   // Calculate defaults from session
   const getDefaults = (item: FocusSession) => {
     const time = calculateTime(item.startTime, item.endTime, "M:S");
@@ -125,8 +124,7 @@ export function EditFocusSessionDialog({
       newStartTime.getTime() + data.minutes * 60000 + data.seconds * 1000,
     );
 
-    editFocusSession(session.id, {
-      id: session.id,
+    void editSessionWithUndo(session.id, {
       tag: data.tag,
       startTime: newStartTime,
       endTime: newEndTime,

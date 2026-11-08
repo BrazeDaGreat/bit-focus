@@ -27,6 +27,8 @@ export interface Note {
   type: "document" | "board";
   /** Lucide icon name, picked with the same picker projects use. */
   icon?: string;
+  /** Templates share the notes table but stay outside the regular page tree. */
+  isTemplate?: boolean;
   /** Local id of the parent page, or null at the root. */
   parentId?: number | null;
   /** Sort key among siblings. Lower first. Fractional so moves touch one row. */
@@ -92,7 +94,7 @@ export function compareSiblings(a: Note, b: Note): number {
 /** Visible children of a parent (null for root), sorted. */
 export function childrenOf(notes: readonly Note[], parentId: number | null): Note[] {
   return notes
-    .filter((note) => !isTrashed(note) && (note.parentId ?? null) === parentId)
+    .filter((note) => !isTrashed(note) && !note.isTemplate && (note.parentId ?? null) === parentId)
     .sort(compareSiblings);
 }
 
@@ -101,7 +103,7 @@ export function childrenOf(notes: readonly Note[], parentId: number | null): Not
  * the root rather than vanishing, so an out-of-order sync never hides data.
  */
 export function buildTree(notes: readonly Note[]): NoteTreeNode[] {
-  const visible = notes.filter((note) => !isTrashed(note) && note.id != null);
+  const visible = notes.filter((note) => !isTrashed(note) && !note.isTemplate && note.id != null);
   const ids = new Set(visible.map((note) => note.id as number));
   const byParent = new Map<number | null, Note[]>();
   for (const note of visible) {
@@ -209,12 +211,53 @@ export function parseNoteContent(content: string | undefined | null): JSONConten
 }
 
 /** Plain text of a Tiptap JSON node, for search and previews. */
-export function plainText(node: JSONContent | undefined): string {
+export function plainText(node: JSONContent | undefined, notes: readonly Note[] = []): string {
   if (!node) return "";
   if (node.type === "text") return node.text ?? "";
-  const parts = (node.content ?? []).map(plainText);
+  if (node.type === "noteLink") return noteLinkTitle(node.attrs, notes);
+  const parts = (node.content ?? []).map((child) => plainText(child, notes));
   const block = node.type && node.type !== "doc" && node.type !== "text";
   return parts.join(block ? " " : "\n");
+}
+
+/** Resolve live titles where available; snapshots keep deleted links readable. */
+export function noteLinkTitle(attrs: JSONContent["attrs"], notes: readonly Note[] = []): string {
+  const target = notes.find((note) => note.uid === attrs?.uid);
+  return target ? noteTitle(target) : typeof attrs?.title === "string" && attrs.title.trim() ? attrs.title : "Deleted page";
+}
+
+/** Referenced page identities only; title text and ordinary URLs are not links. */
+export function noteLinkUidsIn(node: JSONContent | undefined, out = new Set<string>()): Set<string> {
+  if (!node) return out;
+  if (node.type === "noteLink" && typeof node.attrs?.uid === "string" && node.attrs.uid) out.add(node.attrs.uid);
+  for (const child of node.content ?? []) noteLinkUidsIn(child, out);
+  return out;
+}
+
+/** Cache by page uid + body, reparsing only bodies changed since the last pass. */
+export function createBacklinkIndex() {
+  const cache = new Map<string, { content: Note["content"]; links: Set<string> }>();
+  return (notes: readonly Note[]): Map<string, Note[]> => {
+    const index = new Map<string, Note[]>();
+    const live = new Set<string>();
+    for (const note of notes) {
+      if (!note.uid || note.isTemplate || isTrashed(note)) continue;
+      live.add(note.uid);
+      let entry = cache.get(note.uid);
+      if (!entry || entry.content !== note.content) {
+        const doc = parseNoteContent(note.content);
+        entry = { content: note.content, links: typeof doc === "string" ? new Set() : noteLinkUidsIn(doc) };
+        cache.set(note.uid, entry);
+      }
+      for (const uid of entry.links) {
+        const sources = index.get(uid) ?? [];
+        sources.push(note);
+        index.set(uid, sources);
+      }
+    }
+    for (const uid of cache.keys()) if (!live.has(uid)) cache.delete(uid);
+    return index;
+  };
 }
 
 /** Asset uids referenced by a page body. */

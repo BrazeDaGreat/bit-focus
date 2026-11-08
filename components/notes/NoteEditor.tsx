@@ -14,6 +14,8 @@ import { CodeBlockView, NoteImageView, ToggleView } from "./editor/NodeViews";
 import { MathBlockView, MathInlineView } from "./editor/MathBlockView";
 import { EditorMenus } from "./editor/EditorMenus";
 import { SlashMenu } from "./editor/SlashMenu";
+import { NoteLinkMenu } from "./editor/NoteLinkMenu";
+import { NoteLinkView } from "./editor/NoteLinkView";
 import "./note-editor.css";
 
 export interface NoteEditorProps {
@@ -39,11 +41,13 @@ export default function NoteEditor({ note, readOnly = false, editorRef, onStatus
   const status = useRef<"saved" | "saving" | "error" | null>(null);
   const inFlight = useRef<Promise<void> | null>(null);
   const slashKey = useRef<((event: KeyboardEvent) => boolean) | null>(null);
+  const pageLinkKey = useRef<((event: KeyboardEvent) => boolean) | null>(null);
   const openLink = useRef<(() => void) | null>(null);
   const attachRef = useRef<(files: File[], position?: number) => Promise<void>>(async () => {});
   const initialContent = useRef(parseNoteContent(recovered.current ?? note.content));
   const extensions = useMemo(() => noteExtensions({ editable: true }).map((extension) => {
     if (extension.name === "noteImage") return extension.extend({ addNodeView: () => ReactNodeViewRenderer(NoteImageView) });
+    if (extension.name === "noteLink") return extension.extend({ addNodeView: () => ReactNodeViewRenderer(NoteLinkView, { as: "span" }) });
     if (extension.name === "codeBlock") return extension.extend({ addNodeView: () => ReactNodeViewRenderer(CodeBlockView, { contentDOMElementTag: "span" }) });
     if (extension.name === "toggle") return extension.extend({ addNodeView: () => ReactNodeViewRenderer(ToggleView) });
     if (extension.name === "mathBlock") return extension.extend({ addNodeView: () => ReactNodeViewRenderer(MathBlockView) });
@@ -96,6 +100,7 @@ export default function NoteEditor({ note, readOnly = false, editorRef, onStatus
     editorProps: {
       attributes: { class: "note-body min-h-80 outline-none", role: "textbox", "aria-label": "Page content", "aria-multiline": "true" },
       handleKeyDown: (_view, event) => {
+        if (pageLinkKey.current?.(event)) { event.preventDefault(); return true; }
         if (slashKey.current?.(event)) { event.preventDefault(); return true; }
         if ((event.ctrlKey || event.metaKey) && !event.altKey) {
           if (event.key.toLowerCase() === "s") { event.preventDefault(); void flush(); return true; }
@@ -191,7 +196,7 @@ export default function NoteEditor({ note, readOnly = false, editorRef, onStatus
     {!editor ? <div aria-label="Loading editor" className="space-y-3"><Skeleton className="h-5 w-3/4 rounded-lg" /><Skeleton className="h-5 w-full rounded-lg" /><Skeleton className="h-5 w-2/3 rounded-lg" /></div> : <>
       {!readOnly && <EditorMenus editor={editor} openLinkRef={openLink} />}
       <EditorContent editor={editor} />
-      {!readOnly && <SlashMenu editor={editor} keyHandler={slashKey} onImage={() => input.current?.click()} />}
+      {!readOnly && <><SlashMenu editor={editor} noteUid={note.uid} keyHandler={slashKey} onImage={() => input.current?.click()} /><NoteLinkMenu editor={editor} keyHandler={pageLinkKey} /></>}
     </>}
     <input ref={input} className="hidden" type="file" accept="image/*" multiple aria-label="Choose images for this page" disabled={readOnly} onChange={(event) => {
       void attachRef.current(Array.from(event.target.files || [])); event.target.value = "";

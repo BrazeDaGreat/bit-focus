@@ -47,6 +47,7 @@ import { useNotes } from "@/hooks/useNotes";
 import { noteTitle, type Note } from "@/lib/notes";
 import { cn } from "@/lib/utils";
 import { NOTE_ICON } from "@/lib/notes";
+import { NoteTemplateSubmenu } from "./NoteTemplates";
 
 export type SaveStatus = "saved" | "saving" | "error";
 
@@ -65,6 +66,9 @@ export function NoteToolbar({
   onAddSubpage,
   onMove,
   onTrash,
+  onSaveTemplate,
+  isTemplate = false,
+  pageId,
 }: {
   leading?: ReactNode;
   status: SaveStatus;
@@ -75,6 +79,9 @@ export function NoteToolbar({
   onAddSubpage: () => void;
   onMove: () => void;
   onTrash: () => void;
+  onSaveTemplate?: () => void;
+  isTemplate?: boolean;
+  pageId?: number;
 }) {
   return (
     <div className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-1 bg-background/90 px-2 backdrop-blur-sm sm:px-3">
@@ -121,18 +128,23 @@ export function NoteToolbar({
               <MoreHorizontal className="size-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-44 rounded-xl shadow-xs">
-              <DropdownMenuItem onSelect={onAddSubpage}>
+              {!isTemplate && <><DropdownMenuItem onSelect={onAddSubpage}>
                 <FilePlus2 className="size-4" />
                 Add subpage
+              </DropdownMenuItem>
+              <NoteTemplateSubmenu parentId={pageId} />
+              <DropdownMenuItem onSelect={onSaveTemplate}>
+                <FilePlus2 className="size-4" />
+                Save as template
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={onMove}>
                 <CornerDownRight className="size-4" />
                 Move to…
-              </DropdownMenuItem>
+              </DropdownMenuItem></>}
               <DropdownMenuSeparator />
               <DropdownMenuItem variant="destructive" onSelect={onTrash}>
                 <Trash2 className="size-4" />
-                Move to trash
+                {isTemplate ? "Delete template" : "Move to trash"}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

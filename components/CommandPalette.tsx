@@ -23,6 +23,10 @@ import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import { usePomo, displaySeconds, phaseLabel } from "@/hooks/PomoContext";
+import { useRewards, useRewardsUi } from "@/hooks/useRewards";
+import { Gems, GemIcon } from "@/components/rewards/Gem";
+import { RewardIcon } from "@/components/rewards/reward-icons";
+import { priceOf } from "@/lib/rewards";
 import { useTag } from "@/hooks/useTag";
 import { useFocusGoal, GOAL_PRESETS } from "@/hooks/useFocusGoal";
 import { useConfig, type FeatureKey } from "@/hooks/useConfig";
@@ -90,6 +94,10 @@ export default function CommandPalette(): JSX.Element {
   const { tasks, loadTasks } = useTasks();
   const { notes, loadNotes } = useNotes();
   const addTimeblock = useTimeblocks((s) => s.addTimeblock);
+  const { items, ledger, ensureLoaded, getTotalDiscount } = useRewards();
+  useEffect(() => {
+    if (paletteOpen && featureToggles.rewards) void ensureLoaded();
+  }, [paletteOpen, featureToggles.rewards, ensureLoaded]);
   const planning = useRef(false);
   const parsed = useMemo(() => parseTaskInput(search, { projects }), [search, projects]);
   const planned = blockTimes(parsed);
@@ -374,6 +382,28 @@ export default function CommandPalette(): JSX.Element {
         )}
 
         {/* ── Pages ── */}
+        {featureToggles.rewards && (
+          <Command.Group heading="Rewards">
+            {items.filter((item) => !item.hidden).map((item) => (
+              <Item key={item.uid ?? item.id} icon={<RewardIcon icon={item.icon} />}
+                value={`redeem ${item.title}`} keywords={["rewards", item.title]}
+                onSelect={run(() => { void useRewards.getState().redeem(item); })}
+                actions={<Gems amount={priceOf(item, ledger, getTotalDiscount(), new Date()).final} className="shrink-0 text-xs" />}>
+                Redeem {item.title}
+              </Item>
+            ))}
+            {([
+              ["add", "Add gems"], ["throw", "Throw away gems"],
+              ["loan", "Take a loan"], ["repay", "Repay loan"],
+            ] as const).map(([mode, label]) => (
+              <Item key={mode} icon={<GemIcon />} keywords={["rewards", "balance"]}
+                onSelect={run(() => { router.push("/rewards"); useRewardsUi.getState().openBalanceDialog(mode); })}>
+                {label}
+              </Item>
+            ))}
+          </Command.Group>
+        )}
+
         <Command.Group heading="Go to">
           {PAGES.filter((p) => !p.feature || featureToggles[p.feature]).map((page) => (
             <Item
@@ -506,7 +536,7 @@ export default function CommandPalette(): JSX.Element {
             <Item icon={<FaPlus />} onSelect={run(() => router.push("/notes?new=1"))} keywords={["notes", "create"]}>
               New page
             </Item>
-            {notes.filter((note) => !isTrashed(note)).map((note) => (
+            {notes.filter((note) => !isTrashed(note) && !note.isTemplate).map((note) => (
               <Item
                 key={note.uid ?? note.id}
                 icon={<ProjectIcon name={note.icon ?? "FileText"} />}

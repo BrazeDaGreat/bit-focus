@@ -6,7 +6,9 @@ import { create } from "zustand";
 import db from "@/lib/db";
 import { deleteAssetsForNotes } from "@/lib/note-assets";
 import { installTracking } from "@/lib/sync/tracker";
-import { childrenOf, descendantIds, isTrashed, orderBetween, type Note } from "@/lib/notes";
+import { noteCopySource, prepareNoteCopy } from "@/lib/note-copy";
+import { STARTER_TEMPLATES, TEMPLATE_SEED_KEY } from "@/lib/note-templates";
+import { childrenOf, compareSiblings, descendantIds, isTrashed, orderBetween, type Note } from "@/lib/notes";
 
 export type { Note } from "@/lib/notes";
 
@@ -14,7 +16,8 @@ export interface NotesState {
   notes: Note[];
   loaded: boolean;
   loadNotes(): Promise<void>;
-  createNote(input?: { parentId?: number | null; title?: string; icon?: string; afterId?: number }): Promise<Note>;
+  createNote(input?: { parentId?: number | null; title?: string; icon?: string; afterId?: number; isTemplate?: boolean; copyFrom?: Note }): Promise<Note>;
+  seedTemplates(): Promise<void>;
   updateNote(id: number, fields: Partial<Pick<Note, "title" | "icon">>): Promise<void>;
   saveContent(id: number, content: string): Promise<void>;
   moveNote(id: number, target: { parentId: number | null; index: number }): Promise<void>;
@@ -52,6 +55,7 @@ function insertionOrder(siblings: Note[], index: number, changed: Map<number, No
 
 export const useNotes = create<NotesState>((set, get) => {
   let loading: Promise<void> | undefined;
+  let seeding: Promise<void> | undefined;
   let revision = 0;
   const pending = new Set<Promise<unknown>>();
   const track = <T,>(write: Promise<T>): Promise<T> => {
@@ -147,24 +151,31 @@ export const useNotes = create<NotesState>((set, get) => {
     },
     createNote: async (input = {}) => {
       await ensureLoaded();
-      const parentId = input.parentId ?? null;
-      if (parentId != null && !get().notes.some((note) => note.id === parentId && !isTrashed(note)))
+      const parentId = input.isTemplate ? null : input.parentId ?? null;
+      if (parentId != null && !get().notes.some((note) => note.id === parentId && !note.isTemplate && !isTrashed(note)))
         throw new Error("Parent page not found");
-      const siblings = childrenOf(get().notes, parentId);
+      const uid = crypto.randomUUID();
+      const source = input.copyFrom ? noteCopySource(input.copyFrom) : undefined;
+      const copied = source ? await prepareNoteCopy(source.content, uid) : undefined;
+      const siblings = input.isTemplate
+        ? get().notes.filter((note) => note.isTemplate && !isTrashed(note)).sort(compareSiblings)
+        : childrenOf(get().notes, parentId);
       const after = input.afterId == null ? -1 : siblings.findIndex((note) => note.id === input.afterId);
       const index = after < 0 ? siblings.length : after + 1;
       const now = new Date();
       const changed = new Map<number, Note>();
       const note: Note = {
-        uid: crypto.randomUUID(), title: input.title ?? "", icon: input.icon,
-        type: "document", parentId, content: "", deletedAt: null,
+        uid, title: input.title ?? source?.title ?? "", icon: input.icon ?? source?.icon,
+        type: "document", parentId, content: copied?.content ?? "", deletedAt: null,
+        ...(input.isTemplate ? { isTemplate: true } : {}),
         order: insertionOrder(siblings, index, changed, now), createdAt: now, updatedAt: now,
       };
       const rollback = optimistic(changed);
       set((state) => ({ notes: [...state.notes, note] }));
       try {
-        const id = await track(db.transaction("rw", db.notes, async () => {
+        const id = await track(db.transaction("rw", [db.notes, db.noteAssets], async () => {
           for (const [id, sibling] of changed) await db.notes.update(id, { order: sibling.order, updatedAt: now });
+          if (copied?.assets.length) await db.noteAssets.bulkAdd(copied.assets);
           return db.notes.add(note);
         }));
         const saved = { ...note, id };
@@ -176,6 +187,27 @@ export const useNotes = create<NotesState>((set, get) => {
         throw error;
       }
     },
+    seedTemplates: () => {
+      if (seeding) return seeding;
+      seeding = (async () => {
+        await ensureLoaded();
+        try { if (localStorage.getItem(TEMPLATE_SEED_KEY)) return; } catch { /* DB check also guards seeding. */ }
+        await track(db.transaction("rw", db.notes, async () => {
+          const existing = await db.notes.toArray();
+          // Include trashed templates: deleting the starters is a deliberate choice.
+          if (existing.some((note) => note.isTemplate)) return;
+          const now = new Date();
+          const rows: Note[] = STARTER_TEMPLATES.filter((starter) => !existing.some((note) => note.uid === starter.uid)).map((starter, index) => ({
+            ...starter, type: "document", isTemplate: true, parentId: null, order: (index + 1) * 1024,
+            deletedAt: null, createdAt: now, updatedAt: now,
+          }));
+          if (rows.length) await db.notes.bulkAdd(rows);
+        }));
+        try { localStorage.setItem(TEMPLATE_SEED_KEY, "1"); } catch { /* Templates themselves are the durable guard. */ }
+        await get().loadNotes();
+      })().finally(() => { seeding = undefined; });
+      return seeding;
+    },
     updateNote: async (id, fields) => {
       await ensureLoaded();
       await edit(id, fields);
@@ -186,10 +218,10 @@ export const useNotes = create<NotesState>((set, get) => {
       await ensureLoaded();
       const notes = get().notes;
       const note = notes.find((row) => row.id === id);
-      if (!note || isTrashed(note)) return;
+      if (!note || note.isTemplate || isTrashed(note)) return;
       if (target.parentId === id || descendantIds(notes, id).includes(target.parentId!))
         throw new Error("A page cannot be moved into itself or a descendant");
-      if (target.parentId != null && !notes.some((row) => row.id === target.parentId && !isTrashed(row)))
+      if (target.parentId != null && !notes.some((row) => row.id === target.parentId && !row.isTemplate && !isTrashed(row)))
         throw new Error("Parent page not found");
       const siblings = childrenOf(notes, target.parentId).filter((row) => row.id !== id);
       const index = Math.max(0, Math.min(siblings.length, Number.isFinite(target.index) ? Math.trunc(target.index) : siblings.length));

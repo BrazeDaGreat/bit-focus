@@ -34,6 +34,8 @@ export interface Task {
   priority: number;
   order: number;
   section?: string;
+  /** Epoch ms; kept through completion and trash, carried to repeat successors. */
+  starredAt?: number | null;
   completedAt?: Date | null;
   deletedAt?: Date | null;
   createdAt: Date;
@@ -58,6 +60,13 @@ export interface TaskFilter {
   criteria: TaskCriteria;
   createdAt: Date;
   updatedAt: Date;
+}
+
+/** Active starred tasks, oldest star first. */
+export function starredTasks(tasks: Task[]) {
+  return tasks
+    .filter((task) => task.starredAt != null && !task.completedAt && !task.deletedAt)
+    .sort((a, b) => a.starredAt! - b.starredAt! || a.order - b.order);
 }
 
 export function subtaskProgress(tasks: Task[], parentId: number) {

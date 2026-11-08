@@ -50,7 +50,8 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { FaTrash, FaStickyNote, FaTimes, FaEquals } from "react-icons/fa";
-import { CheckCircle2, Circle, CircleHelp, Trash2, Calculator, Trash } from "lucide-react";
+import { CheckCircle2, Circle, CircleHelp, Trash2, Calculator, Trash, ListPlus } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -62,6 +63,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useNotepad } from "@/hooks/useNotepad";
+import { useConfig } from "@/hooks/useConfig";
+import { makeTaskFromJot } from "@/components/notepad/jot-task";
 import { KeyboardKey } from "./ui/keyboard-key";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -193,6 +196,8 @@ export default function FloatingNotepad(): JSX.Element {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const pendingCaret = useRef<number | null>(null);
   const isMobile = useIsMobile();
+  const router = useRouter();
+  const tasksEnabled = useConfig((s) => s.featureToggles.projects);
   const viewport = useVisualViewport(isOpen && isMobile);
 
   // Portal target is only available after hydration
@@ -439,6 +444,14 @@ export default function FloatingNotepad(): JSX.Element {
     setContextMenu(null);
   }, [contextMenu, content, setContent]);
 
+  const handleMakeTask = useCallback(() => {
+    if (!contextMenu) return;
+    void makeTaskFromJot(contextMenu.lineText, (uid) =>
+      router.push(`/projects?task=${encodeURIComponent(uid)}`)
+    );
+    setContextMenu(null);
+  }, [contextMenu, router]);
+
   const handleClearCompletedJots = useCallback(() => {
     const updated = clearCompletedJots(content);
     setContent(updated);
@@ -641,7 +654,8 @@ export default function FloatingNotepad(): JSX.Element {
                 )}
                 <p className="leading-relaxed text-muted-foreground">
                   {isMobile ? "Touch and hold" : "Right-click"} a jot to mark it
-                  done or delete it, or to clear completed jots.
+                  done, {tasksEnabled ? "make it a task, " : ""}or delete it, or
+                  to clear completed jots.
                 </p>
               </PopoverContent>
             </Popover>
@@ -719,6 +733,15 @@ export default function FloatingNotepad(): JSX.Element {
                   </>
                 )}
               </DropdownMenuItem>
+              {tasksEnabled && (
+                <DropdownMenuItem
+                  onSelect={handleMakeTask}
+                  className="gap-2 rounded-lg text-xs font-medium cursor-pointer"
+                >
+                  <ListPlus className="size-3.5 text-muted-foreground" />
+                  <span>Make task</span>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 onSelect={handleDeleteCurrentJot}
                 className="gap-2 rounded-lg text-xs font-medium text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer"

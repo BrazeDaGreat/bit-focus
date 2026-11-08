@@ -4,18 +4,48 @@
 import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import { createPortal } from "react-dom";
 import type { Editor } from "@tiptap/core";
-import { Type, Heading1, Heading2, Heading3, List, ListOrdered, ListTodo, Quote, Minus, MessageSquare, ChevronRight, Code2, Table2, ImageIcon, Sigma, Radical, Columns2, Columns3, Columns4, type LucideIcon } from "lucide-react";
+import { Type, Heading1, Heading2, Heading3, List, ListOrdered, ListTodo, Quote, Minus, MessageSquare, ChevronRight, Code2, Table2, ImageIcon, Sigma, Radical, Columns2, Columns3, Columns4, LayoutTemplate, type LucideIcon } from "lucide-react";
 import { insertBlock, insertColumns } from "./commands";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import type { Transaction } from "@tiptap/pm/state";
+import { useNotes } from "@/hooks/useNotes";
+import { isTrashed, noteTitle, parseNoteContent, type Note } from "@/lib/notes";
+import { noteCopySource, prepareNoteCopy } from "@/lib/note-copy";
+import db from "@/lib/db";
 
 interface Command { label: string; hint: string; group: string; Icon: LucideIcon; run: (editor: Editor) => void }
 interface Match { from: number; to: number; query: string; left: number; top: number; bottom: number }
 
-export function SlashMenu({ editor, keyHandler, onImage }: { editor: Editor; keyHandler: MutableRefObject<((event: KeyboardEvent) => boolean) | null>; onImage: () => void }) {
+export function SlashMenu({ editor, noteUid, keyHandler, onImage }: { editor: Editor; noteUid?: string; keyHandler: MutableRefObject<((event: KeyboardEvent) => boolean) | null>; onImage: () => void }) {
+  const notes = useNotes((state) => state.notes);
   const [match, setMatch] = useState<Match | null>(null);
   const [active, setActive] = useState(0);
   const dismissed = useRef<string | null>(null);
   const menu = useRef<HTMLDivElement>(null);
+  const insertTemplate = async (template: Note) => {
+    if (!noteUid) return;
+    let bookmark = editor.state.selection.getBookmark();
+    const map = ({ transaction }: { transaction: Transaction }) => { bookmark = bookmark.map(transaction.mapping); };
+    editor.on("transaction", map);
+    let copied: Awaited<ReturnType<typeof prepareNoteCopy>> | undefined;
+    let inserted = false;
+    try {
+      copied = await prepareNoteCopy(noteCopySource(template).content, noteUid);
+      if (copied.assets.length) await db.noteAssets.bulkAdd(copied.assets);
+      if (editor.isDestroyed || !editor.isEditable) return;
+      editor.view.dispatch(editor.state.tr.setSelection(bookmark.resolve(editor.state.doc)));
+      const doc = parseNoteContent(copied.content);
+      inserted = editor.chain().focus().insertContent(typeof doc === "string" ? doc : doc.content ?? []).run();
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Could not insert template"); }
+    finally {
+      editor.off("transaction", map);
+      if (!inserted && copied?.assets.length) {
+        try { await db.noteAssets.where("uid").anyOf(copied.assets.map((asset) => asset.uid)).delete(); }
+        catch { toast.error("Could not clean up unused template images"); }
+      }
+    }
+  };
   const commands: Command[] = [
     { label: "Text", hint: "Plain paragraph", group: "Basic blocks", Icon: Type, run: (e) => { e.chain().focus().setParagraph().run(); } },
     ...([1, 2, 3] as const).map((level) => ({ label: `Heading ${level}`, hint: `Ctrl+Alt+${level}`, group: "Basic blocks", Icon: [Heading1, Heading2, Heading3][level - 1], run: (e: Editor) => { e.chain().focus().setHeading({ level }).run(); } })),
@@ -32,6 +62,7 @@ export function SlashMenu({ editor, keyHandler, onImage }: { editor: Editor; key
     { label: "Math equation", hint: "Centered on its own line · $$", group: "Rich blocks", Icon: Sigma, run: (e) => { e.chain().focus().insertMathBlock().run(); } },
     { label: "Inline equation", hint: "Inside the sentence · $x$ or Ctrl+Shift+M", group: "Rich blocks", Icon: Radical, run: (e) => { e.chain().focus().insertMathInline().run(); } },
     ...([2, 3, 4] as const).map((count) => ({ label: `${count} columns`, hint: "Side-by-side blocks", group: "Layout", Icon: [Columns2, Columns3, Columns4][count - 2], run: (e: Editor) => { insertColumns(e, count); } })),
+    ...notes.filter((note) => note.isTemplate && !isTrashed(note)).map((template) => ({ label: `Template: ${noteTitle(template)}`, hint: "Insert template at cursor", group: "Templates", Icon: LayoutTemplate, run: () => { void insertTemplate(template); } })),
   ];
   const filtered = commands.filter((command) => `${command.label} ${command.hint}`.toLowerCase().includes(match?.query.toLowerCase() || ""));
 
@@ -64,7 +95,7 @@ export function SlashMenu({ editor, keyHandler, onImage }: { editor: Editor; key
     setMatch(null); command.run(editor);
   };
   keyHandler.current = (event) => {
-    if (!match) return false;
+    if (!match || event.isComposing) return false;
     if (event.key === "Escape") { dismissed.current = `${match.from}:${match.query}`; setMatch(null); return true; }
     if (event.key === "ArrowDown" || event.key === "ArrowUp") { setActive((index) => (index + (event.key === "ArrowDown" ? 1 : -1) + Math.max(1, filtered.length)) % Math.max(1, filtered.length)); return true; }
     if (event.key === "Enter" && filtered.length) { choose(active); return true; }

@@ -12,15 +12,21 @@ import { TaskTimeLog } from "./TaskTimeLog";
 const surface = "z-50 min-w-52 max-w-[calc(100vw-24px)] max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto rounded-2xl border bg-popover p-1.5 text-popover-foreground shadow-xs outline-none motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200";
 const item = "relative flex min-h-9 cursor-default select-none items-center gap-2 rounded-lg px-3 py-2 text-sm outline-none data-[highlighted]:bg-muted data-[disabled]:pointer-events-none data-[disabled]:opacity-40";
 
-/** Same controlled dropdown-at-pointer pattern as calendar-menu, with touch support. */
-export function TaskRowActions({ task, children, onOpen, onComplete, onFocus }: {
+/**
+ * Same controlled dropdown-at-pointer pattern as calendar-menu, with touch support.
+ * `brief` keeps only star, open and focus for surfaces outside Projects.
+ */
+export function TaskRowActions({ task, children, onOpen, onComplete, onFocus, openLabel = "Open task", brief = false }: {
   task: Task;
   children: ReactNode;
   onOpen: () => void;
   onComplete: () => void;
   onFocus: () => void;
+  openLabel?: string;
+  brief?: boolean;
 }) {
   const updateTask = useTasks(state => state.updateTask);
+  const toggleStar = useTasks(state => state.toggleStar);
   const [point, setPoint] = useState<{ x: number; y: number } | null>(null);
   const [anchor, setAnchor] = useState({ x: 0, y: 0 });
   const [panel, setPanel] = useState<"date" | "time" | null>(null);
@@ -82,9 +88,13 @@ export function TaskRowActions({ task, children, onOpen, onComplete, onFocus }: 
         <Menu.Content align="start" sideOffset={2} collisionPadding={12} className={surface} aria-label={`Actions for ${task.title}`}
           onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); }}
           onCloseAutoFocus={(event) => { event.preventDefault(); if (!panelRef.current) restoreFocus(); }}>
-          <Menu.Item className={item} onSelect={onOpen}>Open task</Menu.Item>
-          <Menu.Item className={item} disabled={disabled} onSelect={onComplete}>{task.completedAt ? "Reopen" : "Complete"}</Menu.Item>
+          <Menu.Item className={item} disabled={disabled} onSelect={() => {
+            void toggleStar(task.id!).catch(() => toast.error("Could not update task"));
+          }}>{task.starredAt != null ? "Unstar" : "Star"}</Menu.Item>
+          <Menu.Item className={item} onSelect={onOpen}>{openLabel}</Menu.Item>
+          {!brief && <Menu.Item className={item} disabled={disabled} onSelect={onComplete}>{task.completedAt ? "Reopen" : "Complete"}</Menu.Item>}
           {!task.completedAt && <Menu.Item className={item} disabled={disabled} onSelect={onFocus}>Start focus</Menu.Item>}
+          {!brief && <>
           <Menu.Separator className="my-1.5 h-px bg-border" />
           <Menu.Label className="px-3 py-1.5 text-xs text-muted-foreground">Snooze deadline</Menu.Label>
           <Menu.Item className={item} disabled={disabled} onSelect={() => void save(taskDeadlineFields(task, dateInput(addDays(new Date(), 1))))}>Tomorrow</Menu.Item>
@@ -98,6 +108,7 @@ export function TaskRowActions({ task, children, onOpen, onComplete, onFocus }: 
               if (saved) toast("Task deleted", { action: { label: "Undo", onClick: () => void save({ deletedAt: null }) } });
             });
           }}>Delete</Menu.Item>
+          </>}
         </Menu.Content>
       </Menu.Portal>
     </Menu.Root>

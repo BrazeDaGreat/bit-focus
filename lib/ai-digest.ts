@@ -102,7 +102,7 @@ export function buildWeeklyDigest(input: WeeklyDigestInput): { title: string; co
     ...(!task.completedAt && { overdue: isTaskOverdue(task, now) }),
   });
 
-  const recentNotes = input.notes.filter((note) => !isTrashed(note) &&
+  const recentNotes = input.notes.filter((note) => !isTrashed(note) && !note.isTemplate &&
     (inWindow(note.createdAt, start, end) || inWindow(note.updatedAt, start, end)))
     .sort((a, b) => dateValue(b.updatedAt) - dateValue(a.updatedAt));
   const bestDay = days.reduce((best, day) => day.seconds > best.seconds ? day : best, days[0]);
@@ -149,7 +149,7 @@ export function buildWeeklyDigest(input: WeeklyDigestInput): { title: string; co
       recentCount: recentNotes.length, sampleLimit: 10,
       recent: recentNotes.slice(0, 10).map((note) => {
         const parsed = parseNoteContent(note.content);
-        return { title: compact(noteTitle(note)), excerpt: compact(typeof parsed === "string" ? descriptionText(parsed) : plainText(parsed), 180) };
+        return { title: compact(noteTitle(note)), excerpt: compact(typeof parsed === "string" ? descriptionText(parsed) : plainText(parsed, input.notes), 180) };
       }),
     },
     plan,

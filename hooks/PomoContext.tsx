@@ -217,17 +217,16 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
       queueRef.current = new CompletionQueue({
         storage,
         save: (rows) => useFocus.getState().addFocusSessionsOnce(rows),
-        award: (points) => {
-          // Re-read the stored balance first: the rewards store starts at 0
-          // until its page loads, and adding to that would overwrite it.
-          const rewards = useRewards.getState();
-          try {
-            rewards.initializePoints();
-            rewards.addPoints(points);
-          } catch (error) {
-            toast.error(`Focus saved, but ${points} reward points could not be stored. Check browser storage.`);
-            throw error;
-          }
+        award: (_minutes, completion) => {
+          // The ledger row's uid comes from the completion, so a retry never
+          // credits the same session twice.
+          useRewards
+            .getState()
+            .earn({ seconds: completion.seconds, tag: completion.tag, completionId: completion.id })
+            .catch((error) => {
+              console.warn("Could not credit gems", error);
+              toast.error("Focus saved, but the gems could not be stored. Check browser storage.");
+            });
         },
         onSaved: (completion) => {
           if (completion.pomodoro) {

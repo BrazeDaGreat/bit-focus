@@ -21,6 +21,7 @@ import { mergeAttributes } from "@tiptap/core";
 import type { DOMOutputSpec } from "@tiptap/pm/model";
 import { Callout, Column, Columns, Toggle, ToggleSummary } from "@/components/notes/extensions/blocks";
 import { NoteImage } from "@/components/notes/extensions/note-image";
+import { NoteLink } from "@/components/notes/extensions/note-link";
 import { MathBlock, MathInline } from "@/components/notes/extensions/math";
 
 const lowlight = createLowlight(common);
@@ -68,6 +69,6 @@ export function noteExtensions(options: { editable: boolean; placeholder?: strin
         return ["pre", mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), ["code", { class: `language-${language}` }, 0]];
       },
     }).configure({ lowlight, defaultLanguage: "plaintext" }),
-    NoteImage, Columns, Column, Callout, Toggle, ToggleSummary, MathBlock, MathInline,
+    NoteImage, NoteLink, Columns, Column, Callout, Toggle, ToggleSummary, MathBlock, MathInline,
   ];
 }

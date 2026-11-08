@@ -56,6 +56,8 @@ import {
 import { NoteMoveDialog } from "./NoteMoveDialog";
 import { NoteTrash, TrashedBanner, restorePage, trashedRoots } from "./NoteTrash";
 import { NoteEditorSkeleton, NotesSkeleton } from "./NotesSkeleton";
+import { NoteBacklinks } from "./NoteBacklinks";
+import { NoteCreateMenu, NoteTemplates, saveNoteAsTemplate } from "./NoteTemplates";
 
 const NoteEditor = dynamic(() => import("./NoteEditor"), {
   ssr: false,
@@ -144,7 +146,7 @@ export function NotesWorkspace() {
   const editorRef = useRef<Editor | null>(null);
   const creating = useRef(false);
 
-  const visible = useMemo(() => notes.filter((n) => !isTrashed(n)), [notes]);
+  const visible = useMemo(() => notes.filter((n) => !isTrashed(n) && !n.isTemplate), [notes]);
   const trashCount = useMemo(() => trashedRoots(notes).length, [notes]);
   const ancestors = useMemo(
     () => (note?.id != null ? ancestorsOf(notes, note.id) : []),
@@ -158,9 +160,17 @@ export function NotesWorkspace() {
   useEffect(() => {
     void useNotes.getState().loadNotes();
   }, []);
+  useEffect(() => {
+    if (loaded && !disabled) void useNotes.getState().seedTemplates().catch(() => toast.error("Could not create starter templates"));
+  }, [loaded, disabled]);
 
   const open = (target: Note) => {
     setFocusTitleUid(null);
+    navigateNotes(noteHref(target));
+  };
+  const openCreated = (target: Note) => {
+    setFocusTitleUid(target.uid ?? null);
+    setQuery("");
     navigateNotes(noteHref(target));
   };
 
@@ -337,14 +347,14 @@ export function NotesWorkspace() {
   );
 
   const newPageButton = (
-    <button
-      type="button"
-      onClick={() => void createPage(null)}
+    <NoteCreateMenu
+      onCreate={() => void createPage(null)}
+      onCreated={openCreated}
       className="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary"
     >
       <FilePlus2 className="size-4" />
       New page
-    </button>
+    </NoteCreateMenu>
   );
 
   let page: React.ReactNode;
@@ -370,8 +380,12 @@ export function NotesWorkspace() {
           onAddSubpage={() => void createPage(note.id!)}
           onMove={() => setMovingUid(note.uid ?? null)}
           onTrash={() => void trashPage(note)}
+          isTemplate={note.isTemplate}
+          pageId={note.id}
+          onSaveTemplate={() => void saveNoteAsTemplate({ ...note, content: editorRef.current && !editorRef.current.isDestroyed ? JSON.stringify(editorRef.current.getJSON()) : note.content })}
         />
         <div className="mx-auto w-full max-w-5xl px-5 pt-4 sm:px-8 sm:pt-10">
+          {note.isTemplate && <p className="mb-6 flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground"><FilePlus2 className="size-3.5" />Editing template<span className="hidden sm:inline">· Changes apply to future pages</span></p>}
           {trashed && (
             <TrashedBanner
               note={note}
@@ -417,6 +431,7 @@ export function NotesWorkspace() {
             />
           </div>
           <NoteSubpages pages={subpages} onOpen={open} />
+          {!trashed && !note.isTemplate && note.uid && <NoteBacklinks uid={note.uid} onOpen={open} />}
         </div>
         {/* The tree reveals the open page's new parent on its own. */}
         {movingUid === note.uid && !trashed && (
@@ -490,15 +505,13 @@ export function NotesWorkspace() {
           >
             <PanelLeftClose className="size-4" />
           </button>
-          <button
-            type="button"
-            aria-label="New page"
-            title="New page"
-            onClick={() => void createPage(null)}
+          <NoteCreateMenu
+            onCreate={() => void createPage(null)}
+            onCreated={openCreated}
             className={QUIET_ICON_BUTTON}
           >
             <Plus className="size-4" />
-          </button>
+          </NoteCreateMenu>
         </div>
         <div className="px-2 pb-2">
           <label className="flex items-center gap-2 rounded-lg bg-muted/60 px-2.5 focus-within:ring-2 focus-within:ring-primary/40">
@@ -550,6 +563,7 @@ export function NotesWorkspace() {
           )}
         </div>
         <div className="p-2">
+          <NoteTemplates selectedUid={note?.uid} onOpen={open} onCreated={openCreated} />
           <button
             type="button"
             aria-current={trashView ? "page" : undefined}

@@ -57,6 +57,7 @@ import {
 } from "@/lib/notes";
 import { cn } from "@/lib/utils";
 import { NoteMoveDialog } from "./NoteMoveDialog";
+import { NoteTemplateSubmenu, saveNoteAsTemplate } from "./NoteTemplates";
 
 /** Default icon for a page without one. */
 import { NOTE_ICON } from "@/lib/notes";
@@ -606,6 +607,11 @@ export function NoteTree({
                   <FilePlus2 className="size-4" />
                   Add subpage
                 </DropdownMenuItem>
+                <NoteTemplateSubmenu parentId={id} onCreated={onOpen} />
+                <DropdownMenuItem onSelect={() => void saveNoteAsTemplate(note)}>
+                  <FilePlus2 className="size-4" />
+                  Save as template
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   onSelect={() => {
                     afterMenu.current = "keep";
@@ -779,6 +785,7 @@ export function NoteSearchResults({
       .filter(
         (note) =>
           !isTrashed(note) &&
+          !note.isTemplate &&
           note.id != null &&
           noteTitle(note).toLowerCase().includes(search),
       )

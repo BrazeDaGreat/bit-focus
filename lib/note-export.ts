@@ -91,6 +91,12 @@ export async function exportNoteToPdf(note: Note): Promise<void> {
   const html = typeof content === "string" ? content : generateHTML(content, noteExtensions({ editable: false, headless: true }));
   const parsed = new DOMParser().parseFromString(html, "text/html");
   cleanDocument(parsed);
+  const pages = await db.notes.toArray();
+  parsed.querySelectorAll<HTMLElement>('span[data-type="note-link"]').forEach((link) => {
+    const target = pages.find((page) => page.uid === link.getAttribute("data-uid"));
+    link.textContent = `[[${target ? noteTitle(target) : link.getAttribute("data-title") || "Deleted page"}]]`;
+    if (!target || target.deletedAt) { link.style.color = "#777"; link.style.textDecoration = "line-through"; }
+  });
   await Promise.all(Array.from(parsed.querySelectorAll<HTMLImageElement>("img[data-asset]")).map(async (image) => {
     const asset = await db.noteAssets.where("uid").equals(image.dataset.asset || "").first();
     if (asset) image.src = asset.dataUrl;

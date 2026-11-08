@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Kbd } from "@/components/ui/kbd";
+import RewardSettings from "@/components/settings/RewardSettings";
 import CurrencySelect from "@/components/CurrencySelect";
 import AccountSettings from "@/components/auth/AccountSettings";
 import PomodoroSettings from "@/components/PomodoroSettings";
@@ -44,15 +45,15 @@ import { cn } from "@/lib/utils";
 
 dayjs.extend(relativeTime);
 
-type SectionId = "profile" | "account" | "timer" | "notifications" | "data" | "features" | "shortcuts";
-const SECTION_IDS: SectionId[] = ["profile", "account", "timer", "notifications", "data", "features", "shortcuts"];
+type SectionId = "profile" | "account" | "timer" | "rewards" | "notifications" | "data" | "features" | "shortcuts";
+const SECTION_IDS: SectionId[] = ["profile", "account", "timer", "rewards", "notifications", "data", "features", "shortcuts"];
 
 const FEATURE_LIST: { key: FeatureKey; label: string; hint: string }[] = [
   { key: "calendar", label: "Calendar", hint: "Sessions and timeblocks on a calendar" },
   { key: "projects", label: "Projects", hint: "Projects, milestones and issues" },
   { key: "notes", label: "Notes", hint: "Write pages and organize them in a tree" },
   { key: "aiChat", label: "AI Chat", hint: "An assistant that can read and act on your data" },
-  { key: "rewards", label: "Rewards", hint: "Spend focus points on rewards" },
+  { key: "rewards", label: "Rewards", hint: "Spend gems earned through focus on rewards" },
 ];
 
 export default function SettingsPage(): JSX.Element {
@@ -74,6 +75,7 @@ export default function SettingsPage(): JSX.Element {
     { id: "profile", title: "Profile", status: hasName ? name : "Not set" },
     { id: "account", title: "Account", status: user ? "Syncing" : "This device only" },
     { id: "timer", title: "Timer", status: `Pomodoro ${focusDuration}/${breakDuration}` },
+    ...(featureToggles.rewards ? [{ id: "rewards" as const, title: "Rewards", status: "Gems, rates and loans" }] : []),
     {
       id: "notifications",
       title: "Notifications",
@@ -185,7 +187,7 @@ export default function SettingsPage(): JSX.Element {
         </nav>
 
         <div className="flex min-w-0 flex-col gap-6">
-          <Section id="profile" title="Profile" description="How BIT Focus greets you, and the currency rewards are priced in.">
+          <Section id="profile" title="Profile" description="How BIT Focus greets you, and your preferred currency.">
             <ProfileForm />
           </Section>
 
@@ -204,6 +206,10 @@ export default function SettingsPage(): JSX.Element {
               <PomodoroSettings />
             </div>
           </Section>
+
+          {featureToggles.rewards && <Section id="rewards" title="Rewards" description="Earn gems through focus, set tag rates and manage borrowing defaults.">
+            <RewardSettings />
+          </Section>}
 
           <Section id="notifications" title="Notifications" description="The sound a Pomodoro phase ends with, and ways to hear about the timer when BIT Focus isn't the tab you're looking at.">
             <SoundSettings />

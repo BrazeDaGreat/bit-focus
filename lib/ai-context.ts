@@ -13,6 +13,7 @@
  */
 
 import dayjs from "dayjs";
+import { GEM, formatGems, shortfall, type LedgerSummary } from "@/lib/rewards";
 import type { FocusSession } from "@/hooks/useFocus";
 import type { Project } from "@/hooks/useProjects";
 import { taskDeadline, taskMinutes, descriptionText, type Task } from "./tasks";
@@ -40,14 +41,20 @@ export const CONTEXT_SOURCES: ContextSourceMeta[] = [
   { id: "focus30", label: "Last 30 days", description: "Weekly focus totals" },
   { id: "tags", label: "Tags", description: "Time per tag, last 30 days" },
   { id: "projects", label: "Projects", description: "Tasks, deadlines, estimates and actual time" },
-  { id: "rewards", label: "Points", description: "Reward point balance" },
+  { id: "rewards", label: "Rewards (gems)", description: "Balance, earning rates, spending and savings goal" },
 ];
 
 /** Everything a source might need. Missing pieces simply produce no block. */
 export interface ContextInput {
   name?: string;
   dob?: Date | string | null;
-  rewardPoints?: number;
+  rewards?: {
+    summary: LedgerSummary;
+    rate: number;
+    tagRates: Record<string, number>;
+    debtCap: number;
+    goal?: { title: string; price: number };
+  };
   focusSessions: FocusSession[];
   projects?: Project[];
   tasks?: Task[];
@@ -162,10 +169,25 @@ export function buildContextBlock(
       return `## Projects and tasks\n${projects.map((p) => `${p.title} (${p.status === "Closed" ? "archived" : "active"})`).join("\n")}\n${lines.join("\n")}`;
     }
 
-    case "rewards":
-      return typeof input.rewardPoints === "number"
-        ? `## Reward points\nBalance: ${(input.rewardPoints / 100).toFixed(2)}`
-        : null;
+    case "rewards": {
+      if (!input.rewards) return null;
+      const { summary: s, rate, tagRates, goal, debtCap } = input.rewards;
+      const amount = (value: number) => `${formatGems(value)} gems`;
+      return [
+        "## Rewards (gems)",
+        "1 gem = 1 hour of focus at the default rate.",
+        `Balance: ${amount(s.balance)}; owed on loans: ${amount(s.debt)}`,
+        `Last 7 days: earned ${amount(s.earned7)}; spent ${amount(s.spent7)}`,
+        `Last 30 days: earned ${amount(s.earned30)}; spent ${amount(s.spent30)}`,
+        `Top rewards (30 days): ${s.topItems.map((item) => `${item.title}: ${item.count} redemptions, ${amount(item.spent)}`).join("; ") || "none"}`,
+        `Spending by category (30 days): ${s.byCategory.map((row) => `${row.category}: ${amount(row.spent)}`).join("; ") || "none"}`,
+        `Earnings by tag (30 days): ${s.byTag.map((row) => `${row.tag}: ${amount(row.earned)}`).join("; ") || "none"}`,
+        `Overall earn rate: ${amount(Math.round(rate * GEM))}/focused hour`,
+        `Per-tag rates: ${Object.entries(tagRates).map(([tag, value]) => `${tag}: ${amount(Math.round(value * GEM))}/focused hour`).join("; ") || "all use the overall rate"}`,
+        `Redemption debt cap: ${amount(debtCap)}`,
+        ...(goal ? [`Goal: ${goal.title}, price ${amount(goal.price)}; ${shortfall(goal.price, s.balance, debtCap) > 0 ? `${amount(shortfall(goal.price, s.balance, debtCap))} to go` : "ready to redeem"}`] : ["Savings goal: none"]),
+      ].join("\n");
+    }
 
     default:
       return null;
