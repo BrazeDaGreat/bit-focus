@@ -1,8 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { format } from "date-fns";
-import { ChevronRight, CircleDashed, ListChecks, Plus } from "lucide-react";
+import {
+  Archive,
+  ChevronRight,
+  CircleDashed,
+  ListChecks,
+  Plus,
+} from "lucide-react";
 import type { Project } from "@/hooks/useProjects";
 import { isTaskOverdue, taskDeadline, type Task } from "@/lib/tasks";
 import { cn } from "@/lib/utils";
@@ -67,7 +73,7 @@ function ProgressRing({ done, total }: { done: number; total: number }) {
   );
 }
 
-function entriesFor({ projects, tasks, stats }: NavigationProps) {
+function entriesFor({ projects, tasks, stats, scope }: NavigationProps) {
   const closedIds = new Set(
     projects.filter((p) => p.status === "Closed").map((p) => p.id),
   );
@@ -84,7 +90,7 @@ function entriesFor({ projects, tasks, stats }: NavigationProps) {
     },
   ];
   const none = stats.get("none");
-  if ((none?.open || 0) + (none?.done || 0) > 0)
+  if (scope === "none" || (none?.open || 0) + (none?.done || 0) > 0)
     entries.push({
       scope: "none",
       title: "No project",
@@ -236,124 +242,114 @@ export function ProjectRail(props: NavigationProps) {
   );
 }
 
-export function ProjectTiles(props: NavigationProps) {
+/**
+ * Mobile project filter: a horizontally scrolling row of chips above the task
+ * list. Projects act as filters on one to-do list rather than as a separate
+ * index page, so the list is always one tap away.
+ */
+export function ProjectChips(props: NavigationProps) {
   const [showArchived, setShowArchived] = useState(false);
+  const activeRef = useRef<HTMLButtonElement>(null);
   const archived = props.projects.filter((p) => p.status === "Closed");
-  const tile = (
+  const archivedSelected = archived.some((p) => p.id === props.scope);
+  useEffect(() => {
+    if (archivedSelected) setShowArchived(true);
+  }, [archivedSelected]);
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [props.scope, showArchived]);
+  const chip = (
     scope: ProjectScope,
     title: string,
     tasks: Task[],
     icon?: string,
   ) => {
     const stats = props.stats.get(scope) || { open: 0, done: 0 };
-    const total = stats.open + stats.done;
-    const hint = deadlineHint(tasks);
+    const overdue = deadlineHint(tasks).overdue;
+    const active = props.scope === scope;
     return (
       <button
         key={scope}
+        ref={active ? activeRef : undefined}
         type="button"
+        aria-pressed={active}
         onClick={() => props.onSelect(scope)}
-        className="flex min-w-0 flex-col rounded-xl bg-muted/40 p-4 text-left transition-colors duration-150 hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-primary"
+        className={cn(
+          "flex h-9 shrink-0 touch-manipulation items-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-primary active:scale-[0.97] motion-reduce:active:scale-100",
+          active
+            ? "border-primary/40 bg-primary/15 text-primary"
+            : "border-border bg-card text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+        )}
       >
-        <span className="mb-3 flex w-full items-center justify-between gap-2">
-          <span className="grid size-8 place-items-center rounded-lg bg-muted text-muted-foreground">
-            <ScopeIcon scope={scope} icon={icon} className="size-4" />
-          </span>
-          <span className="font-mono text-xs tabular-nums text-muted-foreground">
-            {stats.open} open
-          </span>
-        </span>
-        <span className="w-full truncate text-sm font-medium">{title}</span>
-        <span
-          className={cn(
-            "mt-1 text-xs",
-            hint.overdue
-              ? "font-mono tabular-nums text-destructive"
-              : "text-muted-foreground",
-          )}
-        >
-          {hint.label}
-        </span>
-        <span
-          role="progressbar"
-          aria-label={`${title} completion`}
-          aria-valuemin={0}
-          aria-valuemax={total || 1}
-          aria-valuenow={stats.done}
-          className="mt-4 h-1 w-full overflow-hidden rounded-full bg-muted"
-        >
+        <ScopeIcon scope={scope} icon={icon} className="size-3.5 shrink-0" />
+        <span className="max-w-40 truncate">{title}</span>
+        {stats.open > 0 && (
           <span
-            className="block h-full rounded-full bg-muted-foreground/50"
-            style={{ width: `${total ? (stats.done / total) * 100 : 0}%` }}
+            className={cn(
+              "font-mono text-xs tabular-nums",
+              active ? "text-primary/80" : "text-muted-foreground/80",
+            )}
+          >
+            {stats.open}
+          </span>
+        )}
+        {overdue && (
+          <span
+            className="size-1.5 shrink-0 rounded-full bg-destructive"
+            aria-label="Has overdue tasks"
           />
-        </span>
+        )}
       </button>
     );
   };
   return (
-    <section className="rounded-2xl border bg-card p-5 shadow-xs lg:hidden">
-      <header className="mb-5 flex items-center justify-between gap-2">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Projects</h1>
-          <p className="mt-1 text-xs text-muted-foreground">
-            A place for everything on your list.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={props.onNew}
-          className="flex h-10 shrink-0 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-muted-foreground hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-primary"
-        >
-          <Plus className="size-4" />
-          New project
-        </button>
-      </header>
-      <nav aria-label="Projects" className="grid min-w-0 grid-cols-2 gap-2">
+    <div className="-mx-3 mb-4 sm:-mx-6 lg:hidden">
+      <nav
+        aria-label="Filter by project"
+        className="no-scroll-wheel flex min-w-0 gap-2 overflow-x-auto overscroll-x-contain scroll-px-3 px-3 py-1 sm:scroll-px-6 sm:px-6"
+      >
         {entriesFor(props).map((entry) =>
-          tile(entry.scope, entry.title, entry.tasks, entry.icon),
+          chip(entry.scope, entry.title, entry.tasks, entry.icon),
         )}
-      </nav>
-      {props.projects.every((p) => p.status === "Closed") && (
-        <div className="mt-4 rounded-xl bg-muted/40 p-4">
-          <p className="text-sm font-medium">Make space for a project</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Add University or Work, then give it an icon you recognise.
-          </p>
-        </div>
-      )}
-      {archived.length > 0 && (
-        <div className="mt-4">
+        {archived.length > 0 && (
           <button
             type="button"
             aria-expanded={showArchived}
             onClick={() => setShowArchived(!showArchived)}
-            className="flex h-10 items-center gap-2 rounded-lg px-2 text-sm text-muted-foreground hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-primary"
+            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm text-muted-foreground hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-primary"
           >
-            <ChevronRight
-              className={cn(
-                "size-3.5 motion-safe:transition-transform",
-                showArchived && "rotate-90",
-              )}
-            />
+            <Archive className="size-3.5" />
             Archived
             <span className="font-mono text-xs tabular-nums">
               {archived.length}
             </span>
-          </button>
-          {showArchived && (
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              {archived.map((p) =>
-                tile(
-                  p.id!,
-                  p.title,
-                  props.tasks.filter((t) => t.projectId === p.id),
-                  p.icon,
-                ),
+            <ChevronRight
+              className={cn(
+                "size-3.5 motion-safe:transition-transform",
+                showArchived && "rotate-180",
               )}
-            </div>
+            />
+          </button>
+        )}
+        {showArchived &&
+          archived.map((p) =>
+            chip(
+              p.id!,
+              p.title,
+              props.tasks.filter((t) => t.projectId === p.id),
+              p.icon,
+            ),
           )}
-        </div>
-      )}
-    </section>
+        <button
+          type="button"
+          onClick={props.onNew}
+          aria-label="New project"
+          className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-dashed px-3 text-sm text-muted-foreground hover:bg-muted/60 hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary"
+        >
+          <Plus className="size-3.5" />
+          Project
+        </button>
+      </nav>
+    </div>
   );
 }

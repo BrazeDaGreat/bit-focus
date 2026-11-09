@@ -27,6 +27,11 @@ const CHANGELOG = `
 - Added: Rewards in the command palette (Ctrl + K): redeem an item by name, add or throw away gems, take a loan, or repay one.
 - Changed: Balance controls live in one place, the Rewards page. The TopBar points drawer is gone; the gem pill links to Rewards and shows your balance, what you earned today, what you owe, and your goal when you hover over it.
 - Technical: Added the rewards ledger table (database version 18) with sync, backup, and restore support. Restoring a backup made before this version rebuilds the balance from that backup. Update BIT Focus on all your devices: an older version still records points the old way, and those don't reach the new balance. Added tests for gem conversion, earn rates, loans, price steps, limits, and summaries.
+### \`v0.25.1-beta\` (2026-11-09) — Projects on Mobile
+- Changed: On phones, the Projects page opens straight into your to-do list instead of a grid of project tiles. Projects are now filter chips in a row you can swipe across the top: All tasks, No project, each project, and archived projects. Each chip shows how many tasks are open and a red dot when something is overdue.
+- Changed: On phones, the add-task box floats just above the bottom tabs so it stays in reach however long the list gets. Inside a project it says which one you are adding to, such as "Add to University…". Typing in it no longer zooms the page on iPhone.
+- Improved: Task rows on phones are a little taller, with a bigger tap area around the checkbox and the focus button.
+- Changed: "New project" on phones is the dashed "Project" chip at the end of the filter row.
 ***
 
 ## \`v0.24.0 (LTS)\` (2026-10-30) — Save, Recover & Keep Working
