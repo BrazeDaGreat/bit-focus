@@ -50,7 +50,7 @@ export function TaskRow({
     <TaskRowActions task={task} onOpen={onSelect} onComplete={onComplete} onFocus={onFocus}>
     <div
       className={cn(
-        "group flex min-w-0 items-start gap-2.5 rounded-lg px-2 py-2.5 transition-colors duration-150 hover:bg-muted/50",
+        "group flex min-w-0 items-start gap-3 rounded-lg px-2 py-3 transition-colors md:gap-2.5 md:py-2.5 duration-150 hover:bg-muted/50",
         selected && "bg-primary/12",
         task.completedAt && "opacity-60",
       )}
@@ -79,7 +79,7 @@ export function TaskRow({
           task.completedAt ? `Reopen ${task.title}` : `Complete ${task.title}`
         }
         className={cn(
-          "mt-0.5 grid size-5 shrink-0 place-items-center rounded-lg border-2 focus-visible:outline-2 focus-visible:outline-primary",
+          "relative mt-0.5 grid size-5 shrink-0 place-items-center rounded-lg border-2 after:absolute after:-inset-2.5 after:content-[''] focus-visible:outline-2 focus-visible:outline-primary",
           task.completedAt
             ? "border-primary bg-primary text-primary-foreground"
             : task.priority === 3
@@ -98,7 +98,7 @@ export function TaskRow({
       >
         <span
           className={cn(
-            "block text-sm font-medium break-words",
+            "block text-[0.9375rem] font-medium break-words md:text-sm",
             task.completedAt && "line-through",
           )}
         >
@@ -168,7 +168,7 @@ export function TaskRow({
           title="Start focus"
           aria-pressed={!!active}
           className={cn(
-            "grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-primary/12 hover:text-primary focus-visible:outline-2 focus-visible:outline-primary",
+            "-my-1 grid size-9 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-primary/12 md:my-0 md:size-8 hover:text-primary focus-visible:outline-2 focus-visible:outline-primary",
             active && "bg-primary/12 text-primary",
           )}
         >

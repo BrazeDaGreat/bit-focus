@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import {
   Archive,
-  ArrowLeft,
   CircleDashed,
   ListChecks,
   MoreHorizontal,
@@ -49,7 +48,7 @@ import { TaskRow } from "./TaskRow";
 import { TaskDetails } from "./TaskDetails";
 import {
   ProjectRail,
-  ProjectTiles,
+  ProjectChips,
   type ProjectScope,
   type ScopeStats,
 } from "./ProjectNavigation";
@@ -108,11 +107,6 @@ export function TaskWorkspace({
       : undefined;
   const archived = project?.status === "Closed";
   const missingProject = typeof scope === "number" && !project;
-  const hasMobileSelection =
-    initialProjectId !== undefined ||
-    params.has("project") ||
-    params.has("view") ||
-    params.has("task");
   const [quickTitle, setQuickTitle] = useState("");
   const [ignore, setIgnore] = useState<string[]>([]);
   const [adding, setAdding] = useState(false);
@@ -137,10 +131,10 @@ export function TaskWorkspace({
 
   const navigate = (next: ProjectScope, taskUid?: string) => {
     const query = new URLSearchParams();
-    // An explicit all scope distinguishes the mobile task pane from its index.
-    query.set("project", String(next));
+    if (next !== "all") query.set("project", String(next));
     if (taskUid) query.set("task", taskUid);
-    router.replace(`/projects?${query.toString()}`, { scroll: false });
+    const search = query.toString();
+    router.replace(`/projects${search ? `?${search}` : ""}`, { scroll: false });
   };
   const selectScope = (next: ProjectScope) => navigate(next);
   const openTask = (task: Task) => navigate(scope, task.uid);
@@ -315,31 +309,17 @@ export function TaskWorkspace({
   if (loading || loadingProjects) return <TaskWorkspaceSkeleton />;
 
   return (
-    <div className="mx-auto w-full min-w-0 max-w-7xl flex-1 p-3 sm:p-6">
+    <div className="mx-auto w-full min-w-0 max-w-7xl flex-1 px-3 pb-3 pt-2 sm:p-6">
       <div className="flex min-w-0 items-start gap-5">
         <ProjectRail {...navigationProps} />
-        {!hasMobileSelection && (
-          <div className="min-w-0 flex-1 lg:hidden">
-            <ProjectTiles {...navigationProps} />
-          </div>
-        )}
-        <main
-          className={cn(
-            "min-w-0 flex-1 rounded-2xl border bg-card p-5 shadow-xs",
-            !hasMobileSelection && "hidden lg:block",
-          )}
-        >
-          <button
-            type="button"
-            onClick={() => router.replace("/projects", { scroll: false })}
-            className="-ml-2 mb-4 flex h-10 items-center gap-2 rounded-lg px-2 text-sm text-muted-foreground hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-primary lg:hidden"
-          >
-            <ArrowLeft className="size-4" />
-            Projects
-          </button>
-          <header className="mb-6 flex items-start gap-3">
+        {/* Phones get one to-do list with projects as filter chips; larger
+            screens keep the rail beside a card. */}
+        <main className="min-w-0 flex-1 lg:rounded-2xl lg:border lg:bg-card lg:p-5 lg:shadow-xs">
+          <ProjectChips {...navigationProps} />
+          <header className="mb-5 flex items-start gap-3 lg:mb-6">
             {project ? (
               <ProjectIconPicker
+                className="size-10 lg:size-12"
                 value={project.icon}
                 onChange={(icon) =>
                   void act(() =>
@@ -348,7 +328,7 @@ export function TaskWorkspace({
                 }
               />
             ) : (
-              <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground lg:size-12">
                 {scope === "none" ? (
                   <CircleDashed className="size-6" />
                 ) : (
@@ -357,7 +337,7 @@ export function TaskWorkspace({
               </span>
             )}
             <div className="min-w-0 flex-1">
-              <h1 className="break-words text-xl font-semibold tracking-tight">
+              <h1 className="break-words text-2xl font-semibold tracking-tight lg:text-xl">
                 {project?.title ||
                   (missingProject
                     ? "Project unavailable"
@@ -365,7 +345,7 @@ export function TaskWorkspace({
                       ? "No project"
                       : "All tasks")}
               </h1>
-              <p className="mt-1.5 font-mono text-xs tabular-nums text-muted-foreground">
+              <p className="mt-1 font-mono text-xs tabular-nums text-muted-foreground lg:mt-1.5">
                 {currentStats.done} of {currentStats.open + currentStats.done}{" "}
                 done · {formatMinutes(focused)} focused
               </p>
@@ -444,7 +424,12 @@ export function TaskWorkspace({
               {!archived && (
                 <form
                   onSubmit={addQuickTask}
-                  className="mb-6 rounded-xl bg-muted/60 p-1 focus-within:ring-2 focus-within:ring-primary/40"
+                  className={cn(
+                    "mb-6 rounded-xl bg-muted/60 p-1 focus-within:ring-2 focus-within:ring-primary/40",
+                    // Phones: a composer floating just above the dock, in
+                    // thumb reach however long the list grows.
+                    "max-md:fixed max-md:inset-x-3 max-md:bottom-[calc(4.5rem+env(safe-area-inset-bottom))] max-md:z-20 max-md:mb-0 max-md:rounded-2xl max-md:border max-md:bg-card/95 max-md:shadow-lg max-md:backdrop-blur-xl",
+                  )}
                 >
                   <div className="flex min-w-0 items-center gap-1 pl-2">
                     <Plus
@@ -454,10 +439,14 @@ export function TaskWorkspace({
                     <input
                       ref={inputRef}
                       aria-label="New task title"
-                      placeholder="Add a task — try “Essay draft by Friday 5pm #uni”"
+                      placeholder={
+                        project
+                          ? `Add to ${project.title}…`
+                          : "Add a task — try “Essay by Fri 5pm #uni”"
+                      }
                       value={quickTitle}
                       onChange={(e) => setQuickTitle(e.target.value)}
-                      className="h-10 min-w-0 flex-1 bg-transparent px-1 text-sm outline-none placeholder:text-muted-foreground"
+                      className="h-11 min-w-0 flex-1 bg-transparent px-1 text-base outline-none placeholder:text-muted-foreground md:h-10 md:text-sm"
                     />
                     <TaskSyntaxHelp
                       onInsert={(example) => {
@@ -469,7 +458,7 @@ export function TaskWorkspace({
                     <button
                       type="submit"
                       disabled={!parsed.title.trim() || adding}
-                      className="h-9 shrink-0 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary disabled:pointer-events-none disabled:opacity-50"
+                      className="h-9 shrink-0 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary disabled:pointer-events-none disabled:opacity-50"
                     >
                       Add
                     </button>
@@ -524,6 +513,8 @@ export function TaskWorkspace({
                   }
                 />
               )}
+              {/* Keeps the last rows clear of the floating composer. */}
+              {!archived && <div className="h-20 md:hidden" aria-hidden />}
             </>
           )}
         </main>
