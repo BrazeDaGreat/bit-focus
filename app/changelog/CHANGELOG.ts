@@ -32,6 +32,9 @@ const CHANGELOG = `
 - Changed: On phones, the add-task box floats just above the bottom tabs so it stays in reach however long the list gets. Inside a project it says which one you are adding to, such as "Add to University…". Typing in it no longer zooms the page on iPhone.
 - Improved: Task rows on phones are a little taller, with a bigger tap area around the checkbox and the focus button.
 - Changed: "New project" on phones is the dashed "Project" chip at the end of the filter row.
+- Added: Controls for the landscape timer on phones. Double-tap the black screen to bring them up: pause or resume, reset (or skip a break), and +5 min in Pomodoro, plus Exit. Tap the clock or leave them alone for a few seconds and they go away, leaving the screen black again.
+- Added: Display settings in the same panel. Brightness goes from full down to a faint 1%, with finer steps at the dim end. The digits can be white, amber, red (easiest on your eyes at night), or the colour of the current phase. The clock comes in three sizes, and you can hide the phase label. Your choices are remembered on this device.
+- Improved: The landscape timer dims as one. The clock, the label, and the controls all follow the same brightness setting. The controls use outlines on pure black instead of lit buttons, and never go fully dark, so you can always find them to turn the brightness back up. The close button is now Exit inside the controls, so nothing is lit in the corner anymore.
 ***
 
 ## \`v0.24.0 (LTS)\` (2026-10-30) — Save, Recover & Keep Working
