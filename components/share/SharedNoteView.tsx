@@ -264,28 +264,24 @@ export default function SharedNoteView({ id }: { id?: string }): JSX.Element {
           </article>
         )}
 
-        <footer className="mt-24">
+        <footer className="mt-16">
           <div aria-hidden className="flex items-center gap-4">
             <span className="h-px flex-1 bg-border" />
             <span className="size-1.5 rotate-45 bg-primary" />
             <span className="h-px flex-1 bg-border" />
           </div>
-          <div className="mt-10 rounded-2xl border bg-card p-6 shadow-xs sm:p-8">
-            <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">Written in</p>
-            <Wordmark className="mt-2 block text-2xl sm:text-3xl" />
-            <p className="mt-3 max-w-md text-sm text-muted-foreground">
-              A quiet workspace for focus sessions, tasks and notes. Works offline, no account needed.
-            </p>
-            <div className="mt-6 flex flex-wrap items-center gap-2">
-              <Link href="/" className="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors duration-150 hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary">
-                Try BIT Focus
-                <ArrowUpRight className="size-4" />
-              </Link>
-              <a href={AUTHOR_URL} target="_blank" rel="noopener noreferrer" className="inline-flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:bg-muted/60 hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary">
-                <FaGithub className="size-4" aria-hidden />
-                Made by Uzair
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-2 text-xs text-muted-foreground">
+            <Link href="/" title="Open BIT Focus" className="rounded-md px-1 py-0.5 transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary">
+              <Wordmark className="-mr-[0.3em] text-[11px]" />
+            </Link>
+            <span aria-hidden>·</span>
+            <span className="flex items-center gap-1.5">
+              By
+              <a href={AUTHOR_URL} target="_blank" rel="noopener noreferrer" title="Uzair on GitHub" className="inline-flex h-7 items-center gap-1.5 rounded-full bg-muted/60 pl-2 pr-2.5 font-medium text-foreground/80 transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary">
+                <FaGithub className="size-3.5" aria-hidden />
+                Uzair
               </a>
-            </div>
+            </span>
           </div>
         </footer>
       </main>
