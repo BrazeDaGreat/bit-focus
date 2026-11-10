@@ -32,6 +32,7 @@ import {
   FilePlus2,
   MoreHorizontal,
   Plus,
+  Share2,
   Trash2,
 } from "lucide-react";
 import {
@@ -63,6 +64,7 @@ export function NoteToolbar({
   readOnly,
   exporting,
   onExport,
+  onShare,
   onAddSubpage,
   onMove,
   onTrash,
@@ -76,6 +78,8 @@ export function NoteToolbar({
   readOnly: boolean;
   exporting: boolean;
   onExport: () => void;
+  /** Omitted where a page can't be shared (Trash, templates). */
+  onShare?: () => void;
   onAddSubpage: () => void;
   onMove: () => void;
   onTrash: () => void;
@@ -105,6 +109,18 @@ export function NoteToolbar({
               </span>
             )}
           </p>
+        )}
+        {onShare && (
+          <button
+            type="button"
+            aria-label="Share page"
+            title="Share a read-only link"
+            onClick={onShare}
+            className={cn(QUIET_BUTTON, "w-9 justify-center px-0 sm:w-auto sm:px-2.5")}
+          >
+            <Share2 className="size-4" />
+            <span className="hidden sm:inline">Share</span>
+          </button>
         )}
         <button
           type="button"

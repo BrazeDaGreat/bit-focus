@@ -65,6 +65,7 @@ const printStyle = `
 .note-print [data-type="math-block"] { margin: 4mm 0; text-align: center; break-inside: avoid; font-size: 12pt; }
 .note-print .note-print-math-inline-source { font-family: ui-monospace, Consolas, monospace; font-size: .9em; background: #f3f3f3; padding: 0 1mm; border-radius: 3px; }
 .note-print .note-print-math-source { font-family: ui-monospace, Consolas, monospace; font-size: 9pt; text-align: left; white-space: pre-wrap; background: #f3f3f3; padding: 3mm; border-radius: 5px; }
+.note-print .note-print-footer { margin-top: 12mm; padding-top: 3mm; border-top: 1px solid #ddd; font-size: 8pt; letter-spacing: .08em; color: #888; }
 .note-print .note-print-missing { background: #f3f3f3; color: #666; padding: 4mm; border-radius: 5px; font-size: 9pt; break-inside: avoid; }
 `;
 
@@ -85,24 +86,31 @@ function cleanDocument(document: Document) {
   });
 }
 
-export async function exportNoteToPdf(note: Note): Promise<void> {
+/** Images and branding for a page opened from a share link rather than this device. */
+export interface SharedExportSource {
+  assets: Record<string, string>;
+}
+
+export async function exportNoteToPdf(note: Note, shared?: SharedExportSource): Promise<void> {
   if (typeof window === "undefined" || typeof window.print !== "function") throw new Error("PDF export requires a browser with printing support.");
   const content = parseNoteContent(note.content);
   const html = typeof content === "string" ? content : generateHTML(content, noteExtensions({ editable: false, headless: true }));
   const parsed = new DOMParser().parseFromString(html, "text/html");
   cleanDocument(parsed);
-  const pages = await db.notes.toArray();
+  const pages = shared ? [] : await db.notes.toArray();
   parsed.querySelectorAll<HTMLElement>('span[data-type="note-link"]').forEach((link) => {
+    // Shared snapshots already carry each link's title; the viewer has no pages to check.
+    if (shared) { link.textContent = `[[${link.getAttribute("data-title") || "Linked page"}]]`; return; }
     const target = pages.find((page) => page.uid === link.getAttribute("data-uid"));
     link.textContent = `[[${target ? noteTitle(target) : link.getAttribute("data-title") || "Deleted page"}]]`;
     if (!target || target.deletedAt) { link.style.color = "#777"; link.style.textDecoration = "line-through"; }
   });
   await Promise.all(Array.from(parsed.querySelectorAll<HTMLImageElement>("img[data-asset]")).map(async (image) => {
-    const asset = await db.noteAssets.where("uid").equals(image.dataset.asset || "").first();
-    if (asset) image.src = asset.dataUrl;
+    const dataUrl = shared ? shared.assets[image.dataset.asset || ""] : (await db.noteAssets.where("uid").equals(image.dataset.asset || "").first())?.dataUrl;
+    if (dataUrl) image.src = dataUrl;
     else {
       const missing = parsed.createElement("div"); missing.className = "note-print-missing";
-      missing.textContent = `Image not on this device yet${image.alt ? `: ${image.alt}` : ""}`; image.replaceWith(missing);
+      missing.textContent = `${shared ? "Image not included in this link" : "Image not on this device yet"}${image.alt ? `: ${image.alt}` : ""}`; image.replaceWith(missing);
     }
   }));
   // Printing must never fetch remote resources. Only locally embedded bytes travel.
@@ -148,7 +156,7 @@ export async function exportNoteToPdf(note: Note): Promise<void> {
   if (!printWindow || !printDocument || typeof printWindow.print !== "function") { frame.remove(); throw new Error("Printing is unavailable in this browser."); }
   try {
     printDocument.open();
-    printDocument.write(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'"><title>${escapeHtml(title)}</title><style>${printStyle}</style></head><body class="note-print"><header class="note-print-header"><div class="note-print-icon">${iconHtml}</div><h1 class="note-print-title">${escapeHtml(title)}</h1><div class="note-print-date">Last edited ${escapeHtml(edited)}</div></header><main>${parsed.body.innerHTML}</main></body></html>`);
+    printDocument.write(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'"><title>${escapeHtml(title)}</title><style>${printStyle}</style></head><body class="note-print"><header class="note-print-header"><div class="note-print-icon">${iconHtml}</div><h1 class="note-print-title">${escapeHtml(title)}</h1><div class="note-print-date">Last edited ${escapeHtml(edited)}</div></header><main>${parsed.body.innerHTML}</main>${shared ? `<footer class="note-print-footer">Shared from BIT Focus · ${escapeHtml(window.location.origin.replace(/^https?:\/\//, ""))}</footer>` : ""}</body></html>`);
     printDocument.close();
     await Promise.all(Array.from(printDocument.images).map((image) => new Promise<void>((resolve) => {
       if (image.complete) { resolve(); return; }

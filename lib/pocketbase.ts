@@ -51,6 +51,14 @@ export const SYNC_COLLECTION = "focus_sync";
 export const RECORDS_COLLECTION = "focus_records";
 
 /**
+ * Read-only snapshots of Notes pages behind short share links.
+ *
+ * Anyone may view a record by id; only its owner may list, change or delete
+ * it, so links cannot be enumerated. Schema in `pocketbase/focus_shares.json`.
+ */
+export const SHARES_COLLECTION = "focus_shares";
+
+/**
  * localStorage key the PocketBase SDK uses for its auth store.
  *
  * Exported because our own import/restore paths must never clear it — wiping

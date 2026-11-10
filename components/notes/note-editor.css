@@ -8,10 +8,13 @@
 .note-prose .note-page-link span { overflow-wrap: anywhere; }
 .note-prose .note-page-link:hover { background: var(--muted); }
 .note-prose .note-page-link:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.note-prose .note-page-link[data-static] { cursor: default; text-decoration-style: dotted; }
+.note-prose .note-page-link[data-static]:hover { background: transparent; }
 .note-prose .note-page-link[data-unavailable] { color: var(--muted-foreground); text-decoration: line-through; cursor: default; }
 .note-prose .note-body p { margin: .5rem 0; }
 .note-prose .note-body > :first-child { margin-top: 0; }
 .note-prose .note-body h1, .note-prose .note-body h2, .note-prose .note-body h3 { font-family: var(--font-serif), serif; font-weight: 600; letter-spacing: -.025em; line-height: 1.3; margin: 1.75rem 0 .75rem; }
+.note-prose .note-body :is(h1, h2, h3, h4, h5, h6) { scroll-margin-top: 4.5rem; }
 .note-prose .note-body h1 { font-size: 1.875rem; }
 .note-prose .note-body h2 { font-size: 1.5rem; }
 .note-prose .note-body h3 { font-size: 1.25rem; }

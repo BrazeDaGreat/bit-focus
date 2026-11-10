@@ -12,6 +12,10 @@ const CHANGELOG = `
 - Added: Chat history search now includes message contents and shows matching snippets.
 - Added: Branch a conversation from an assistant reply without changing the original conversation. Unapproved actions are excluded from the branch.
 - Added: Export conversations as Markdown from the thread or history menu, including source references.
+- Added: Share a Notes page as a read-only link. Press Share at the top of a page, then Create link. Anyone with the link can read the page without a BIT Focus account. When you're signed in, the link is short and includes images. Later edits stay private until you press Update link, and Stop sharing turns the link off. When you're signed out, the page is stored inside the link itself, so the link is longer and leaves images out.
+- Added: Shared pages open in a reading view with the page's icon, title, edit date, and reading time. Readers can copy the link, export the page as a PDF, download it as Markdown, and switch themes. Shared pages are hidden from search engines and say they were written in BIT Focus.
+- Added: Page outline on the right edge of Notes pages and shared pages. Each heading has a faint mark, and the section you're reading is highlighted. Hover over the marks, or Tab to them, to see every heading, then click one to jump there.
+- Technical: Added the \`focus_shares\` collection, with its schema in \`pocketbase/focus_shares.json\`. Anyone can open a share by its ID. Only the owner can list, update, or delete it. Short-link snapshots are capped at 4 MB, and the largest images are removed first if a page is too large. Added tests for share snapshots and embedded links.
 
 ## \`v0.25.0-beta\` (2026-11-08) — Gems & Rewards
 - Changed: Reward points are now gems, shown with a gem icon everywhere: the shop, the balance, the TopBar, notifications, and AI Chat. One hour of focus earns one gem. Your balance and item prices were converted to match, so they're worth the same amount of focus as before (a balance from 100 hours of focus now reads 100.00 gems).
