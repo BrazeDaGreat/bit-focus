@@ -6,7 +6,7 @@ const CHANGELOG = `
 ## \`v0.25.2 (LTS)\` (2026-11-10) — AI Chat
 - Changed: AI Chat is stable. Removed the Beta label from navigation and the page title.
 - Added: Type @ in chat to select specific projects, tasks, and Notes pages from a floating picker. Attached sources are shown as removable chips and saved with each message.
-- Fixed: The chat composer uses one clean outline, with attachment suggestions in a popup above it instead of an expanding panel inside the message box.
+- Fixed: The chat composer uses one clean outline, with attachment suggestions in a popup above it instead of an expanding panel inside the message box. Typing @ opens the picker again immediately after selecting a source. Attachment pills highlight and strike through on hover; click a pill to remove it.
 - Added: Source links for AI answers using projects, tasks, or focus sessions. Focus sources include the date range and open the matching sessions in Focus Table.
 - Added: Save an AI answer as a new Notes page or append it to an existing page.
 - Added: Chat history search now includes message contents and shows matching snippets.

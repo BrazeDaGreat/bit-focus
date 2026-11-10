@@ -9,7 +9,6 @@ import { isTrashed, noteHref, noteTitle, parseNoteContent, plainText } from "@/l
 import { descriptionText } from "@/lib/tasks";
 import type { ChatAttachment, ChatSource } from "@/lib/ai-conversations";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
-import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -29,6 +28,9 @@ export function ChatAttachments({ input, setInput, attachments, onChange, childr
   const tasks = useTasks((state) => state.tasks);
   const [error, setError] = useState(false);
   const [dismissed, setDismissed] = useState<string | null>(null);
+  // A dismissal only applies until the composer changes, even if a later @
+  // produces exactly the same text as the previous mention.
+  useEffect(() => { setDismissed(null); }, [input]);
   const trigger = input.match(/(?:^|\s)@([^@\n]*)$/);
   const mentionQuery = trigger?.[1] ?? null;
   const visible = mentionQuery !== null && dismissed !== input;
@@ -54,7 +56,7 @@ export function ChatAttachments({ input, setInput, attachments, onChange, childr
     if (attachments.length >= 10) { toast.error("Attach up to 10 sources per message"); return; }
     onChange([...attachments, choice]);
     if (trigger) setInput(input.slice(0, input.lastIndexOf("@")));
-    setDismissed(input);
+    setDismissed(null);
     anchor.current?.querySelector("textarea")?.focus();
   };
   useEffect(() => { setActive(0); }, [term]);
@@ -85,13 +87,12 @@ export function ChatAttachments({ input, setInput, attachments, onChange, childr
                 <button
                   key={attachment.key}
                   type="button"
-                  title={`Remove ${attachment.label}`}
+                  title={`Click to remove ${attachment.label}`}
                   aria-label={`Remove ${attachment.label}`}
                   onClick={() => onChange(attachments.filter((item) => item.key !== attachment.key))}
-                  className="inline-flex max-w-full items-center gap-1.5 rounded-lg bg-primary/10 px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="inline-flex max-w-full cursor-pointer items-center rounded-lg bg-primary/10 px-2 py-1 text-xs transition-colors hover:bg-destructive/15 hover:text-destructive hover:line-through focus-visible:bg-destructive/15 focus-visible:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <span className="truncate">{attachment.label}</span>
-                  <X className="size-3 shrink-0" aria-hidden="true" />
                 </button>
               ))}
             </div>

@@ -172,3 +172,34 @@ test("mention popup fits mobile and dismisses without changing composer layout",
   await expect(page.getByRole("button", { name: "Remove Project: Launch" })).toBeVisible();
   await expect(composer).toBeFocused();
 });
+
+
+test("bare @ reopens after attachment selection and pills remove on click", async ({ page }) => {
+  await seed(page);
+  const composer = page.getByPlaceholder("Ask about your focus", { exact: false });
+  const popup = page.getByRole("dialog", { name: "Attach a source" });
+  await composer.fill("@");
+  await expect(popup).toBeVisible();
+  await page.getByRole("button", { name: "Project: Launch", exact: true }).click();
+  await expect(composer).toHaveValue("");
+  await expect(popup).toHaveCount(0);
+  await composer.press("@");
+  await expect(popup).toBeVisible();
+  await page.getByRole("button", { name: "Note: Research", exact: true }).click();
+  await composer.press("@");
+  await expect(popup).toBeVisible();
+  await composer.press("Escape");
+  await expect(popup).toHaveCount(0);
+  await composer.press("Backspace");
+  await composer.press("@");
+  await expect(popup).toBeVisible();
+  await composer.press("Escape");
+  const pill = page.getByRole("button", { name: "Remove Project: Launch", exact: true });
+  await expect(pill.locator("svg")).toHaveCount(0);
+  await expect(pill).toHaveAttribute("title", "Click to remove Project: Launch");
+  await pill.hover();
+  await expect(pill).toHaveCSS("text-decoration-line", "line-through");
+  await pill.click();
+  await expect(pill).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Remove Note: Research", exact: true })).toBeVisible();
+});
