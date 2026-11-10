@@ -3,6 +3,15 @@
 export { VERSION } from "./version";
 
 const CHANGELOG = `
+## \`v0.25.2 (LTS)\` (2026-11-10) — AI Chat
+- Changed: AI Chat is stable. Removed the Beta label from navigation and the page title.
+- Added: Type @ in chat or use Attach to select specific projects, tasks, and Notes pages. Attached sources are shown as removable chips and saved with each message.
+- Added: Source links for AI answers using projects, tasks, or focus sessions. Focus sources include the date range and open the matching sessions in Focus Table.
+- Added: Save an AI answer as a new Notes page or append it to an existing page.
+- Added: Chat history search now includes message contents and shows matching snippets.
+- Added: Branch a conversation from an assistant reply without changing the original conversation. Unapproved actions are excluded from the branch.
+- Added: Export conversations as Markdown from the thread or history menu, including source references.
+
 ## \`v0.25.0-beta\` (2026-11-08) — Gems & Rewards
 - Changed: Reward points are now gems, shown with a gem icon everywhere: the shop, the balance, the TopBar, notifications, and AI Chat. One hour of focus earns one gem. Your balance and item prices were converted to match, so they're worth the same amount of focus as before (a balance from 100 hours of focus now reads 100.00 gems).
 - Added: Earn rates per tag. Settings → Rewards sets how many gems an hour of focus earns overall (1 by default) and lets each tag earn more or less, such as 1 gem an hour on #uni and 0.5 on #chores. Nudge a tag's rate up or down, type a value, or set it back to the overall rate. A rate of 0 means the tag earns nothing.

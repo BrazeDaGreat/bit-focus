@@ -12,6 +12,7 @@
  * thread as a pending confirmation and only reach this runner once approved.
  */
 
+import { type ChatSource } from "@/lib/ai-conversations";
 import { useCallback } from "react";
 import dayjs from "dayjs";
 import { useFocus } from "@/hooks/useFocus";
@@ -46,7 +47,7 @@ export function useAITools() {
   const { webhook } = useConfig();
   const appendContent = useNotepad((s) => s.appendContent);
 
-  return useCallback(
+  const execute = useCallback(
     async (name: string, rawInput: unknown): Promise<unknown> => {
       const input = (rawInput ?? {}) as ToolInput;
 
@@ -54,9 +55,10 @@ export function useAITools() {
         // ── Read ────────────────────────────────────────────────────────────
         case "getFocusSummary": {
           const days = num(input, "days", 7);
-          const since = dayjs().subtract(days, "day");
+          const through = dayjs(str(input, "__atISO"));
+          const since = through.subtract(days, "day");
           const inRange = focusSessions.filter((s) =>
-            dayjs(s.startTime).isAfter(since)
+            dayjs(s.startTime).isAfter(since) && !dayjs(s.startTime).isAfter(through)
           );
           const seconds = reduceSessions(inRange);
           return {
@@ -76,10 +78,11 @@ export function useAITools() {
 
         case "getTagBreakdown": {
           const days = num(input, "days", 7);
-          const since = dayjs().subtract(days, "day");
+          const through = dayjs(str(input, "__atISO"));
+          const since = through.subtract(days, "day");
           const totals = new Map<string, { minutes: number; sessions: number }>();
           for (const session of focusSessions) {
-            if (!dayjs(session.startTime).isAfter(since)) continue;
+            if (!dayjs(session.startTime).isAfter(since) || dayjs(session.startTime).isAfter(through)) continue;
             const key = session.tag?.trim() || "Untagged";
             const entry = totals.get(key) ?? { minutes: 0, sessions: 0 };
             entry.minutes += Math.round(reduceSessions([session]) / 60);
@@ -98,10 +101,11 @@ export function useAITools() {
           const days = num(input, "days", 7);
           const limit = num(input, "limit", 20);
           const tag = str(input, "tag");
-          const since = dayjs().subtract(days, "day");
+          const through = dayjs(str(input, "__atISO"));
+          const since = through.subtract(days, "day");
           return {
             sessions: focusSessions
-              .filter((s) => dayjs(s.startTime).isAfter(since))
+              .filter((s) => dayjs(s.startTime).isAfter(since) && !dayjs(s.startTime).isAfter(through))
               .filter((s) => (tag ? s.tag === tag : true))
               .sort(
                 (a, b) =>
@@ -250,4 +254,39 @@ export function useAITools() {
       appendContent,
     ]
   );
+  return useCallback(async (name: string, rawInput: unknown): Promise<unknown> => {
+    const input = (rawInput ?? {}) as ToolInput;
+    const now = dayjs();
+    const data = await execute(name, { ...input, __atISO: now.toISOString() });
+    const sources: ChatSource[] = [];
+    if (["getFocusSummary", "getTagBreakdown", "listSessions"].includes(name)) {
+      const from = now.subtract(num(input, "days", 7), "day");
+      const params = new URLSearchParams({ sourceFrom: from.toISOString(), sourceTo: now.toISOString() });
+      if (typeof input.tag === "string") params.set("tag", input.tag);
+      sources.push({ label: `Focus sessions · ${from.format("D MMM YYYY HH:mm")} – ${now.format("D MMM YYYY HH:mm")}`, href: `/focus-table?${params}` });
+      return { ...(data as object), range: { from: from.toISOString(), to: now.toISOString() }, sources };
+    }
+    if (name === "getProjectsOverview" || name === "getUpcomingTasks") {
+      // Put links on the actual returned records, including nested task groups.
+      const linkRecords = (value: unknown): unknown => {
+        if (Array.isArray(value)) return value.map(linkRecords);
+        if (!value || typeof value !== "object") return value;
+        const record = value as Record<string, unknown>;
+        const linked = Object.fromEntries(Object.entries(record).map(([key, child]) => [key, linkRecords(child)]));
+        if (typeof record.id === "number" && typeof record.title === "string") {
+          const task = tasks.find((t) => t.id === record.id);
+          const isTask = "description" in record;
+          const href = isTask && task?.uid ? `/projects?task=${encodeURIComponent(task.uid)}` : isTask ? "/projects" : `/projects?project=${record.id}`;
+          const source = { label: record.title, href };
+          sources.push(source);
+          return { ...linked, source };
+        }
+        return linked;
+      };
+      const linked = linkRecords(data) as object;
+      return { ...linked, sources: sources.slice(0, 12) };
+    }
+    return data;
+  }, [execute, tasks]);
+
 }
