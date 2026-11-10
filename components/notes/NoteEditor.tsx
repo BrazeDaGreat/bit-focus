@@ -16,6 +16,7 @@ import { EditorMenus } from "./editor/EditorMenus";
 import { SlashMenu } from "./editor/SlashMenu";
 import { NoteLinkMenu } from "./editor/NoteLinkMenu";
 import { NoteLinkView } from "./editor/NoteLinkView";
+import { NoteOutline } from "./NoteOutline";
 import "./note-editor.css";
 
 export interface NoteEditorProps {
@@ -196,6 +197,7 @@ export default function NoteEditor({ note, readOnly = false, editorRef, onStatus
     {!editor ? <div aria-label="Loading editor" className="space-y-3"><Skeleton className="h-5 w-3/4 rounded-lg" /><Skeleton className="h-5 w-full rounded-lg" /><Skeleton className="h-5 w-2/3 rounded-lg" /></div> : <>
       {!readOnly && <EditorMenus editor={editor} openLinkRef={openLink} />}
       <EditorContent editor={editor} />
+      <NoteOutline editor={editor} />
       {!readOnly && <><SlashMenu editor={editor} noteUid={note.uid} keyHandler={slashKey} onImage={() => input.current?.click()} /><NoteLinkMenu editor={editor} keyHandler={pageLinkKey} /></>}
     </>}
     <input ref={input} className="hidden" type="file" accept="image/*" multiple aria-label="Choose images for this page" disabled={readOnly} onChange={(event) => {

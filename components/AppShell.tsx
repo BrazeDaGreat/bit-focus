@@ -164,6 +164,17 @@ export default function AppShell({
   // sits behind the boot overlay. See `lib/profileHint.ts`.
   const awaitingProfile = !booted;
 
+  // Shared pages are read by people without a profile, often without the app
+  // at all. They bring their own frame and skip onboarding, sync and the rest.
+  if (pathname === "/share" || pathname.startsWith("/share/")) {
+    return (
+      <>
+        {children}
+        {toaster}
+      </>
+    );
+  }
+
   // Signing in on a new device starts a restore. Until it finishes we do not
   // know whether this person already has a name, tags and history waiting, so
   // onboarding waits rather than asking for details that are seconds away —

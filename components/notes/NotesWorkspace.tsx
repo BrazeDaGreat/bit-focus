@@ -46,6 +46,8 @@ import {
 } from "@/lib/notes";
 import { cn } from "@/lib/utils";
 import { exportNoteToPdf } from "@/lib/note-export";
+import { noteContentJSON } from "@/lib/note-share";
+import { NoteShareDialog } from "./NoteShareDialog";
 import { NoteSearchResults, NoteTree } from "./NoteTree";
 import {
   NoteMasthead,
@@ -133,6 +135,8 @@ export function NotesWorkspace() {
   const [focusTitleUid, setFocusTitleUid] = useState<string | null>(null);
   // Uid of the open page being moved from its toolbar menu.
   const [movingUid, setMovingUid] = useState<string | null>(null);
+  // Uid of the open page whose share dialog is showing.
+  const [sharingUid, setSharingUid] = useState<string | null>(null);
   // Per-page status, keyed by uid so a newly opened page starts clean.
   const [editorState, setEditorState] = useState<{
     uid?: string;
@@ -377,6 +381,7 @@ export function NotesWorkspace() {
           readOnly={trashed}
           exporting={exporting}
           onExport={() => void exportPdf(note)}
+          onShare={!trashed && !note.isTemplate && note.uid ? () => setSharingUid(note.uid ?? null) : undefined}
           onAddSubpage={() => void createPage(note.id!)}
           onMove={() => setMovingUid(note.uid ?? null)}
           onTrash={() => void trashPage(note)}
@@ -433,6 +438,17 @@ export function NotesWorkspace() {
           <NoteSubpages pages={subpages} onOpen={open} />
           {!trashed && !note.isTemplate && note.uid && <NoteBacklinks uid={note.uid} onOpen={open} />}
         </div>
+        {sharingUid === note.uid && !trashed && (
+          <NoteShareDialog
+            note={note}
+            getContent={() =>
+              editorRef.current && !editorRef.current.isDestroyed
+                ? editorRef.current.getJSON()
+                : noteContentJSON(note.content)
+            }
+            onClose={() => setSharingUid(null)}
+          />
+        )}
         {/* The tree reveals the open page's new parent on its own. */}
         {movingUid === note.uid && !trashed && (
           <NoteMoveDialog
