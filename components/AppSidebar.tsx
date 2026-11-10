@@ -70,7 +70,7 @@ export const pinnedItems: NavItem[] = [
 /** Occasional destinations: tucked under "More" until needed. */
 export const moreItems: NavItem[] = [
   { title: "Focus Table", url: "/focus-table", icon: <FaTable /> },
-  { title: "AI Chat (BETA)", url: "/ai", icon: <BsStars />, feature: "aiChat" },
+  { title: "AI Chat", url: "/ai", icon: <BsStars />, feature: "aiChat" },
   { title: "Rewards", url: "/rewards", icon: <FaCoffee />, feature: "rewards" },
   { title: "Changelog", url: "/changelog", icon: <FaReadme /> },
   { title: "Settings", url: "/settings", icon: <FaGear /> },

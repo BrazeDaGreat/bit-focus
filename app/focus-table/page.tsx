@@ -13,7 +13,9 @@
 
 "use client";
 
-import { useEffect, useState, type JSX } from "react";
+import { Suspense, useEffect, useMemo, useState, type JSX } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   Table,
   TableBody,
@@ -75,13 +77,30 @@ const SORTABLE_COLUMNS: { key: SortKey; label: string; className?: string }[] =
   ];
 
 export default function FocusTablePage(): JSX.Element {
+  return <Suspense><FocusTableContent /></Suspense>;
+}
+
+function FocusTableContent(): JSX.Element {
   const { focusSessions, loadingFocusSessions, loadFocusSessions } = useFocus();
 
   useEffect(() => {
     loadFocusSessions();
   }, [loadFocusSessions]);
 
-  const table = useFocusTable(focusSessions);
+  const params = useSearchParams();
+  const sourceFrom = params.get("sourceFrom");
+  const sourceTo = params.get("sourceTo");
+  const sourceTag = params.get("tag");
+  const sourceSessions = useMemo(() => {
+    if (!sourceFrom && !sourceTo && !sourceTag) return focusSessions;
+    const from = sourceFrom ? Date.parse(sourceFrom) : NaN;
+    const to = sourceTo ? Date.parse(sourceTo) : NaN;
+    return focusSessions.filter((session) => {
+      const at = new Date(session.startTime).getTime();
+      return (!Number.isFinite(from) || at > from) && (!Number.isFinite(to) || at <= to) && (!sourceTag || session.tag === sourceTag);
+    });
+  }, [focusSessions, sourceFrom, sourceTo, sourceTag]);
+  const table = useFocusTable(sourceSessions);
   const {
     filters,
     setFilters,
@@ -115,6 +134,10 @@ export default function FocusTablePage(): JSX.Element {
 
   return (
     <div className="flex-1 flex flex-col">
+      {(sourceFrom || sourceTo || sourceTag) && <div role="status" className="mx-4 mt-3 flex flex-wrap items-center gap-2 rounded-lg border p-3 text-xs text-muted-foreground">
+        <span>AI Chat sources{sourceFrom && Number.isFinite(Date.parse(sourceFrom)) ? ` · From ${new Date(sourceFrom).toLocaleString()}` : ""}{sourceTo && Number.isFinite(Date.parse(sourceTo)) ? ` through ${new Date(sourceTo).toLocaleString()}` : ""}{sourceTag ? ` · #${sourceTag}` : ""}</span>
+        <Link href="/focus-table" className="ml-auto underline">Show all sessions</Link>
+      </div>}
       <div className="max-w-screen-xl mx-auto w-full px-6 py-6 flex flex-col gap-4">
         {/* ── Header ────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between gap-4 flex-wrap">

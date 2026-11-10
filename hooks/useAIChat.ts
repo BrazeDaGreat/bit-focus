@@ -41,6 +41,7 @@ interface AIChatState {
   generateChatTitle: (id: string, exchange: string) => Promise<void>;
   toggleChatPinned: (id: string) => Promise<void>;
   setChatContextSources: (id: string, sources: string[]) => Promise<void>;
+  branchChat: (id: string, modelId: string, messages: Message[]) => Promise<AIChat>;
   saveMessages: (chatId: string, messages: Message[]) => Promise<void>;
   loadMessages: (chatId: string) => Promise<Message[]>;
   loadAIConfig: () => Promise<void>;
@@ -155,6 +156,16 @@ export const useAIChat = create<AIChatState>((set, get) => ({
         c.id === id ? { ...c, contextSources: serialized } : c
       ),
     }));
+  },
+
+  branchChat: async (id, modelId, messages) => {
+    const source = get().chats.find((chat) => chat.id === id);
+    if (!source) throw new Error("Chat not found");
+    const now = new Date();
+    const chat: AIChat = { provider: source.provider, contextSources: source.contextSources, id: crypto.randomUUID(), title: `${source.title} (branch)`, modelId, pinned: false, messages: JSON.stringify(messages), createdAt: now, updatedAt: now };
+    await db.aiChats.add(chat);
+    set((state) => ({ chats: [chat, ...state.chats] }));
+    return chat;
   },
 
   saveMessages: async (chatId, messages) => {

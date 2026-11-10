@@ -16,6 +16,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { streamText, convertToModelMessages, smoothStream, stepCountIs } from "ai";
 import type { UIMessage } from "ai";
 import type { AIProvider } from "@/lib/ai-models";
+import { messagesWithAttachments, SOURCE_INSTRUCTIONS } from "@/lib/ai-conversations";
 import { AI_TOOLS } from "@/lib/ai-tools";
 
 export const runtime = "edge";
@@ -81,12 +82,12 @@ export async function POST(req: Request) {
       model = openaiCompatible(modelId);
     }
 
-    const coreMessages = await convertToModelMessages(messages);
+    const coreMessages = await convertToModelMessages(messagesWithAttachments(messages));
 
     const result = streamText({
       model,
       messages: coreMessages,
-      system: systemPrompt || undefined,
+      system: [systemPrompt, SOURCE_INSTRUCTIONS].filter(Boolean).join("\n\n"),
       tools: toolsEnabled ? AI_TOOLS : undefined,
       stopWhen: stepCountIs(MAX_STEPS),
       experimental_transform: smoothStream({

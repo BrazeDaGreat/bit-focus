@@ -69,6 +69,9 @@ import {
   Send,
   Square,
   Sparkles,
+  GitBranch,
+  Download,
+  NotebookPen,
   AlertCircle,
   Eye,
   EyeOff,
@@ -86,6 +89,8 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { attachmentsOf, branchMessages, exportChat, messageText, searchChat, sourcesOf, parseMessages as parseStoredMessages, type ChatAttachment } from "@/lib/ai-conversations";
+import { ChatAttachments, SaveAnswerDialog, SourceLinks } from "@/components/ai/ChatExtras";
 import { useAIChat } from "@/hooks/useAIChat";
 import { useAITools } from "@/hooks/useAITools";
 import { useFocus } from "@/hooks/useFocus";
@@ -375,6 +380,7 @@ export default function AIPage(): JSX.Element {
             configured={configured}
             customPrompt={aiConfig?.customPrompt || ""}
             contextInput={contextInput}
+            onBranch={openChat}
             onSaveContext={setChatContextSources}
             onOpenSettings={() => setSettingsOpen(true)}
           />
@@ -418,7 +424,7 @@ function History({
   const groups = useMemo(() => {
     const term = query.trim().toLowerCase();
     const matching = term
-      ? chats.filter((c) => c.title.toLowerCase().includes(term))
+      ? chats.filter((c) => searchChat(c.title, c.messages, term) !== null)
       : chats;
 
     const pinned = matching.filter((c) => c.pinned);
@@ -488,6 +494,7 @@ function History({
                   <ChatRow
                     key={chat.id}
                     chat={chat}
+                    snippet={query.trim() ? searchChat(chat.title, chat.messages, query) : null}
                     active={chat.id === activeId}
                     onSelect={() => onSelect(chat)}
                     onDelete={() => onDelete(chat.id)}
@@ -515,6 +522,7 @@ function History({
 }
 
 function ChatRow({
+  snippet,
   chat,
   active,
   onSelect,
@@ -523,6 +531,7 @@ function ChatRow({
   onRename,
 }: {
   chat: AIChat;
+  snippet?: string | null;
   active: boolean;
   onSelect: () => void;
   onDelete: () => void;
@@ -560,7 +569,7 @@ function ChatRow({
   return (
     <div
       className={cn(
-        "group flex h-9 shrink-0 items-center gap-1 rounded-lg px-2.5 transition-colors",
+        "group flex min-h-9 shrink-0 items-center gap-1 rounded-lg px-2.5 py-2 transition-colors",
         active ? "bg-primary/12" : "hover:bg-muted/60"
       )}
     >
@@ -573,6 +582,7 @@ function ChatRow({
           <Pin className="mr-1.5 inline size-2.5 text-primary" />
         )}
         {chat.title}
+        {snippet && <span className="mt-1 block truncate text-[11px] text-muted-foreground">{snippet}</span>}
       </button>
 
       <DropdownMenu>
@@ -605,6 +615,7 @@ function ChatRow({
           >
             <Pencil className="size-3" /> Rename
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => downloadChat(chat.title, parseStoredMessages(chat.messages))} className="gap-2 text-xs"><Download className="size-3" /> Export Markdown</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={onDelete}
@@ -692,6 +703,7 @@ function Thread({
   customPrompt,
   contextInput,
   onSaveContext,
+  onBranch,
   onOpenSettings,
 }: {
   chat: AIChat;
@@ -704,6 +716,7 @@ function Thread({
   configured: boolean;
   customPrompt: string;
   contextInput: ContextInput;
+  onBranch: (chat: AIChat) => Promise<void>;
   onSaveContext: (id: string, sources: ContextSourceId[]) => void;
   onOpenSettings: () => void;
 }): JSX.Element {
@@ -719,6 +732,8 @@ function Thread({
     }
   });
   const [input, setInput] = useState("");
+  const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
+  const [saveAnswer, setSaveAnswer] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingCall[]>([]);
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(
     null
@@ -886,16 +901,17 @@ function Thread({
   const submit = useCallback(
     (text: string) => {
       const trimmed = text.trim();
-      if (!trimmed || !configured) return;
+      if (!trimmed || !configured || busy || pending.length > 0) return;
       if (offline) {
         toast("You're offline. Your message is still here — send it when you reconnect.");
         return;
       }
       autoContinueRef.current = { messageId: null, count: 0 };
-      sendMessage({ text: trimmed });
+      sendMessage({ parts: [{ type: "text", text: trimmed }, ...attachments.map((data) => ({ type: "data-attachment" as const, data }))] });
+      setAttachments([]);
       setInput("");
     },
-    [sendMessage, configured, offline]
+    [sendMessage, configured, offline, attachments, busy, pending.length]
   );
 
   const resolvePending = useCallback(
@@ -939,7 +955,8 @@ function Thread({
       setMessages(messages.slice(0, index));
       setEditing(null);
       autoContinueRef.current = { messageId: null, count: 0 };
-      sendMessage({ text });
+      const original = messages[index];
+      sendMessage({ parts: [{ type: "text", text }, ...attachmentsOf(original).map((data) => ({ type: "data-attachment" as const, data }))] });
     },
     [messages, setMessages, sendMessage]
   );
@@ -959,6 +976,8 @@ function Thread({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      <SaveAnswerDialog text={saveAnswer} title={chat.title} onClose={() => setSaveAnswer(null)} />
+      <div className="flex justify-end px-4 pt-2"><Button variant="ghost" size="sm" onClick={() => downloadChat(chat.title, messages)} className="gap-2 text-xs"><Download className="size-3" /> Export chat</Button></div>
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6">
           {messages.length === 0 && (
@@ -1004,6 +1023,19 @@ function Thread({
                 modelId={modelId}
                 pending={pending}
                 onResolve={resolvePending}
+                sources={sourcesOf(message)}
+                canAct={!busy && pending.length === 0}
+                onSave={() => setSaveAnswer(messageText(message))}
+                onBranch={async () => {
+                  try {
+                    const store = useAIChat.getState();
+                    await store.saveMessages(chat.id, messages);
+                    const copy = branchMessages(messages, message.id);
+                    const branched = await store.branchChat(chat.id, modelId, copy);
+                    await onBranch(branched);
+                    toast.success("Branch created");
+                  } catch { toast.error("Couldn't create a branch"); }
+                }}
                 canRegenerate={!busy && index === messages.length - 1}
                 onRegenerate={() => {
                   autoContinueRef.current = { messageId: null, count: 0 };
@@ -1047,20 +1079,23 @@ function Thread({
               </div>
             )}
             <div className="overflow-hidden rounded-2xl border bg-card shadow-xs focus-within:border-primary/40">
+              <ChatAttachments input={input} setInput={setInput} attachments={attachments} onChange={setAttachments}>
               <Textarea
+                disabled={busy || pending.length > 0}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
+                  if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                     e.preventDefault();
                     submit(input);
                   }
                 }}
-                placeholder="Ask about your focus, or tell it what to do…"
-                className="max-h-48 min-h-[52px] resize-none border-0 bg-transparent px-4 py-3.5 text-sm shadow-none focus-visible:ring-0"
+                placeholder="Ask about your focus… Type @ to attach a project, task, or note"
+                className="max-h-48 min-h-[52px] resize-none rounded-none border-none bg-transparent px-4 py-3.5 text-sm shadow-none outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
                 rows={2}
               />
-              <div className="flex items-center gap-1 border-t px-2 py-2">
+              </ChatAttachments>
+              <div className="flex items-center gap-1 px-2 pb-2">
                 <ContextPicker
                   sources={sources}
                   onChange={updateSources}
@@ -1088,7 +1123,7 @@ function Thread({
                     <Button
                       size="icon"
                       onClick={() => submit(input)}
-                      disabled={!input.trim() || offline}
+                      disabled={!input.trim() || offline || pending.length > 0}
                       className="size-9 rounded-lg"
                       title="Send message"
                       aria-label="Send message"
@@ -1108,15 +1143,6 @@ function Thread({
 }
 
 // ── Messages ──────────────────────────────────────────────────────────────────
-
-/** Flatten a message's text parts. */
-function messageText(message: Message): string {
-  return (message.parts ?? [])
-    .filter((p): p is { type: "text"; text: string } => p.type === "text")
-    .map((p) => p.text)
-    .join("\n")
-    .trim();
-}
 
 function AssistantAvatar(): JSX.Element {
   return (
@@ -1179,8 +1205,9 @@ function UserMessage({
     <div className="group flex flex-col items-end gap-1">
       <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-primary/12 px-4 py-2.5 text-sm">
         {text}
+        <SourceLinks sources={attachmentsOf(message)} />
       </div>
-      <div className="flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+      <div className="flex gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100">
         <CopyButton text={text} />
         <MessageAction onClick={onStartEdit} label="Edit and resend">
           <Pencil className="size-3" />
@@ -1195,6 +1222,10 @@ function AssistantMessage({
   modelId,
   pending,
   onResolve,
+  sources,
+  canAct,
+  onSave,
+  onBranch,
   canRegenerate,
   onRegenerate,
 }: {
@@ -1202,6 +1233,10 @@ function AssistantMessage({
   modelId: string;
   pending: PendingCall[];
   onResolve: (call: PendingCall, approved: boolean) => void;
+  sources: { label: string; href: string }[];
+  canAct: boolean;
+  onSave: () => void;
+  onBranch: () => void;
   canRegenerate: boolean;
   onRegenerate: () => void;
 }): JSX.Element {
@@ -1248,9 +1283,14 @@ function AssistantMessage({
         </div>
 
         {text && <MarkdownText text={text} />}
+        <SourceLinks sources={sources} />
 
-        <div className="mt-1.5 flex items-center gap-1.5 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="mt-1.5 flex items-center gap-1.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100">
           <CopyButton text={text} />
+          {canAct && <>
+            {text && <MessageAction label="Save answer to Notes" onClick={onSave}><NotebookPen className="size-3" /></MessageAction>}
+            <MessageAction label="Branch from here" onClick={onBranch}><GitBranch className="size-3" /></MessageAction>
+          </>}
           {canRegenerate && (
             <MessageAction onClick={onRegenerate} label="Regenerate reply">
               <RefreshCw className="size-3" />
@@ -1910,4 +1950,12 @@ function SettingsDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+function downloadChat(title: string, messages: Message[]) {
+  const url = URL.createObjectURL(new Blob([exportChat(title, messages)], { type: "text/markdown;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url; link.download = `${title.replace(/[^a-z0-9_-]/gi, "_").slice(0, 80) || "chat"}.md`;
+  document.body.appendChild(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

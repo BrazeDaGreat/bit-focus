@@ -22,7 +22,7 @@ import OfflineIndicator from "./OfflineIndicator";
 const PAGE_TITLES: Record<string, string> = {
   "/": "Home",
   "/focus": "Focus",
-  "/ai": "AI Chat (BETA)",
+  "/ai": "AI Chat",
   "/calendar": "Calendar",
   "/projects": "Projects",
   "/rewards": "Rewards",
