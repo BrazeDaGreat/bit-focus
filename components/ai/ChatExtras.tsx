@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useNotes } from "@/hooks/useNotes";
 import { useProjects } from "@/hooks/useProjects";
@@ -8,6 +8,8 @@ import { useTasks } from "@/hooks/useTasks";
 import { isTrashed, noteHref, noteTitle, parseNoteContent, plainText } from "@/lib/notes";
 import { descriptionText } from "@/lib/tasks";
 import type { ChatAttachment, ChatSource } from "@/lib/ai-conversations";
+import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -18,20 +20,20 @@ export function SourceLinks({ sources }: { sources: ChatSource[] }) {
   return <div className="mt-2 flex flex-wrap gap-1" aria-label="Sources">{sources.map((source, index) => <Link key={`${source.href}:${index}`} href={source.href} className="max-w-full truncate rounded-md border px-2 py-1 text-xs text-muted-foreground hover:text-foreground">{source.label}</Link>)}</div>;
 }
 
-export function ChatAttachments({ input, setInput, attachments, onChange }: {
+export function ChatAttachments({ input, setInput, attachments, onChange, children }: {
+  children: ReactNode;
   input: string; setInput: (input: string) => void; attachments: ChatAttachment[]; onChange: (attachments: ChatAttachment[]) => void;
 }) {
   const notes = useNotes((state) => state.notes);
   const projects = useProjects((state) => state.projects);
   const tasks = useTasks((state) => state.tasks);
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
   const [error, setError] = useState(false);
   const [dismissed, setDismissed] = useState<string | null>(null);
   const trigger = input.match(/(?:^|\s)@([^@\n]*)$/);
   const mentionQuery = trigger?.[1] ?? null;
-  const visible = open || (mentionQuery !== null && dismissed !== input);
-  const term = (open ? query : mentionQuery ?? "").toLowerCase();
+  const visible = mentionQuery !== null && dismissed !== input;
+  const term = (mentionQuery ?? "").toLowerCase();
+  const anchor = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
   const menu = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -51,15 +53,16 @@ export function ChatAttachments({ input, setInput, attachments, onChange }: {
   const choose = (choice: ChatAttachment) => {
     if (attachments.length >= 10) { toast.error("Attach up to 10 sources per message"); return; }
     onChange([...attachments, choice]);
-    if (!open && trigger) setInput(input.slice(0, input.lastIndexOf("@")));
-    setOpen(false); setQuery(""); setDismissed(input);
+    if (trigger) setInput(input.slice(0, input.lastIndexOf("@")));
+    setDismissed(input);
+    anchor.current?.querySelector("textarea")?.focus();
   };
   useEffect(() => { setActive(0); }, [term]);
   useEffect(() => {
     if (!visible) return;
     const handle = (event: KeyboardEvent) => {
-      if (!(event.target instanceof HTMLTextAreaElement) || event.isComposing) return;
-      if (event.key === "Escape") { event.preventDefault(); setOpen(false); setDismissed(input); }
+      if (!(event.target instanceof HTMLTextAreaElement) || !anchor.current?.contains(event.target) || event.isComposing) return;
+      if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); setDismissed(input); return; }
       if (["ArrowDown", "ArrowUp"].includes(event.key)) {
         event.preventDefault(); event.stopPropagation();
         setActive((previous) => Math.max(0, Math.min(matches.length - 1, previous + (event.key === "ArrowDown" ? 1 : -1))));
@@ -72,19 +75,65 @@ export function ChatAttachments({ input, setInput, attachments, onChange }: {
     return () => document.removeEventListener("keydown", handle, true);
   });
   useEffect(() => { menu.current?.querySelector(`[data-index="${active}"]`)?.scrollIntoView({ block: "nearest" }); }, [active]);
-  return <div className="px-3 pt-2">
-    <div className="flex flex-wrap gap-1">
-      <button type="button" onClick={() => { setOpen(!open); setQuery(""); }} aria-expanded={visible} className="rounded-md border px-2 py-1 text-xs text-muted-foreground">@ Attach</button>
-      {attachments.map((a) => <button key={a.key} title={`Remove ${a.label}`} aria-label={`Remove ${a.label}`} onClick={() => onChange(attachments.filter((item) => item.key !== a.key))} className="max-w-full truncate rounded-md bg-primary/10 px-2 py-1 text-xs">{a.label} ×</button>)}
-    </div>
-    {visible && <div ref={menu} className="mt-2 max-h-52 overflow-auto rounded-xl border p-2" aria-label="Attach a source">
-      {open && <Input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a project, task, or note" aria-label="Find a source" className="mb-2 h-8" onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); }} />}
-      <p className="px-2 py-1 text-[11px] text-muted-foreground">Selected content is sent to your AI provider with this message. Long sources are limited to 12,000 characters.</p>
-      {error && <p role="alert" className="px-2 text-xs text-destructive">Couldn&apos;t load Notes. Close and reopen to retry.</p>}
-      {!matches.length && <p className="p-2 text-xs text-muted-foreground">No matching sources.</p>}
-      {matches.map((choice, index) => <button type="button" key={choice.key} data-index={index} onClick={() => choose(choice)} className={`block w-full truncate rounded-lg px-2 py-2 text-left text-xs hover:bg-muted ${active === index ? "bg-muted" : ""}`}>{choice.label}</button>)}
-    </div>}
-  </div>;
+  return (
+    <Popover open={visible} onOpenChange={(next) => { if (!next) setDismissed(input); }}>
+      <PopoverAnchor asChild>
+        <div ref={anchor}>
+          {attachments.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 px-4 pt-3" aria-label="Attached sources">
+              {attachments.map((attachment) => (
+                <button
+                  key={attachment.key}
+                  type="button"
+                  title={`Remove ${attachment.label}`}
+                  aria-label={`Remove ${attachment.label}`}
+                  onClick={() => onChange(attachments.filter((item) => item.key !== attachment.key))}
+                  className="inline-flex max-w-full items-center gap-1.5 rounded-lg bg-primary/10 px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <span className="truncate">{attachment.label}</span>
+                  <X className="size-3 shrink-0" aria-hidden="true" />
+                </button>
+              ))}
+            </div>
+          )}
+          {children}
+        </div>
+      </PopoverAnchor>
+      <PopoverContent
+        side="top"
+        align="start"
+        sideOffset={8}
+        collisionPadding={16}
+        className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-2rem)] rounded-xl p-1.5 shadow-lg"
+        onOpenAutoFocus={(event) => event.preventDefault()}
+        onCloseAutoFocus={(event) => event.preventDefault()}
+        onInteractOutside={(event) => {
+          if (event.target instanceof Node && anchor.current?.contains(event.target)) event.preventDefault();
+        }}
+        aria-label="Attach a source"
+      >
+        <p className="px-2.5 pb-1.5 pt-1 text-xs font-medium text-muted-foreground">Attach a project, task, or note</p>
+        <div ref={menu} className="max-h-52 overflow-y-auto overscroll-contain">
+          {error && <p role="alert" className="px-2.5 py-2 text-xs text-destructive">Couldn&apos;t load Notes. Type @ again to retry.</p>}
+          {!matches.length && <p className="px-2.5 py-3 text-xs text-muted-foreground">No matching sources.</p>}
+          {matches.map((choice, index) => (
+            <button
+              type="button"
+              key={choice.key}
+              data-index={index}
+              onMouseEnter={() => setActive(index)}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => choose(choice)}
+              className={`block w-full truncate rounded-lg px-2.5 py-2 text-left text-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active === index ? "bg-muted" : ""}`}
+            >
+              {choice.label}
+            </button>
+          ))}
+        </div>
+        <p className="px-2.5 pb-1 pt-2 text-[11px] text-muted-foreground">Selected content is shared with your AI provider. Up to 12,000 characters per source.</p>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 export function SaveAnswerDialog({ text, title, onClose }: { text: string | null; title: string; onClose: () => void }) {

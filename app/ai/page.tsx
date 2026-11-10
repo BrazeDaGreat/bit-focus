@@ -1079,7 +1079,7 @@ function Thread({
               </div>
             )}
             <div className="overflow-hidden rounded-2xl border bg-card shadow-xs focus-within:border-primary/40">
-              <ChatAttachments input={input} setInput={setInput} attachments={attachments} onChange={setAttachments} />
+              <ChatAttachments input={input} setInput={setInput} attachments={attachments} onChange={setAttachments}>
               <Textarea
                 disabled={busy || pending.length > 0}
                 value={input}
@@ -1091,10 +1091,11 @@ function Thread({
                   }
                 }}
                 placeholder="Ask about your focus… Type @ to attach a project, task, or note"
-                className="max-h-48 min-h-[52px] resize-none border-0 bg-transparent px-4 py-3.5 text-sm shadow-none focus-visible:ring-0"
+                className="max-h-48 min-h-[52px] resize-none rounded-none border-none bg-transparent px-4 py-3.5 text-sm shadow-none outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
                 rows={2}
               />
-              <div className="flex items-center gap-1 border-t px-2 py-2">
+              </ChatAttachments>
+              <div className="flex items-center gap-1 px-2 pb-2">
                 <ContextPicker
                   sources={sources}
                   onChange={updateSources}

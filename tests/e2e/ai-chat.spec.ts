@@ -72,15 +72,28 @@ test("attaches projects, tasks and Notes and persists selected source snapshots"
     await route.fulfill({ headers: { "content-type": "text/event-stream", "x-vercel-ai-ui-message-stream": "v1" }, body: chunks.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`).join("") + "data: [DONE]\n\n" });
   });
   const composer = page.getByPlaceholder("Ask about your focus", { exact: false });
+  await expect(page.getByRole("button", { name: "@ Attach", exact: true })).toHaveCount(0);
+  const before = await composer.boundingBox();
   await composer.fill("Discuss @Res");
+  const popup = page.getByRole("dialog", { name: "Attach a source" });
+  await expect(popup).toBeVisible();
+  await expect(composer).toBeFocused();
+  const after = await composer.boundingBox();
+  expect(after!.y).toBe(before!.y);
+  expect(after!.height).toBe(before!.height);
+  const popupBounds = await popup.boundingBox();
+  expect(popupBounds!.y + popupBounds!.height).toBeLessThanOrEqual(after!.y);
+  const textareaStyle = await composer.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { border: style.borderTopWidth, radius: style.borderTopLeftRadius, ringOffset: style.getPropertyValue("--tw-ring-offset-width").trim() };
+  });
+  expect(textareaStyle).toEqual({ border: "0px", radius: "0px", ringOffset: "0px" });
   await expect(page.getByRole("button", { name: "Note: Research", exact: true })).toBeVisible();
   await composer.press("Enter");
   await expect(page.getByRole("button", { name: "Remove Note: Research" })).toBeVisible();
-  await page.getByRole("button", { name: "@ Attach", exact: true }).click();
-  await page.getByRole("textbox", { name: "Find a source" }).fill("Launch");
+  await composer.fill("Discuss @Launch");
   await page.getByRole("button", { name: "Project: Launch", exact: true }).click();
-  await page.getByRole("button", { name: "@ Attach", exact: true }).click();
-  await page.getByRole("textbox", { name: "Find a source" }).fill("Prepare release");
+  await composer.fill("Discuss @Prepare release");
   await page.getByRole("button", { name: "Task: Prepare release", exact: true }).click();
   await page.getByRole("button", { name: "Send message", exact: true }).click();
   await expect(page.getByText("I have the attached sources.", { exact: true })).toBeVisible();
@@ -133,4 +146,29 @@ test("focus tool sources open the exact sessions used for its reported totals", 
   await expect(page.locator("tbody tr")).toHaveCount(1);
   await page.getByRole("link", { name: "Show all sessions", exact: true }).click();
   await expect(page.locator("tbody tr")).toHaveCount(3);
+});
+
+
+test("mention popup fits mobile and dismisses without changing composer layout", async ({ page }) => {
+  await seed(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const composer = page.getByPlaceholder("Ask about your focus", { exact: false });
+  const before = await composer.boundingBox();
+  await composer.fill("@Res");
+  const popup = page.getByRole("dialog", { name: "Attach a source" });
+  await expect(popup).toBeVisible();
+  const bounds = await popup.boundingBox();
+  expect(bounds!.x).toBeGreaterThanOrEqual(0);
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
+  const after = await composer.boundingBox();
+  expect(after!.y).toBe(before!.y);
+  await composer.press("Escape");
+  await expect(popup).toHaveCount(0);
+  await expect(composer).toHaveValue("@Res");
+  await composer.fill("@Launch");
+  await expect(popup).toBeVisible();
+  await page.getByRole("button", { name: "Project: Launch", exact: true }).click();
+  await expect(popup).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Remove Project: Launch" })).toBeVisible();
+  await expect(composer).toBeFocused();
 });
