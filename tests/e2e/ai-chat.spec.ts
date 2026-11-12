@@ -1,10 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
 
-async function seed(page: Page) {
+async function seed(page: Page, extraMarkdown = "") {
   await page.route("**/api/models", (route) => route.fulfill({ json: { models: [{ id: "test-model", name: "Test model" }] } }));
   await page.goto("/ai");
   await expect(page.getByRole("button", { name: "Begin setup", exact: true })).toBeVisible({ timeout: 60000 });
-  await page.evaluate(async () => {
+  await page.evaluate(async (extraMarkdown) => {
     const db = await new Promise<IDBDatabase>((resolve, reject) => { const request = indexedDB.open("BitFocusDB"); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
     const tx = db.transaction(["configuration", "ai_chats", "ai_config", "notes", "task_items", "projects"], "readwrite");
     tx.objectStore("configuration").put({ name: "Chat tester", uid: "profile", dob: null, webhook: "", currency: "USD" });
@@ -14,15 +14,31 @@ async function seed(page: Page) {
     tx.objectStore("task_items").put({ id: 1, uid: "chat-task", title: "Prepare release", projectId: 1, description: "Check release notes", tags: [], estimateMinutes: 30, priority: 1, order: 0, createdAt: new Date(), updatedAt: new Date() });
     tx.objectStore("ai_chats").put({ id: "chat-one", title: "Launch review", modelId: "test-model", provider: "openai-compatible", messages: JSON.stringify([
       { id: "u1", role: "user", parts: [{ type: "text", text: "Review launch" }] },
-      { id: "a1", role: "assistant", parts: [{ type: "text", text: "The November milestone is ready. **Ship carefully.**\n\n| Task | Status |\n| --- | --- |\n| Release | Ready |" }, { type: "tool-getProjectsOverview", toolCallId: "read-1", state: "output-available", input: {}, output: { sources: [{ label: "Launch", href: "/projects?project=1" }] } }] },
+      { id: "a1", role: "assistant", parts: [{ type: "text", text: "The November milestone is ready. **Ship carefully.**\n\n| Task | Status |\n| --- | --- |\n| Release | Ready |" + extraMarkdown }, { type: "tool-getProjectsOverview", toolCallId: "read-1", state: "output-available", input: {}, output: { sources: [{ label: "Launch", href: "/projects?project=1" }] } }] },
     ]), createdAt: new Date(), updatedAt: new Date() });
     await new Promise<void>((resolve, reject) => { tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error); });
     db.close();
-  });
+  }, extraMarkdown);
   await page.reload();
   await page.getByRole("button", { name: "Launch review", exact: true }).click();
   await expect(page.getByText("The November milestone is ready.", { exact: false }).first()).toBeVisible();
 }
+
+test("timer ticks keep existing Markdown code blocks and checkboxes mounted", async ({ page }) => {
+  await seed(page, "\n\n```ts\nconst release = true;\n```\n\n- [x] Ready to ship");
+  const code = page.locator(".prose pre code");
+  const checkbox = page.locator('.prose input[type="checkbox"]');
+  await expect(code).toHaveText("const release = true;\n");
+  await expect(checkbox).toBeChecked();
+  const codeNode = await code.elementHandle();
+  const checkboxNode = await checkbox.elementHandle();
+  await page.clock.install();
+  await page.getByRole("button", { name: "Start timer", exact: true }).click();
+  await page.clock.runFor(3_100);
+  await expect.poll(() => page.evaluate(() => Number(localStorage.getItem("pomoTime")))).toBeGreaterThan(2);
+  expect(await codeNode!.evaluate((node) => node.isConnected)).toBe(true);
+  expect(await checkboxNode!.evaluate((node) => node.isConnected)).toBe(true);
+});
 
 test("searches messages, follows sources, branches and exports conversation", async ({ page }) => {
   await seed(page);

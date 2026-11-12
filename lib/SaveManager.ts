@@ -48,6 +48,7 @@ import { migrateTasks } from "./task-migration";
 import { PB_AUTH_STORAGE_KEY } from "./pocketbase";
 import { COMPLETION_JOURNAL_KEY } from "./timer-completion";
 import { validateBackup } from "./backup-validation";
+import { LAST_COMPLETE_BACKUP_KEY, LAST_COMPLETE_BACKUP_SOURCE_KEY, recordCompleteBackupDownload } from "./storage-health";
 
 /**
  * localStorage keys that survive an import.
@@ -67,7 +68,7 @@ const PROTECTED_LOCAL_KEYS: readonly string[] = [
 /** True when a localStorage key belongs to the device rather than the backup. */
 export function isProtectedLocalKey(key: string): boolean {
   return key.startsWith("bitfocus.sync.") || key.startsWith("bitfocus.notes.") ||
-    key === "bitfocus.lastAutoBackup" || key === "pomoTask" || key === COMPLETION_JOURNAL_KEY || PROTECTED_LOCAL_KEYS.includes(key);
+    key === "bitfocus.lastAutoBackup" || key === LAST_COMPLETE_BACKUP_KEY || key === LAST_COMPLETE_BACKUP_SOURCE_KEY || key === "pomoTask" || key === COMPLETION_JOURNAL_KEY || PROTECTED_LOCAL_KEYS.includes(key);
 }
 
 /**
@@ -248,6 +249,11 @@ export type { ExportedData };
  * @class
  */
 class SaveManager {
+  /** Called only after the complete backup upload has been accepted by Discord. */
+  static recordCompleteBackupUpload(): void {
+    recordCompleteBackupDownload("discord");
+  }
+
   /**
    * Export All Application Data (Enhanced with Project Management)
    *
@@ -288,8 +294,12 @@ class SaveManager {
     const a = document.createElement("a");
     a.href = url;
     a.download = `data-${includeAttachments ? "" : "without-files-"}${new Date().toISOString()}.bitf.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      a.click();
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+    if (includeAttachments) recordCompleteBackupDownload();
   }
 
   /**

@@ -18,7 +18,7 @@
 
 import { useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from "react";
 import { format } from "date-fns";
-import { Command } from "cmdk";
+import { Command, defaultFilter } from "cmdk";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
@@ -35,7 +35,8 @@ import { useTasks } from "@/hooks/useTasks";
 import { useTimeblocks } from "@/hooks/useTimeblocks";
 import { blockTimes, parseTaskInput } from "@/lib/task-parse";
 import { useNotes } from "@/hooks/useNotes";
-import { isTrashed, noteHref, noteTitle } from "@/lib/notes";
+import { noteHref, noteTitle } from "@/lib/notes";
+import { createNoteSearchIndex, matchesNoteSearch, noteSearchSnippet } from "@/lib/note-search";
 import { isTaskOverdue, taskDeadline, type Task } from "@/lib/tasks";
 import { ProjectIcon } from "@/components/tasks/ProjectIcon";
 import { useNotepad } from "@/hooks/useNotepad";
@@ -93,6 +94,8 @@ export default function CommandPalette(): JSX.Element {
   const { projects, loadProjects } = useProjects();
   const { tasks, loadTasks } = useTasks();
   const { notes, loadNotes } = useNotes();
+  const [indexNotes] = useState(createNoteSearchIndex);
+  const indexedNotes = useMemo(() => indexNotes(notes), [indexNotes, notes]);
   const addTimeblock = useTimeblocks((s) => s.addTimeblock);
   const { items, ledger, ensureLoaded, getTotalDiscount } = useRewards();
   useEffect(() => {
@@ -218,6 +221,10 @@ export default function CommandPalette(): JSX.Element {
       onOpenChange={setPaletteOpen}
       onKeyDown={handleKeyDown}
       label="Command palette"
+      filter={(value, query, keywords) => {
+        if (!value.startsWith("note ")) return defaultFilter(value, query, keywords);
+        return matchesNoteSearch(value, query, keywords) ? 1 : 0;
+      }}
       loop
       overlayClassName="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] motion-safe:animate-in motion-safe:fade-in-0"
       contentClassName="fixed left-1/2 top-[12vh] z-50 w-[min(36rem,calc(100vw-1.5rem))] -translate-x-1/2 overflow-hidden rounded-2xl border bg-popover text-popover-foreground shadow-2xl motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-[0.98] motion-safe:duration-150"
@@ -536,13 +543,14 @@ export default function CommandPalette(): JSX.Element {
             <Item icon={<FaPlus />} onSelect={run(() => router.push("/notes?new=1"))} keywords={["notes", "create"]}>
               New page
             </Item>
-            {notes.filter((note) => !isTrashed(note) && !note.isTemplate).map((note) => (
+            {indexedNotes.map(({ note, text, title }) => (
               <Item
                 key={note.uid ?? note.id}
                 icon={<ProjectIcon name={note.icon ?? "FileText"} />}
                 onSelect={run(() => router.push(noteHref(note)))}
                 value={`note ${note.uid ?? note.id} ${noteTitle(note)}`}
-                keywords={["notes", "page", noteTitle(note)]}
+                keywords={["notes", "page", title, text]}
+                description={!title.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()) ? noteSearchSnippet(text, search) : undefined}
               >
                 {noteTitle(note)}
               </Item>
@@ -638,7 +646,9 @@ function Item({
   dataTaskUid,
   actions,
   onClick,
+  description,
 }: {
+  description?: string;
   icon: ReactNode;
   onSelect: () => void;
   value?: string;
@@ -657,10 +667,10 @@ function Item({
       keywords={keywords}
       data-task-uid={dataTaskUid}
       onClick={onClick}
-      className="group flex h-10 cursor-pointer items-center gap-3 rounded-lg px-2.5 text-sm text-foreground/90 data-[selected=true]:bg-muted data-[selected=true]:text-foreground [&_svg]:size-3.5 [&_svg]:shrink-0 [&_svg]:text-muted-foreground"
+      className={cn(description ? "min-h-14 py-2" : "h-10", "group flex cursor-pointer items-center gap-3 rounded-lg px-2.5 text-sm text-foreground/90 data-[selected=true]:bg-muted data-[selected=true]:text-foreground [&_svg]:size-3.5 [&_svg]:shrink-0 [&_svg]:text-muted-foreground")}
     >
       <span className="grid size-5 shrink-0 place-items-center">{icon}</span>
-      <span className="min-w-0 flex-1 truncate">{children}</span>
+      <span className="min-w-0 flex-1 truncate">{children}{description && <span className="mt-0.5 block truncate text-xs text-muted-foreground">{description}</span>}</span>
       {actions}
       {hint && <span className="shrink-0 text-[11px] text-muted-foreground">{hint}</span>}
       {shortcut && (

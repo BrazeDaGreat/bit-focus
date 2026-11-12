@@ -22,6 +22,7 @@ import {
   useCallback,
   useRef,
   useMemo,
+  memo,
   type JSX,
   type ReactNode,
 } from "react";
@@ -1589,7 +1590,8 @@ function ModelPicker({
 
 // ── Markdown ──────────────────────────────────────────────────────────────────
 
-function MarkdownText({ text }: { text: string }): JSX.Element {
+// Timer context refreshes must not remount custom Markdown code/input renderers.
+const MarkdownText = memo(function MarkdownText({ text }: { text: string }): JSX.Element {
   return (
     <div
       className={cn(
@@ -1649,7 +1651,7 @@ function MarkdownText({ text }: { text: string }): JSX.Element {
       </ReactMarkdown>
     </div>
   );
-}
+});
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 

@@ -32,7 +32,7 @@ import { useTasks } from "@/hooks/useTasks";
 import { useProjects, type Project } from "@/hooks/useProjects";
 import { useFocus } from "@/hooks/useFocus";
 import { useTimeblocks } from "@/hooks/useTimeblocks";
-import { usePomo } from "@/hooks/PomoContext";
+import { usePomoStatus } from "@/hooks/PomoContext";
 import { cn } from "@/lib/utils";
 import {
   formatMinutes,
@@ -56,6 +56,8 @@ import { DeadlineRunway } from "./DeadlineRunway";
 import { TaskGroups, type TaskRowExtras } from "./TaskGroups";
 import { ProjectEditor } from "./ProjectEditor";
 import { ProjectIconPicker } from "./ProjectIconPicker";
+import { EMPTY_TASK_FILTERS, filterTaskTree, hasTaskFilters } from "@/lib/task-search";
+import { TaskFilters } from "./TaskFilters";
 import { TaskWorkspaceSkeleton } from "./TaskWorkspaceSkeleton";
 
 function readScope(
@@ -96,7 +98,7 @@ export function TaskWorkspace({
   const { projects, loadingProjects, loadProjects } = useProjects();
   const { focusSessions, loadFocusSessions } = useFocus();
   const { loadTimeblocks, addTimeblock } = useTimeblocks();
-  const { state: timer, startTask } = usePomo();
+  const { state: timer, startTask } = usePomoStatus();
   const router = useRouter();
   const params = useSearchParams();
   const scope = readScope(params, initialProjectId);
@@ -107,6 +109,8 @@ export function TaskWorkspace({
       : undefined;
   const archived = project?.status === "Closed";
   const missingProject = typeof scope === "number" && !project;
+  const [filters, setFilters] = useState(EMPTY_TASK_FILTERS);
+  const filtering = hasTaskFilters(filters);
   const [quickTitle, setQuickTitle] = useState("");
   const [ignore, setIgnore] = useState<string[]>([]);
   const [adding, setAdding] = useState(false);
@@ -181,16 +185,17 @@ export function TaskWorkspace({
       }),
     [tasks, scope, closedIds],
   );
-  const open = inScope
+  const filtered = filterTaskTree(inScope, filters);
+  const open = filtered.tasks
     .filter((task) => !task.deletedAt && !task.completedAt)
     .sort(byNext);
-  const done = inScope
+  const done = filtered.tasks
     .filter((task) => !task.deletedAt && task.completedAt)
     .sort(
       (a, b) =>
         new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime(),
     );
-  const trashed = inScope.filter((task) => task.deletedAt);
+  const trashed = filtered.tasks.filter((task) => task.deletedAt);
   const stats = useMemo(() => {
     const map = new Map<ProjectScope, ScopeStats>();
     const bump = (key: ProjectScope, task: Task) => {
@@ -477,6 +482,12 @@ export function TaskWorkspace({
                   )}
                 </form>
               )}
+              <TaskFilters tasks={inScope} value={filters} onChange={setFilters} />
+              {filtering && !error && (
+                <p role="status" className="mb-3 text-xs text-muted-foreground">
+                  {filtered.matches ? `${filtered.matches} matching task${filtered.matches === 1 ? "" : "s"} · Parent tasks shown for context` : "No tasks match these filters. Try another search or clear filters."}
+                </p>
+              )}
               {error ? (
                 <div className="rounded-xl bg-muted/40 p-4">
                   <p className="text-sm font-medium text-destructive">
@@ -499,10 +510,11 @@ export function TaskWorkspace({
                   open={open}
                   done={done}
                   trashed={trashed}
-                  allTasks={tasks}
+                  allTasks={inScope}
+                  filtering={filtering}
                   archived={archived}
                   renderRow={row}
-                  expanded={expandedTasks}
+                  expanded={filtering ? new Set([...expandedTasks, ...filtered.expanded]) : expandedTasks}
                   onToggleSubtasks={(id) =>
                     setExpandedTasks((current) => {
                       const next = new Set(current);

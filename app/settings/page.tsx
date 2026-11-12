@@ -28,13 +28,14 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Kbd } from "@/components/ui/kbd";
 import RewardSettings from "@/components/settings/RewardSettings";
+import StorageHealth from "@/components/settings/StorageHealth";
 import CurrencySelect from "@/components/CurrencySelect";
 import AccountSettings from "@/components/auth/AccountSettings";
 import PomodoroSettings from "@/components/PomodoroSettings";
 import SoundSettings from "@/components/SoundSettings";
 import { useConfig, type FeatureKey } from "@/hooks/useConfig";
 import { usePreferences } from "@/hooks/usePreferences";
-import { usePomo } from "@/hooks/PomoContext";
+import { usePomoStatus } from "@/hooks/PomoContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useCommandPalette, useShortcutsDialog } from "@/hooks/useShortcuts";
 import { notificationsSupported, requestNotificationPermission } from "@/lib/notify";
@@ -60,7 +61,7 @@ export default function SettingsPage(): JSX.Element {
   const pageRef = useRef<HTMLDivElement>(null);
   const { name, featureToggles, webhook } = useConfig();
   const { user } = useAuth();
-  const { state } = usePomo();
+  const { state } = usePomoStatus();
   const { autoBackup, phaseNotifications, focusEndSound, breakEndSound, soundVolume } = usePreferences();
   const [active, setActive] = useState<SectionId>("profile");
 
@@ -222,6 +223,7 @@ export default function SettingsPage(): JSX.Element {
           </Section>
 
           <Section id="data" title="Data" description="Everything is stored in this browser. Back it up so a cleared browser doesn't take it with it.">
+            <StorageHealth />
             <PreferenceRow
               id="pref-backup"
               label="Automatic backup"
@@ -483,14 +485,19 @@ function WebhookForm(): JSX.Element {
 function BackupActions(): JSX.Element {
   const fileRef = useRef<HTMLInputElement>(null);
   const { prepareRestore, restoreDialog, busy } = useBackupRestore();
+  const [exporting, setExporting] = useState(false);
+  const exportLock = useRef(false);
 
   const exportNow = async () => {
+    if (exportLock.current || busy) return;
+    exportLock.current = true;
+    setExporting(true);
     try {
       await SaveManager.exportData({ includeAttachments: true });
-      toast.success("Backup exported with note images and task attachments.", { id: "backup-export" });
+      toast.success("Complete backup download started. Check your downloads.", { id: "backup-export" });
     } catch {
       toast.error("Export failed. Try again.");
-    }
+    } finally { exportLock.current = false; setExporting(false); }
   };
 
   const importFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -508,13 +515,13 @@ function BackupActions(): JSX.Element {
           Manual exports include files. Review a backup before replacing saved data.
         </span>
       </div>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <input ref={fileRef} type="file" accept=".bitf.json,application/json" className="hidden" onChange={importFile} />
-        <Button variant="outline" disabled={busy} onClick={() => fileRef.current?.click()} className="h-11 rounded-full px-4 md:h-9 md:rounded-md">
+        <Button variant="outline" disabled={busy || exporting} onClick={() => fileRef.current?.click()} className="h-11 rounded-full px-4 md:h-9 md:rounded-md">
           Restore…
         </Button>
-        <Button onClick={() => void exportNow()} className="h-11 rounded-full px-4 md:h-9 md:rounded-md">
-          Export now
+        <Button disabled={busy || exporting} onClick={() => void exportNow()} className="h-11 rounded-full px-4 md:h-9 md:rounded-md">
+          {exporting ? "Exporting…" : "Export complete backup"}
         </Button>
       </div>
       {restoreDialog}

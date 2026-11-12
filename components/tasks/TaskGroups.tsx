@@ -39,6 +39,7 @@ export function TaskGroups({
   trashed,
   allTasks,
   archived,
+  filtering,
   renderRow,
   expanded,
   onToggleSubtasks,
@@ -48,6 +49,7 @@ export function TaskGroups({
   trashed: Task[];
   allTasks: Task[];
   archived?: boolean;
+  filtering?: boolean;
   renderRow: (task: Task, extras: TaskRowExtras) => ReactNode;
   expanded: Set<number>;
   onToggleSubtasks: (id: number) => void;
@@ -125,7 +127,7 @@ export function TaskGroups({
   const openRoots = roots(open);
   return (
     <div className="min-w-0">
-      {open.length === 0 && (
+      {open.length === 0 && !filtering && (
         <div className="rounded-xl bg-muted/40 p-5">
           <p className="text-sm font-medium">
             {done.length ? "Everything here is done" : "No open tasks yet"}
@@ -173,7 +175,7 @@ export function TaskGroups({
         <FoldSection
           label="Completed"
           count={doneVisible.length}
-          open={showDone}
+          open={filtering || showDone}
           onToggle={() => setShowDone(!showDone)}
         >
           {roots(doneVisible).map((task) => nestedRow(task, doneVisible))}
@@ -183,7 +185,7 @@ export function TaskGroups({
         <FoldSection
           label="Trash"
           count={trashed.length}
-          open={showTrash}
+          open={filtering || showTrash}
           onToggle={() => setShowTrash(!showTrash)}
         >
           {roots(trashed).map((task) => nestedRow(task, trashed))}

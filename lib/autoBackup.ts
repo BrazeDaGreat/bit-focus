@@ -23,8 +23,10 @@ export const AUTO_BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 /** When the last automatic backup ran on this device, if ever. */
 export function lastAutoBackupAt(): number | null {
   if (typeof window === "undefined") return null;
-  const value = Number(localStorage.getItem(LAST_BACKUP_KEY));
-  return Number.isFinite(value) && value > 0 ? value : null;
+  try {
+    const value = Number(localStorage.getItem(LAST_BACKUP_KEY));
+    return Number.isFinite(value) && value > 0 ? value : null;
+  } catch { return null; }
 }
 
 /** True when no automatic backup has run in the last 24 hours. */

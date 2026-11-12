@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useTasks } from "@/hooks/useTasks";
 import { useProjects } from "@/hooks/useProjects";
-import { usePomo } from "@/hooks/PomoContext";
+import { usePomoStatus } from "@/hooks/PomoContext";
 import { isTaskOverdue, starredTasks, taskDeadline, type Task } from "@/lib/tasks";
 import { ProjectIcon } from "@/components/tasks/ProjectIcon";
 import { TaskRowActions } from "@/components/tasks/TaskRowActions";
@@ -28,7 +28,7 @@ const VISIBLE = 5;
 export default function StarredTasks({ className }: { className?: string }): JSX.Element | null {
   const { tasks, updateTask } = useTasks();
   const { projects } = useProjects();
-  const { startTask, state } = usePomo();
+  const { startTask, state } = usePomoStatus();
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
   const starred = starredTasks(tasks);

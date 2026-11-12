@@ -28,7 +28,7 @@ import { useProjects } from "@/hooks/useProjects";
 import { useTag } from "@/hooks/useTag";
 import { useTimeblocks, type SeriesScope } from "@/hooks/useTimeblocks";
 import { useCurrentBlock } from "@/hooks/useCurrentBlock";
-import { usePomo } from "@/hooks/PomoContext";
+import { usePomoStatus } from "@/hooks/PomoContext";
 import type { TimeBlock } from "@/lib/db";
 import { taskDeadline, type Task } from "@/lib/tasks";
 import { expandTimeblocks, type TimeblockOccurrence } from "@/lib/timeblocks";
@@ -86,7 +86,7 @@ function CalendarWorkspace() {
   const { now, current, next, startOccurrence } = useCurrentBlock();
   const {
     state: { pomodoroSettings },
-  } = usePomo();
+  } = usePomoStatus();
   const [date, setDate] = useState(() => new Date());
   const [view, setView] = useState<CalendarView>("week");
   const [zoom, setZoom] = useState<ZoomLevel>("normal");
@@ -96,6 +96,11 @@ function CalendarWorkspace() {
   const [menu, setMenu] = useState<CalendarMenuTarget | null>(null);
   const [templatePanelOpen, setTemplatePanelOpen] = useState(false);
   const contextTarget = useRef<ContextTarget | null>(null);
+  // Calendar treats render functions as component types. Changing this callback
+  // would remount events and reset their measured label visibility.
+  const onContextTarget = useCallback((target: ContextTarget) => {
+    contextTarget.current = target;
+  }, []);
   const ignoreSelectionGesture = useRef(false);
   const optionsButton = useRef<HTMLButtonElement>(null);
   const [editor, setEditor] = useState<EditorTarget | null>(null);
@@ -567,10 +572,10 @@ function CalendarWorkspace() {
           deadlines={events.filter((event) => event.kind === "deadline")}
           tagColor={(tag) => getTagColor(savedTags, tag)[0]}
           onOpenDay={openDay}
-          onContextTarget={(target) => { contextTarget.current = target; }}
+          onContextTarget={onContextTarget}
         /> : <CalendarGrid
           display={display}
-          onContextTarget={(target) => { contextTarget.current = target; }}
+          onContextTarget={onContextTarget}
           date={date}
           view={view}
           zoom={zoom}

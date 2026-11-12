@@ -37,21 +37,27 @@ async function savedFocus(page: Page) {
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => reject(request.error);
       });
+      const ledger = await new Promise<{ amount: number }[]>((resolve, reject) => {
+        const request = db.transaction("reward_ledger").objectStore("reward_ledger").getAll();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
       return { count: rows.length, seconds: rows.reduce((sum, row) => sum + (row.endTime.getTime() - row.startTime.getTime()) / 1000, 0),
-        points: localStorage.getItem("rewardPoints"), journal: localStorage.getItem("pomoPendingCompletions") };
+        gems: ledger.reduce((sum, row) => sum + row.amount, 0), journal: localStorage.getItem("pomoPendingCompletions") };
     } finally { db.close(); }
   });
 }
 
-test("switching a paused timer mode saves existing focus once and preserves the points balance", async ({ page }) => {
+test("switching a paused timer mode saves existing focus once and preserves the gem balance", async ({ page }) => {
   await seedPausedTimer(page);
   await page.getByRole("button", { name: "Pomodoro", exact: true }).click();
-  await expect.poll(() => savedFocus(page)).toEqual({ count: 1, seconds: 120, points: "42", journal: null });
+  // 40 legacy focus minutes become 67 hundredths of a gem; two more minutes earn 3.
+  await expect.poll(() => savedFocus(page)).toEqual({ count: 1, seconds: 120, gems: 70, journal: null });
   expect(await page.evaluate(() => ({ mode: localStorage.getItem("timerMode"), time: localStorage.getItem("pomoTime"),
     running: localStorage.getItem("pomoRunning") }))).toEqual({ mode: "pomodoro", time: "0", running: "0" });
   await page.reload();
   await expect(page.getByRole("timer", { name: "Focus timer", exact: true })).toBeVisible();
-  expect(await savedFocus(page)).toEqual({ count: 1, seconds: 120, points: "42", journal: null });
+  expect(await savedFocus(page)).toEqual({ count: 1, seconds: 120, gems: 70, journal: null });
 });
 
 test("failed focus saves survive reload and retry without duplicate sessions or rewards", async ({ page }) => {
@@ -69,15 +75,15 @@ test("failed focus saves survive reload and retry without duplicate sessions or 
   await expect(page.getByRole("button", { name: "Retry", exact: true })).toBeVisible();
   await expect.poll(async () => {
     const saved = await savedFocus(page);
-    return { count: saved.count, points: saved.points, pending: JSON.parse(saved.journal ?? "[]").length };
-  }).toEqual({ count: 0, points: "40", pending: 1 });
+    return { count: saved.count, gems: saved.gems, pending: JSON.parse(saved.journal ?? "[]").length };
+  }).toEqual({ count: 0, gems: 67, pending: 1 });
   await page.reload();
   await expect(page.getByRole("button", { name: "Retry", exact: true })).toBeVisible();
   await page.evaluate(() => { (window as typeof window & { failFocusWrites: boolean }).failFocusWrites = false; });
   await page.getByRole("button", { name: "Retry", exact: true }).click();
-  await expect.poll(() => savedFocus(page)).toEqual({ count: 1, seconds: 120, points: "42", journal: null });
+  await expect.poll(() => savedFocus(page)).toEqual({ count: 1, seconds: 120, gems: 70, journal: null });
   expect(await page.evaluate(() => localStorage.getItem("pomoTime"))).toBe("0");
   await page.reload();
   await expect(page.getByRole("timer", { name: "Focus timer", exact: true })).toBeVisible();
-  expect(await savedFocus(page)).toEqual({ count: 1, seconds: 120, points: "42", journal: null });
+  expect(await savedFocus(page)).toEqual({ count: 1, seconds: 120, gems: 70, journal: null });
 });

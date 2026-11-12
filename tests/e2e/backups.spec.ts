@@ -30,7 +30,7 @@ async function seedBackupWorkspace(page: Page) {
     localStorage.setItem("bitfocus.notes.taskBodyDraft.backup-task", "Unsaved local draft");
   });
   await page.reload();
-  await expect(page.getByRole("button", { name: "Export now", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Export complete backup", exact: true })).toBeVisible();
 }
 
 for (const mobile of [false, true]) {
@@ -38,7 +38,7 @@ test(`Settings exports files and confirms restore on ${mobile ? "mobile" : "desk
   if (mobile) await page.setViewportSize({ width: 390, height: 844 });
   await seedBackupWorkspace(page);
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export now", exact: true }).click();
+  await page.getByRole("button", { name: "Export complete backup", exact: true }).click();
   const download = await downloadPromise;
   const backup = JSON.parse(await readFile((await download.path())!, "utf8"));
   expect(backup.backup.files).toBe("included");
