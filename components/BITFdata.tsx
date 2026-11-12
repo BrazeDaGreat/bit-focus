@@ -151,6 +151,7 @@ export default function BITFdata(): JSX.Element {
         },
       });
 
+      SaveManager.recordCompleteBackupUpload();
       toast.success("BITF data uploaded to Discord successfully!");
     } catch (err) {
       console.error(err);

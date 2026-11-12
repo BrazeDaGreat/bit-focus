@@ -193,7 +193,7 @@ export function displaySeconds(state: PomoState): number {
  *
  * @param state - Timer state.
  */
-export function cyclePosition(state: PomoState): { current: number; total: number } {
+export function cyclePosition(state: Pick<PomoState, "pomodoroSettings" | "completedPomodoros" | "phase">): { current: number; total: number } {
   const total = Math.max(1, state.pomodoroSettings.longBreakInterval);
   const done = state.completedPomodoros;
   const current =

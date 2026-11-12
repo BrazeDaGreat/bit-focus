@@ -58,6 +58,8 @@ const DEVICE_LOCAL_KEYS: readonly string[] = [
   // another device would grant its points twice.
   "pomoPendingCompletions",
   "bitfocus.lastAutoBackup",
+  "bitfocus.lastCompleteBackup",
+  "bitfocus.lastCompleteBackupSource",
   "timerMode",
   // Picture-in-Picture mirror of the timer, rewritten several times a second.
   "piptimer",

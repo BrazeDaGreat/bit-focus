@@ -6,6 +6,8 @@ import SaveManager, { type ExportedData } from "../lib/SaveManager";
 import { backupPreview } from "../lib/backup-validation";
 import { runAutoBackupIfDue } from "../lib/autoBackup";
 import { PB_AUTH_STORAGE_KEY } from "../lib/pocketbase";
+import { LAST_COMPLETE_BACKUP_KEY, LAST_COMPLETE_BACKUP_SOURCE_KEY, lastCompleteBackupAt, lastCompleteBackupSource, readStorageHealth } from "../lib/storage-health";
+import { isSyncedKey } from "../lib/sync/keys";
 
 const storage = new Map<string, string>();
 Object.defineProperty(globalThis, "localStorage", { configurable: true, value: {
@@ -69,6 +71,7 @@ test("default manual download includes note images and attachment bytes and excl
   const capture = downloads();
   try {
     await SaveManager.exportData();
+    assert.ok(lastCompleteBackupAt());
     const backup = JSON.parse(await capture.blobs[0].text()) as ExportedData;
     assert.equal(capture.anchors.length, 1);
     assert.doesNotMatch(capture.anchors[0].download, /without-files/);
@@ -92,6 +95,7 @@ test("automatic downloads and default sync JSON omit files and label that covera
   const capture = downloads();
   try {
     assert.equal(await runAutoBackupIfDue(), true);
+    assert.equal(lastCompleteBackupAt(), null);
     const automatic = JSON.parse(await capture.blobs[0].text()) as ExportedData;
     assert.match(capture.anchors[0].download, /without-files/);
     assert.equal(automatic.backup?.files, "omitted");
@@ -101,6 +105,84 @@ test("automatic downloads and default sync JSON omit files and label that covera
     assert.equal(await runAutoBackupIfDue(), false);
     assert.equal(capture.anchors.length, 1);
   } finally { capture.cleanup(); }
+});
+
+test("complete backup bookkeeping survives restore and stays out of snapshots and sync", async () => {
+  localStorage.setItem(LAST_COMPLETE_BACKUP_KEY, "123");
+  localStorage.setItem(LAST_COMPLETE_BACKUP_SOURCE_KEY, "discord");
+  const backup = await SaveManager.exportJSON({ includeAttachments: true });
+  assert.equal(backup.localStorage[LAST_COMPLETE_BACKUP_KEY], undefined);
+  assert.equal(isSyncedKey(LAST_COMPLETE_BACKUP_KEY), false);
+  assert.equal(isSyncedKey(LAST_COMPLETE_BACKUP_SOURCE_KEY), false);
+  assert.equal(backup.localStorage[LAST_COMPLETE_BACKUP_SOURCE_KEY], undefined);
+  assert.equal(lastCompleteBackupAt(), 123); // JSON snapshots are not downloads.
+  backup.localStorage[LAST_COMPLETE_BACKUP_KEY] = "999";
+  backup.localStorage[LAST_COMPLETE_BACKUP_SOURCE_KEY] = "download";
+  await SaveManager.importJSON(backup);
+  assert.equal(lastCompleteBackupAt(), 123);
+  assert.equal(lastCompleteBackupSource(), "discord");
+  localStorage.removeItem(LAST_COMPLETE_BACKUP_KEY);
+  await SaveManager.importJSON(backup);
+  assert.equal(lastCompleteBackupAt(), null); // Foreign timestamps never become local history.
+});
+
+test("successful complete upload records its source while JSON generation does not", async () => {
+  await SaveManager.exportJSON({ includeAttachments: true });
+  assert.equal(lastCompleteBackupAt(), null);
+  SaveManager.recordCompleteBackupUpload();
+  assert.ok(lastCompleteBackupAt());
+  assert.equal(lastCompleteBackupSource(), "discord");
+  const capture = downloads();
+  try {
+    await SaveManager.exportData();
+    assert.equal(lastCompleteBackupSource(), "download");
+  } finally { capture.cleanup(); }
+});
+
+test("failed complete exports do not update download history", async () => {
+  const capture = downloads();
+  try {
+    localStorage.setItem(LAST_COMPLETE_BACKUP_KEY, "123");
+    const failure = mock.method(db.noteAssets, "toArray", async () => { throw new Error("File read failed"); });
+    await assert.rejects(SaveManager.exportData(), /File read failed/);
+    failure.mock.restore();
+    assert.equal(lastCompleteBackupAt(), 123);
+    assert.equal(capture.anchors.length, 0);
+    const clickFailure = mock.method(document, "createElement", (() => ({ click() { throw new Error("Download blocked"); } })) as unknown as typeof document.createElement);
+    await assert.rejects(SaveManager.exportData(), /Download blocked/);
+    clickFailure.mock.restore();
+    assert.equal(lastCompleteBackupAt(), 123);
+  } finally { capture.cleanup(); }
+});
+
+test("bookkeeping storage failure does not fail a complete download", async () => {
+  const capture = downloads();
+  try {
+    const original = localStorage.setItem;
+    mock.method(localStorage, "setItem", (key: string, value: string) => {
+      if (key === LAST_COMPLETE_BACKUP_KEY) throw new Error("Storage blocked");
+      original(key, value);
+    });
+    await SaveManager.exportData();
+    assert.equal(capture.anchors.length, 1);
+    assert.equal(lastCompleteBackupAt(), null);
+  } finally { capture.cleanup(); }
+});
+
+test("storage probes tolerate missing, rejected and partial browser capabilities", async () => {
+  const missing = await readStorageHealth({} as StorageManager);
+  assert.deepEqual(missing, { usage: null, quota: null, persisted: null, canPersist: false });
+  const partial = await readStorageHealth({ estimate: async () => { throw new Error("blocked"); }, persisted: async () => true } as unknown as StorageManager);
+  assert.equal(partial.usage, null);
+  assert.equal(partial.persisted, true);
+  const synchronousFailure = await readStorageHealth({ estimate() { throw new Error("blocked"); }, persisted: async () => true } as unknown as StorageManager);
+  assert.equal(synchronousFailure.usage, null);
+  assert.equal(synchronousFailure.persisted, true);
+  const available = await readStorageHealth({ estimate: async () => ({ usage: 1024, quota: 2048 }), persisted: async () => false, persist: async () => true } as StorageManager);
+  assert.deepEqual(available, { usage: 1024, quota: 2048, persisted: false, canPersist: true });
+  const invalid = await readStorageHealth({ estimate: async () => ({ usage: NaN, quota: -1 }) } as StorageManager);
+  assert.equal(invalid.usage, null);
+  assert.equal(invalid.quota, null);
 });
 
 test("old backups without metadata or later tables restore and migrate legacy tasks", async () => {

@@ -52,7 +52,7 @@ import { TaskWeeklyReview } from "@/components/tasks/TaskWeeklyReview";
 import { matchesTask, isTaskOverdue, taskDeadline, taskMinutes } from "@/lib/tasks";
 import { useRouter } from "next/navigation";
 import { useConfig } from "@/hooks/useConfig";
-import { usePomo } from "@/hooks/PomoContext";
+import { usePomoStatus } from "@/hooks/PomoContext";
 import { usePomodoroLog } from "@/hooks/usePomodoroLog";
 import { MobileDrawer } from "@/components/ui/mobile-drawer";
 import {
@@ -260,7 +260,7 @@ function Delta({
 
 function TodayPanel(): JSX.Element {
   const { focusSessions, loadingFocusSessions } = useFocus();
-  const { state, start, pause } = usePomo();
+  const { state, start, pause } = usePomoStatus();
   const { tag, savedTags } = useTag();
   const router = useRouter();
 
@@ -305,7 +305,7 @@ function TodayPanel(): JSX.Element {
     };
   }, [focusSessions]);
 
-  const isPaused = !state.isRunning && state.elapsedSeconds > 0;
+  const isPaused = !state.isRunning && state.hasElapsed;
   const buttonLabel = state.isRunning
     ? "Pause session"
     : isPaused
@@ -771,7 +771,7 @@ function DuePanel(): JSX.Element {
   const { tasks, loading, updateTask, error } = useTasks();
   const { projects } = useProjects();
   const { focusSessions } = useFocus();
-  const { startTask, state } = usePomo();
+  const { startTask, state } = usePomoStatus();
   const router = useRouter();
   const now = new Date();
   const nextWeek = new Date(now); nextWeek.setHours(23, 59, 59, 999); nextWeek.setDate(nextWeek.getDate() + 7);

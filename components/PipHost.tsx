@@ -16,12 +16,12 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { usePipWindow } from "@/hooks/usePipWindow";
-import { usePomo } from "@/hooks/PomoContext";
+import { usePomoStatus } from "@/hooks/PomoContext";
 import PipTimer from "@/components/PipTimer";
 
 export default function PipHost() {
   const pipWindow = usePipWindow((s) => s.pipWindow);
-  const { state, start, pause } = usePomo();
+  const { state, start, pause } = usePomoStatus();
   const isRunning = state.isRunning;
 
   useEffect(() => {

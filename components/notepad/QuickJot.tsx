@@ -28,7 +28,7 @@ import { FaStickyNote } from "react-icons/fa";
 import { CornerDownLeft, X } from "lucide-react";
 import { toast } from "sonner";
 import { useNotepad } from "@/hooks/useNotepad";
-import { usePomo } from "@/hooks/PomoContext";
+import { usePomoStatus } from "@/hooks/PomoContext";
 import { useTag } from "@/hooks/useTag";
 import { KeyboardKey } from "@/components/ui/keyboard-key";
 import { formatJotLine } from "./jot-utils";
@@ -36,7 +36,7 @@ import { cn } from "@/lib/utils";
 
 export function QuickJot(): JSX.Element | null {
   const { isJotOpen, setIsJotOpen, appendJot } = useNotepad();
-  const { state: pomoState } = usePomo();
+  const { state: pomoState } = usePomoStatus();
   const { tag } = useTag();
 
   const [text, setText] = useState("");

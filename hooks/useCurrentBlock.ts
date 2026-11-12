@@ -11,7 +11,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { create } from "zustand";
-import { usePomo } from "@/hooks/PomoContext";
+import { usePomoStatus } from "@/hooks/PomoContext";
 import { useTimeblocks } from "@/hooks/useTimeblocks";
 import { useTasks } from "@/hooks/useTasks";
 import { useProjects } from "@/hooks/useProjects";
@@ -83,7 +83,8 @@ export function useCurrentBlock(tickMs = 30_000) {
   const { timeblocks, loadingTimeblocks, loadTimeblocks } = useTimeblocks();
   const { tasks, loadTasks } = useTasks();
   const { projects, loadProjects } = useProjects();
-  const { state, startBlock } = usePomo();
+  const { state, startBlock } = usePomoStatus();
+  const active = useActiveBlock((s) => s.active);
   const setActive = useActiveBlock((s) => s.setActive);
   const titleOf = useOccurrenceTitle();
   const now = useNow(tickMs);
@@ -113,7 +114,7 @@ export function useCurrentBlock(tickMs = 30_000) {
 
   /** True when the timer is running on what this occurrence would start. */
   const isRunningOn = (occ: TimeblockOccurrence) =>
-    state.isRunning && useActiveBlock.getState().active?.key === occ.key;
+    state.isRunning && active?.key === occ.key;
 
   return {
     ...plan,

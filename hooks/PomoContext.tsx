@@ -89,9 +89,7 @@ export {
 };
 export type { TimerMode, PomodoroPhase, PomodoroSettings, FocusSegment, PomoState };
 
-// Create Context
-const PomoContext = createContext<{
-  state: PomoState;
+interface PomoControls {
   start: () => void;
   startTask: (task: NonNullable<PomoState["task"]>) => void;
   /**
@@ -107,7 +105,16 @@ const PomoContext = createContext<{
   completePomodoro: () => void;
   extend: (seconds?: number) => void;
   resetCycle: () => void;
-} | null>(null);
+}
+
+// Clock readers need every second; status/settings readers only need transitions.
+const PomoStateContext = createContext<PomoState | null>(null);
+const PomoControlsContext = createContext<PomoControls | null>(null);
+type PomoStatus = Pick<PomoState,
+  "task" | "isRunning" | "mode" | "phase" | "isLongBreak" |
+  "completedPomodoros" | "pomodoroSettings"
+> & { hasElapsed: boolean };
+const PomoStatusContext = createContext<PomoStatus | null>(null);
 
 /** localStorage keys for timer persistence (all device-local, never synced) */
 const LS = {
@@ -658,11 +665,9 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
     };
   }, [state.isRunning]);
 
-  // Context value with all timer controls. Memoised on the timer state: the
-  // controls only read refs, so consumers should re-render when the timer
-  // changes, not whenever an unrelated store this provider reads updates.
-  const contextValue = useMemo(() => ({
-    state,
+  // Controls read the latest state through refs, so their identities can stay
+  // stable even while the clock advances.
+  const controls = useMemo<PomoControls>(() => ({
     startTask: (task: NonNullable<PomoState["task"]>) => {
       const s = stateRef.current;
       if (s.task?.uid === task.uid && s.isRunning) return;
@@ -795,16 +800,33 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
     resetCycle: () => {
       send({ type: "RESET_CYCLE" });
     },
-  }), [state, finishSession, advancePhase, announce, send]);
+  }), [finishSession, advancePhase, announce, send]);
+
+  const hasElapsed = state.elapsedSeconds > 0;
+  const status = useMemo<PomoStatus>(() => ({
+    task: state.task,
+    isRunning: state.isRunning,
+    mode: state.mode,
+    phase: state.phase,
+    isLongBreak: state.isLongBreak,
+    completedPomodoros: state.completedPomodoros,
+    pomodoroSettings: state.pomodoroSettings,
+    hasElapsed,
+  }), [state.task, state.isRunning, state.mode, state.phase, state.isLongBreak,
+    state.completedPomodoros, state.pomodoroSettings, hasElapsed]);
 
   return (
-    <PomoContext.Provider value={contextValue}>
-      {children}
+    <PomoControlsContext.Provider value={controls}>
+      <PomoStatusContext.Provider value={status}>
+        <PomoStateContext.Provider value={state}>
+          {children}
+        </PomoStateContext.Provider>
+      </PomoStatusContext.Provider>
       {/* Live region for the timer events Sonner's toasts never cover. */}
       <div role="status" aria-live="polite" className="sr-only">
         {announcement}
       </div>
-    </PomoContext.Provider>
+    </PomoControlsContext.Provider>
   );
 }
 
@@ -816,9 +838,20 @@ export function PomoProvider({ children }: { children: React.ReactNode }) {
  * @throws Error if used outside of PomoProvider
  */
 export function usePomo() {
-  const context = useContext(PomoContext);
-  if (!context) {
+  const state = useContext(PomoStateContext);
+  const controls = useContext(PomoControlsContext);
+  if (!state || !controls) {
     throw new Error("usePomo must be used within a PomoProvider");
   }
-  return context;
+  return { state, ...controls };
+}
+
+/** Timer status and controls without subscribing to the per-second clock. */
+export function usePomoStatus() {
+  const state = useContext(PomoStatusContext);
+  const controls = useContext(PomoControlsContext);
+  if (!state || !controls) {
+    throw new Error("usePomoStatus must be used within a PomoProvider");
+  }
+  return { state, ...controls };
 }

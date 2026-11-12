@@ -4,6 +4,11 @@ export { VERSION } from "./version";
 
 const CHANGELOG = `
 ## \`v0.25.2 (LTS)\` (2026-11-10) — AI Chat
+- Added: Search the Projects task list by title, notes, or tag, and combine tag, priority, and overdue filters. Matching subtasks appear with their parent for context. Clear filters returns to the full list, and the controls fit on phones.
+- Added: Settings → Data shows estimated browser storage use and capacity, whether storage is protected from automatic cleanup, and an option to request protection when supported. It also shows the last complete backup download or successful Discord upload recorded on this device. Complete backups include note images and task attachments; automatic backups without files do not count. Downloads are recorded when they start, since the app cannot confirm that the file was saved.
+- Added: The command palette searches Notes page contents as well as titles and shows matching text snippets. Search supports formatted pages and older HTML pages, excludes templates and Trash, and caches extracted text to keep searching responsive.
+- Fixed: Calendar event text no longer flickers while the timer runs. Event labels keep their measurements across clock updates, and Calendar, Projects, Home task lists, Settings, and quick jot no longer subscribe to the timer's per-second clock when they only need its status or settings.
+- Fixed: Existing AI Chat code blocks and checkboxes keep their rendered content when the timer updates instead of remounting every second.
 - Changed: AI Chat is stable. Removed the Beta label from navigation and the page title.
 - Added: Type @ in chat to select specific projects, tasks, and Notes pages from a floating picker. Attached sources are shown as removable chips and saved with each message.
 - Fixed: The chat composer uses one clean outline, with attachment suggestions in a popup above it instead of an expanding panel inside the message box. Typing @ opens the picker again immediately after selecting a source. Attachment pills highlight and strike through on hover; click a pill to remove it.

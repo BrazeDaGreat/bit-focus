@@ -18,7 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import {
   cyclePosition,
-  usePomo,
+  usePomoStatus,
   type PomodoroSettings,
 } from "@/hooks/PomoContext";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -66,7 +66,7 @@ function humanMinutes(minutes: number): string {
 export default function PomodoroSettings({
   className,
 }: PomodoroSettingsProps): JSX.Element {
-  const { state, setPomodoroSettings, resetCycle } = usePomo();
+  const { state, setPomodoroSettings, resetCycle } = usePomoStatus();
   const settings = state.pomodoroSettings;
   const { autoStartBreaks, autoStartFocus, setPreference } = usePreferences();
 

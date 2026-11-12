@@ -2,18 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { usePomo } from "@/hooks/PomoContext";
+import { usePomoStatus } from "@/hooks/PomoContext";
 import { useActiveBlock } from "@/hooks/useCurrentBlock";
 
 /** One end-of-block prompt for timers started from a calendar block. */
 export default function BlockEndNotice() {
-  const { state, reset } = usePomo();
+  const { state, reset } = usePomoStatus();
   const active = useActiveBlock((s) => s.active);
   const setActive = useActiveBlock((s) => s.setActive);
   const resetRef = useRef(reset);
   const [ready, setReady] = useState(false);
   const isRunning = state.isRunning;
-  const isReset = !isRunning && state.elapsedSeconds === 0;
+  const isReset = !isRunning && !state.hasElapsed;
 
   useEffect(() => {
     resetRef.current = reset;

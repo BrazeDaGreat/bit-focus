@@ -27,7 +27,7 @@ import { useRouter } from "next/navigation";
 import { ResponsiveDialog } from "@/components/ui/mobile-drawer";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { useConfig } from "@/hooks/useConfig";
-import { usePomo } from "@/hooks/PomoContext";
+import { usePomoStatus } from "@/hooks/PomoContext";
 import { cycleSavedTag } from "@/hooks/useTag";
 import { toast } from "sonner";
 import { useNotepad } from "@/hooks/useNotepad";
@@ -70,7 +70,7 @@ function isTypingTarget(target: EventTarget | null): boolean {
  */
 export default function GlobalShortcuts(): JSX.Element {
   const router = useRouter();
-  const { start, pause, reset, extend, state } = usePomo();
+  const { start, pause, reset, extend, state } = usePomoStatus();
   const { featureToggles } = useConfig();
   const { setHelpOpen } = useShortcutsDialog();
 
