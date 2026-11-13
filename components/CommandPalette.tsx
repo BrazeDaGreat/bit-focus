@@ -16,7 +16,7 @@
 
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from "react";
 import { format } from "date-fns";
 import { Command, defaultFilter } from "cmdk";
 import { useRouter } from "next/navigation";
@@ -37,6 +37,8 @@ import { blockTimes, parseTaskInput } from "@/lib/task-parse";
 import { useNotes } from "@/hooks/useNotes";
 import { noteHref, noteTitle } from "@/lib/notes";
 import { createNoteSearchIndex, matchesNoteSearch, noteSearchSnippet } from "@/lib/note-search";
+import { searchFocusHistory } from "@/lib/focus-search";
+import { useFocus } from "@/hooks/useFocus";
 import { isTaskOverdue, taskDeadline, type Task } from "@/lib/tasks";
 import { ProjectIcon } from "@/components/tasks/ProjectIcon";
 import { useNotepad } from "@/hooks/useNotepad";
@@ -64,6 +66,7 @@ import {
   FaRepeat,
   FaXmark,
   FaFolder,
+  FaClockRotateLeft,
 } from "react-icons/fa6";
 import { IoIosTimer } from "react-icons/io";
 import { GiTomato } from "react-icons/gi";
@@ -94,6 +97,10 @@ export default function CommandPalette(): JSX.Element {
   const { projects, loadProjects } = useProjects();
   const { tasks, loadTasks } = useTasks();
   const { notes, loadNotes } = useNotes();
+  const focusSessions = useFocus((s) => s.focusSessions);
+  const loadFocusSessions = useFocus((s) => s.loadFocusSessions);
+  const deferredSearch = useDeferredValue(search);
+  const focusMatches = useMemo(() => searchFocusHistory(focusSessions, deferredSearch), [focusSessions, deferredSearch]);
   const [indexNotes] = useState(createNoteSearchIndex);
   const indexedNotes = useMemo(() => indexNotes(notes), [indexNotes, notes]);
   const addTimeblock = useTimeblocks((s) => s.addTimeblock);
@@ -135,6 +142,11 @@ export default function CommandPalette(): JSX.Element {
       void loadTasks().catch(() => toast.error("Could not load tasks"));
     }
   }, [paletteOpen, featureToggles.projects, loadTasks]);
+
+  // Most pages already loaded focus history; read it only when nothing has.
+  useEffect(() => {
+    if (paletteOpen && useFocus.getState().focusSessions.length === 0) void loadFocusSessions();
+  }, [paletteOpen, loadFocusSessions]);
 
   useEffect(() => {
     if (paletteOpen && featureToggles.notes) {
@@ -222,6 +234,8 @@ export default function CommandPalette(): JSX.Element {
       onKeyDown={handleKeyDown}
       label="Command palette"
       filter={(value, query, keywords) => {
+        // Focus history results are already matched by searchFocusHistory.
+        if (value.startsWith("focus-history ")) return 1;
         if (!value.startsWith("note ")) return defaultFilter(value, query, keywords);
         return matchesNoteSearch(value, query, keywords) ? 1 : 0;
       }}
@@ -553,6 +567,22 @@ export default function CommandPalette(): JSX.Element {
                 description={!title.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()) ? noteSearchSnippet(text, search) : undefined}
               >
                 {noteTitle(note)}
+              </Item>
+            ))}
+          </Command.Group>
+        )}
+
+        {focusMatches.length > 0 && (
+          <Command.Group heading="Focus history">
+            {focusMatches.map((match) => (
+              <Item
+                key={match.key}
+                icon={<FaClockRotateLeft />}
+                onSelect={run(() => router.push(match.href))}
+                value={`focus-history ${match.key}`}
+                description={match.detail}
+              >
+                {match.label}
               </Item>
             ))}
           </Command.Group>

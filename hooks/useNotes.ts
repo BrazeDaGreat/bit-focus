@@ -8,7 +8,8 @@ import { deleteAssetsForNotes } from "@/lib/note-assets";
 import { installTracking } from "@/lib/sync/tracker";
 import { noteCopySource, prepareNoteCopy } from "@/lib/note-copy";
 import { STARTER_TEMPLATES, TEMPLATE_SEED_KEY } from "@/lib/note-templates";
-import { childrenOf, compareSiblings, descendantIds, isTrashed, orderBetween, type Note } from "@/lib/notes";
+import { deleteVersions, keepVersion } from "@/lib/note-history";
+import { childrenOf, compareSiblings, descendantIds, isTrashed, orderBetween, type Note, type NoteVersion } from "@/lib/notes";
 
 export type { Note } from "@/lib/notes";
 
@@ -20,6 +21,8 @@ export interface NotesState {
   seedTemplates(): Promise<void>;
   updateNote(id: number, fields: Partial<Pick<Note, "title" | "icon">>): Promise<void>;
   saveContent(id: number, content: string): Promise<void>;
+  /** Put an earlier body back, keeping the current one in history first. */
+  restoreVersion(id: number, version: Pick<NoteVersion, "content">): Promise<void>;
   moveNote(id: number, target: { parentId: number | null; index: number }): Promise<void>;
   trashNote(id: number): Promise<void>;
   restoreNote(id: number): Promise<void>;
@@ -104,8 +107,10 @@ export const useNotes = create<NotesState>((set, get) => {
     revision++;
     set((state) => ({ notes: state.notes.filter((note) => !ids.has(note.id!)) }));
     try {
-      await track(db.transaction("rw", [db.notes, db.noteAssets], async () => {
-        await deleteAssetsForNotes(removed.flatMap((note) => note.uid ? [note.uid] : []));
+      const uids = removed.flatMap((note) => note.uid ? [note.uid] : []);
+      await track(db.transaction("rw", [db.notes, db.noteAssets, db.noteVersions], async () => {
+        await deleteAssetsForNotes(uids);
+        await deleteVersions(uids);
         await db.notes.bulkDelete([...ids]);
       }));
     } catch (error) {
@@ -213,7 +218,17 @@ export const useNotes = create<NotesState>((set, get) => {
       await edit(id, fields);
     },
     // Autosave touches one row, keeping its position and every other row reference.
-    saveContent: async (id, content) => edit(id, { content }),
+    saveContent: async (id, content) => {
+      // The body shows at once; the old one is copied to history alongside.
+      const before = get().notes.find((note) => note.id === id);
+      await Promise.all([edit(id, { content }), before && keepVersion(before, content, "edit")]);
+    },
+    restoreVersion: async (id, version) => {
+      const before = get().notes.find((note) => note.id === id);
+      if (!before) return;
+      await keepVersion(before, version.content, "restore", { force: true });
+      await edit(id, { content: version.content });
+    },
     moveNote: async (id, target) => {
       await ensureLoaded();
       const notes = get().notes;

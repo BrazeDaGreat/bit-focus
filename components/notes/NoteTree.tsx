@@ -34,6 +34,7 @@ import {
   Shapes,
   FileDown,
   Trash2,
+  History,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -111,6 +112,7 @@ interface NoteTreeProps {
   onCreateChild: (parentId: number) => void;
   onTrash: (note: Note) => void;
   onExport: (note: Note) => void;
+  onHistory: (note: Note) => void;
 }
 
 export function NoteTree({
@@ -120,6 +122,7 @@ export function NoteTree({
   onCreateChild,
   onTrash,
   onExport,
+  onHistory,
 }: NoteTreeProps) {
   const tree = useMemo(() => buildTree(notes), [notes]);
   const [expanded, setExpanded] = useState<Set<number>>(readExpanded);
@@ -636,6 +639,10 @@ export function NoteTree({
                   Move down
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => onHistory(note)}>
+                  <History className="size-4" />
+                  Page history
+                </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => onExport(note)}>
                   <FileDown className="size-4" />
                   Export as PDF

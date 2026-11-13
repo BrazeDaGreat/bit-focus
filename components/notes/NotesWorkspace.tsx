@@ -18,7 +18,7 @@
 
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -47,6 +47,7 @@ import {
 import { cn } from "@/lib/utils";
 import { exportNoteToPdf } from "@/lib/note-export";
 import { noteContentJSON } from "@/lib/note-share";
+import { NoteHistoryDialog } from "./NoteHistoryDialog";
 import { NoteShareDialog } from "./NoteShareDialog";
 import { NoteSearchResults, NoteTree } from "./NoteTree";
 import {
@@ -137,6 +138,7 @@ export function NotesWorkspace() {
   const [movingUid, setMovingUid] = useState<string | null>(null);
   // Uid of the open page whose share dialog is showing.
   const [sharingUid, setSharingUid] = useState<string | null>(null);
+  const [historyUid, setHistoryUid] = useState<string | null>(null);
   // Per-page status, keyed by uid so a newly opened page starts clean.
   const [editorState, setEditorState] = useState<{
     uid?: string;
@@ -148,6 +150,8 @@ export function NotesWorkspace() {
     status: SaveStatus;
   }>({ status: "saved" });
   const editorRef = useRef<Editor | null>(null);
+  const flushRef = useRef<(() => Promise<void>) | null>(null);
+  const flushNote = useCallback(() => flushRef.current?.() ?? Promise.resolve(), []);
   const creating = useRef(false);
 
   const visible = useMemo(() => notes.filter((n) => !isTrashed(n) && !n.isTemplate), [notes]);
@@ -384,6 +388,7 @@ export function NotesWorkspace() {
           onShare={!trashed && !note.isTemplate && note.uid ? () => setSharingUid(note.uid ?? null) : undefined}
           onAddSubpage={() => void createPage(note.id!)}
           onMove={() => setMovingUid(note.uid ?? null)}
+          onHistory={!trashed && note.uid ? () => setHistoryUid(note.uid ?? null) : undefined}
           onTrash={() => void trashPage(note)}
           isTemplate={note.isTemplate}
           pageId={note.id}
@@ -419,6 +424,7 @@ export function NotesWorkspace() {
               note={note}
               readOnly={trashed}
               editorRef={editorRef}
+              flushRef={flushRef}
               onStatusChange={(next) =>
                 setEditorState((current) => ({
                   uid: note.uid,
@@ -447,6 +453,13 @@ export function NotesWorkspace() {
                 : noteContentJSON(note.content)
             }
             onClose={() => setSharingUid(null)}
+          />
+        )}
+        {historyUid === note.uid && !trashed && (
+          <NoteHistoryDialog
+            note={note}
+            flush={flushNote}
+            onClose={() => setHistoryUid(null)}
           />
         )}
         {/* The tree reveals the open page's new parent on its own. */}
@@ -575,6 +588,7 @@ export function NotesWorkspace() {
               onCreateChild={(parentId) => void createPage(parentId)}
               onTrash={(target) => void trashPage(target)}
               onExport={(target) => void exportPdf(target)}
+              onHistory={(target) => { open(target); setHistoryUid(target.uid ?? null); }}
             />
           )}
         </div>
