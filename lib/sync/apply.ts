@@ -105,9 +105,11 @@ async function writeRow(
   uid: string,
   row: LocalRow,
   cache: IdCache,
+  unsent = false,
 ): Promise<void> {
   const table = col.table();
   const existing = await findLocal(col, uid);
+  if (existing) await col.beforeReplace?.(existing, row, unsent);
 
   // A singleton is one row by definition. If the incoming version keys on a
   // different name than the local one, the old row is replaced rather than
@@ -138,9 +140,10 @@ async function writeRow(
 }
 
 /** Remove the local row a tombstone refers to. */
-async function deleteRow(col: SyncCollection, uid: string): Promise<void> {
+async function deleteRow(col: SyncCollection, uid: string, unsent = false): Promise<void> {
   const existing = await findLocal(col, uid);
   if (!existing) return;
+  await col.beforeReplace?.(existing, null, unsent);
   await col.table().delete(existing[col.pk] as string | number);
 }
 
@@ -255,13 +258,16 @@ async function applyOne(
     return "skipped";
   }
 
+  // The local row had edits not pushed yet; this record is about to win over them.
+  const unsent = local?.dirty === 1;
+
   if (record.deleted) {
-    await applyingRow(record.col, record.uid, () => deleteRow(col, record.uid));
+    await applyingRow(record.col, record.uid, () => deleteRow(col, record.uid, unsent));
   } else {
     const decoded = await fromWire(col, record.data ?? {}, record.uid, cache);
     if (decoded.unresolved.length > 0 && !finalPass) return "deferred";
     await applyingRow(record.col, record.uid, () =>
-      writeRow(col, record.uid, decoded.row, cache),
+      writeRow(col, record.uid, decoded.row, cache, unsent),
     );
   }
 

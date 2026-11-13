@@ -23,7 +23,7 @@ import { MathBlockView, MathInlineView } from "@/components/notes/editor/MathBlo
 import { NoteOutline } from "@/components/notes/NoteOutline";
 import "@/components/notes/note-editor.css";
 
-function imageView(assets: Record<string, string>) {
+function imageView(assets: Record<string, string>, missingLabel: string) {
   return function SharedImageView({ node }: NodeViewProps) {
     const [broken, setBroken] = useState(false);
     const asset = node.attrs.asset as string | null;
@@ -35,7 +35,7 @@ function imageView(assets: Record<string, string>) {
             <Image src={src} alt={node.attrs.alt || "Image"} width={1600} height={900} unoptimized draggable={false} onError={() => setBroken(true)} />
           ) : (
             <div className="rounded-xl bg-muted/60 p-6 text-sm text-muted-foreground">
-              {broken ? "Could not load image" : "Image not included in this link"}
+              {broken ? "Could not load image" : missingLabel}
             </div>
           )}
         </div>
@@ -60,13 +60,18 @@ export default function SharedNoteBody({
   content,
   assets,
   onReady,
+  outline = true,
+  missingImageLabel = "Image not included in this link",
 }: {
   content: JSONContent;
   assets: Record<string, string>;
   onReady?: (editor: Editor) => void;
+  /** Show the heading marks on the right edge. Off inside dialogs. */
+  outline?: boolean;
+  missingImageLabel?: string;
 }): JSX.Element {
   const extensions = useMemo(() => {
-    const ImageView = imageView(assets);
+    const ImageView = imageView(assets, missingImageLabel);
     return noteExtensions({ editable: false }).map((extension) => {
       if (extension.name === "noteImage") return extension.extend({ addNodeView: () => ReactNodeViewRenderer(ImageView) });
       if (extension.name === "noteLink") return extension.extend({ addNodeView: () => ReactNodeViewRenderer(SharedLinkView, { as: "span" }) });
@@ -76,7 +81,7 @@ export default function SharedNoteBody({
       if (extension.name === "mathInline") return extension.extend({ addNodeView: () => ReactNodeViewRenderer(MathInlineView, { as: "span" }) });
       return extension;
     });
-  }, [assets]);
+  }, [assets, missingImageLabel]);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -100,7 +105,7 @@ export default function SharedNoteBody({
       ) : (
         <>
           <EditorContent editor={editor} />
-          <NoteOutline editor={editor} />
+          {outline && <NoteOutline editor={editor} />}
         </>
       )}
     </div>

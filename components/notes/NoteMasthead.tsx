@@ -30,6 +30,7 @@ import {
   CornerDownRight,
   FileDown,
   FilePlus2,
+  History,
   MoreHorizontal,
   Plus,
   Share2,
@@ -69,6 +70,7 @@ export function NoteToolbar({
   onMove,
   onTrash,
   onSaveTemplate,
+  onHistory,
   isTemplate = false,
   pageId,
 }: {
@@ -80,6 +82,7 @@ export function NoteToolbar({
   onExport: () => void;
   /** Omitted where a page can't be shared (Trash, templates). */
   onShare?: () => void;
+  onHistory?: () => void;
   onAddSubpage: () => void;
   onMove: () => void;
   onTrash: () => void;
@@ -157,6 +160,10 @@ export function NoteToolbar({
                 <CornerDownRight className="size-4" />
                 Move to…
               </DropdownMenuItem></>}
+              {onHistory && <DropdownMenuItem onSelect={onHistory}>
+                <History className="size-4" />
+                Page history
+              </DropdownMenuItem>}
               <DropdownMenuSeparator />
               <DropdownMenuItem variant="destructive" onSelect={onTrash}>
                 <Trash2 className="size-4" />

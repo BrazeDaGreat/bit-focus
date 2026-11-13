@@ -23,11 +23,13 @@ export interface NoteEditorProps {
   note: Note;
   readOnly?: boolean;
   editorRef?: MutableRefObject<Editor | null>;
+  /** Receives a function that saves typing still waiting on autosave. */
+  flushRef?: MutableRefObject<(() => Promise<void>) | null>;
   onStatusChange?: (status: "saved" | "saving" | "error") => void;
   onStats?: (stats: { words: number; characters: number }) => void;
 }
 
-export default function NoteEditor({ note, readOnly = false, editorRef, onStatusChange, onStats }: NoteEditorProps): JSX.Element {
+export default function NoteEditor({ note, readOnly = false, editorRef, flushRef, onStatusChange, onStats }: NoteEditorProps): JSX.Element {
   const callbacks = useRef({ onStatusChange, onStats });
   callbacks.current = { onStatusChange, onStats };
   const currentNote = useRef(note); currentNote.current = note;
@@ -146,6 +148,10 @@ export default function NoteEditor({ note, readOnly = false, editorRef, onStatus
     if (editorRef) editorRef.current = editor;
     return () => { if (editorRef) editorRef.current = null; };
   }, [editor, editorRef]);
+  useEffect(() => {
+    if (flushRef) flushRef.current = flush;
+    return () => { if (flushRef) flushRef.current = null; };
+  }, [flush, flushRef]);
   useEffect(() => { editor?.setEditable(!readOnly); }, [editor, readOnly]);
   useEffect(() => { if (editor && recovered.current !== null) { recovered.current = null; void flush(); } }, [editor, flush]);
   useEffect(() => {

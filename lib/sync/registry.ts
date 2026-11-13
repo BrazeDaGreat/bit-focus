@@ -27,6 +27,8 @@
 import type Dexie from "dexie";
 import db from "@/lib/db";
 import type { IdCache } from "./codec";
+import { deleteVersions, keepVersion } from "@/lib/note-history";
+import type { Note } from "@/lib/notes";
 
 /** A row as it travels over the wire: plain JSON, uids instead of local ids. */
 export type WireRow = Record<string, unknown>;
@@ -118,6 +120,12 @@ export interface SyncCollection {
    * returns the names of any references that could not be resolved yet.
    */
   decode?: (row: LocalRow, cache: IdCache) => Promise<string[]>;
+  /**
+   * Called before a pulled record replaces a row this device holds, or deletes
+   * it when `incoming` is null. `unsent` is true when the local row had edits
+   * not pushed yet, which the replacement is about to discard.
+   */
+  beforeReplace?: (existing: LocalRow, incoming: LocalRow | null, unsent: boolean) => Promise<void>;
 }
 
 /** Fixed uid used by singleton collections. */
@@ -208,6 +216,13 @@ export const COLLECTIONS: readonly SyncCollection[] = [
     // Two passes on apply settle any ordering the server hands us.
     refs: [{ field: "parentId", target: "notes" }],
     order: 2,
+    // A page settles as one row, so another device's body replaces this one
+    // whole. Keep the old body in page history first.
+    beforeReplace: async (existing, incoming, unsent) => {
+      if (!incoming) return deleteVersions([existing.uid as string]);
+      const next = typeof incoming.content === "string" ? incoming.content : "";
+      await keepVersion(existing as unknown as Note, next, "sync", { force: unsent });
+    },
     // Board notes hold columns of child note ids. They are references like any
     // other, just buried a level deeper than the declarative `refs` list can
     // reach, so they get translated by hand.

@@ -34,7 +34,7 @@
 
 import Dexie from "dexie";
 import type { Task, TaskFilter } from "./tasks";
-import type { Note, NoteAsset } from "./notes";
+import type { Note, NoteAsset, NoteVersion } from "./notes";
 import { migrateTasks } from "./task-migration";
 
 /**
@@ -321,6 +321,8 @@ class BitFocusDB extends Dexie {
   notes: Dexie.Table<Note & Syncable, number>;
   /** Compressed images referenced by asset uid from note content. */
   noteAssets: Dexie.Table<NoteAsset, number>;
+  /** Earlier bodies of pages, kept on this device only. Never synced or backed up. */
+  noteVersions: Dexie.Table<NoteVersion, number>;
 
   /**
    * Projects Table (Enhanced with Quick Links)
@@ -680,6 +682,11 @@ class BitFocusDB extends Dexie {
       reward_ledger: "++id, &uid, kind, at, itemUid, loanUid, group",
     });
 
+    // Page history (v0.25.2). Device-local, like task-note drafts.
+    this.version(19).stores({
+      note_versions: "++id, noteUid, at, [noteUid+at]",
+    });
+
     // Table reference assignment
     this.tasks = this.table("task_items");
     this.taskAttachments = this.table("task_attachments");
@@ -690,6 +697,7 @@ class BitFocusDB extends Dexie {
     this.focus = this.table("focus");
     this.notes = this.table("notes");
     this.noteAssets = this.table("note_assets");
+    this.noteVersions = this.table("note_versions");
     this.projects = this.table("projects");
     this.milestones = this.table("milestones");
     this.issues = this.table("issues");

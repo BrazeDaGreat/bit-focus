@@ -62,6 +62,21 @@ export interface NoteAsset {
   updatedAt: Date;
 }
 
+/**
+ * An earlier body of a page, kept on this device so an overwrite (a sync from
+ * another device, a big delete, a restore) can be undone. Never synced.
+ */
+export interface NoteVersion {
+  id?: number;
+  noteUid: string;
+  title: string;
+  /** Serialized body, in the same format as `Note.content`. */
+  content: string;
+  at: Date;
+  /** What replaced this body: your own editing, another device, or a restore. */
+  reason: "edit" | "sync" | "restore";
+}
+
 /** Largest single image record. The sync server caps a record at ~4.5 MB. */
 // Base64 adds one third: leave room under the sync engine's 4.5 MB row cap.
 export const NOTE_ASSET_MAX_BYTES = 3_300_000;
