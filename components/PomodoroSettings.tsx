@@ -6,16 +6,17 @@
  * Focus, break and long-break durations for Pomodoro mode, how many focus
  * blocks make a cycle, and whether phases start on their own. Presets cover
  * the common rhythms; the steppers below adjust any value directly, which
- * switches the selection to Custom.
+ * switches the selection to Custom. Steps move along a 5-minute grid, and
+ * clicking a value lets you type any number within its limits.
  *
  * Timer mode is not set here — it lives in the focus page control dock, next to
  * the timer it changes.
  */
 
-import { useState, type JSX } from "react";
+import { useRef, useState, type JSX } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import { Group, Row, Well } from "@/components/settings/parts";
 import {
   cyclePosition,
   usePomoStatus,
@@ -86,13 +87,22 @@ export default function PomodoroSettings({
     setPomodoroSettings(next);
   };
 
+  const set = (field: keyof PomodoroSettings, value: number) => {
+    const { min, max } = LIMITS[field];
+    apply({ ...draft, [field]: Math.min(max, Math.max(min, Math.round(value))) });
+  };
+
+  // Steps land on the step grid, so a typed 7 goes to 10 or 5, and the
+  // minimum of 1 climbs back to 5 rather than 6.
   const step = (field: keyof PomodoroSettings, direction: 1 | -1) => {
-    const limits = LIMITS[field];
-    const value = Math.min(
-      limits.max,
-      Math.max(limits.min, draft[field] + direction * limits.step)
+    const size = LIMITS[field].step;
+    const current = draft[field];
+    set(
+      field,
+      direction > 0
+        ? Math.floor(current / size) * size + size
+        : Math.ceil(current / size) * size - size
     );
-    apply({ ...draft, [field]: value });
   };
 
   const interval = draft.longBreakInterval;
@@ -106,10 +116,7 @@ export default function PomodoroSettings({
     <div className={cn("flex flex-col gap-5", className)}>
       {/* ── Presets ── */}
       <div>
-        <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
-          Preset
-        </p>
-        <div className="flex items-center gap-0.5 rounded-xl bg-muted/60 p-1">
+        <div role="group" aria-label="Preset" className="flex items-center gap-0.5 rounded-xl bg-muted/60 p-1">
           {POMODORO_PRESETS.map((preset) => {
             const active = activePreset?.name === preset.name;
             return (
@@ -163,27 +170,30 @@ export default function PomodoroSettings({
       <div className="grid grid-cols-2 gap-2">
         <Stepper
           label="Focus"
-          icon={<GiTomato className="size-3.5 text-red-500" />}
+          icon={<GiTomato className="size-3.5 text-primary" />}
           value={draft.focusDuration}
           unit="min"
           limits={LIMITS.focusDuration}
           onStep={(d) => step("focusDuration", d)}
+          onSet={(v) => set("focusDuration", v)}
         />
         <Stepper
           label="Break"
-          icon={<FaCoffee className="size-3.5 text-amber-600" />}
+          icon={<FaCoffee className="size-3.5 text-(--chart-2)" />}
           value={draft.breakDuration}
           unit="min"
           limits={LIMITS.breakDuration}
           onStep={(d) => step("breakDuration", d)}
+          onSet={(v) => set("breakDuration", v)}
         />
         <Stepper
           label="Long break"
-          icon={<FaMugHot className="size-3.5 text-amber-700" />}
+          icon={<FaMugHot className="size-3.5 text-(--chart-2)" />}
           value={draft.longBreakDuration}
           unit="min"
           limits={LIMITS.longBreakDuration}
           onStep={(d) => step("longBreakDuration", d)}
+          onSet={(v) => set("longBreakDuration", v)}
         />
         <Stepper
           label="Long break after"
@@ -192,15 +202,14 @@ export default function PomodoroSettings({
           unit="blocks"
           limits={LIMITS.longBreakInterval}
           onStep={(d) => step("longBreakInterval", d)}
+          onSet={(v) => set("longBreakInterval", v)}
         />
       </div>
 
       {/* ── What one cycle looks like ── */}
       <div className="rounded-xl bg-muted/40 p-4">
         <div className="flex items-baseline justify-between gap-2">
-          <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
-            One cycle
-          </p>
+          <p className="text-xs font-medium text-muted-foreground">One cycle</p>
           {state.mode === "pomodoro" && state.completedPomodoros > 0 && (
             <button
               type="button"
@@ -240,23 +249,16 @@ export default function PomodoroSettings({
       </div>
 
       {/* ── Auto-start ── */}
-      <div className="flex flex-col gap-1">
-        <p className="mb-1 text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
-          When a phase ends
-        </p>
-        <ToggleRow
-          id="pomo-auto-breaks"
-          label="Start breaks automatically"
-          checked={autoStartBreaks}
-          onChange={(v) => setPreference("autoStartBreaks", v)}
-        />
-        <ToggleRow
-          id="pomo-auto-focus"
-          label="Start the next focus block automatically"
-          checked={autoStartFocus}
-          onChange={(v) => setPreference("autoStartFocus", v)}
-        />
-      </div>
+      <Group title="When a phase ends">
+        <Well>
+          <Row id="pomo-auto-breaks" label="Start breaks automatically">
+            <Switch id="pomo-auto-breaks" checked={autoStartBreaks} onCheckedChange={(v) => setPreference("autoStartBreaks", v)} />
+          </Row>
+          <Row id="pomo-auto-focus" label="Start the next focus block automatically">
+            <Switch id="pomo-auto-focus" checked={autoStartFocus} onCheckedChange={(v) => setPreference("autoStartFocus", v)} />
+          </Row>
+        </Well>
+      </Group>
     </div>
   );
 }
@@ -289,27 +291,6 @@ function CycleSegments({
   );
 }
 
-function ToggleRow({
-  id,
-  label,
-  checked,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  checked: boolean;
-  onChange: (value: boolean) => void;
-}): JSX.Element {
-  return (
-    <div className="flex min-h-11 items-center justify-between gap-3 md:min-h-9">
-      <Label htmlFor={id} className="cursor-pointer text-sm font-normal md:text-xs">
-        {label}
-      </Label>
-      <Switch id={id} checked={checked} onCheckedChange={onChange} />
-    </div>
-  );
-}
-
 function Stepper({
   label,
   icon,
@@ -317,6 +298,7 @@ function Stepper({
   unit,
   limits,
   onStep,
+  onSet,
 }: {
   label: string;
   icon: JSX.Element;
@@ -324,15 +306,33 @@ function Stepper({
   unit: string;
   limits: Limits;
   onStep: (direction: 1 | -1) => void;
+  onSet: (value: number) => void;
 }): JSX.Element {
   const amount = limits.step === 1 ? `by 1` : `by ${limits.step} minutes`;
+  const [text, setText] = useState<string | null>(null);
+  // Set while an edit closes, so a blur from the input unmounting doesn't save it again.
+  const closing = useRef(false);
+
+  const startEdit = () => {
+    closing.current = false;
+    setText(String(value));
+  };
+
+  const commit = () => {
+    if (closing.current) return;
+    closing.current = true;
+    const typed = Number(text);
+    if (text !== null && text.trim() !== "" && Number.isFinite(typed)) onSet(typed);
+    setText(null);
+  };
+
   return (
-    <div className="rounded-xl border p-3">
+    <div className="min-w-0 rounded-xl bg-muted/60 p-2.5 sm:p-3">
       <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
         {icon}
         {label}
       </span>
-      <div className="mt-2 flex items-center justify-between gap-2">
+      <div className="mt-2 flex items-center justify-between gap-1">
         <StepButton
           onClick={() => onStep(-1)}
           disabled={value <= limits.min}
@@ -340,12 +340,47 @@ function Stepper({
         >
           <FaMinus className="size-2.5" />
         </StepButton>
-        <span className="font-mono text-2xl font-semibold tabular-nums">
-          {value}
-          <span className="ml-1 text-sm font-normal text-muted-foreground">
-            {unit}
+        {text === null ? (
+          <button
+            type="button"
+            onClick={startEdit}
+            title={`Type a ${label.toLowerCase()} value`}
+            aria-label={`${label}: ${value} ${unit}. Type a value`}
+            className="min-w-0 cursor-text rounded-lg px-1.5 py-0.5 font-mono text-2xl font-semibold tabular-nums outline-none transition-colors duration-150 hover:bg-background/70 focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          >
+            {value}
+            <span className="ml-1 text-sm font-normal text-muted-foreground">
+              {unit}
+            </span>
+          </button>
+        ) : (
+          <span className="flex min-w-0 items-baseline">
+            <input
+              autoFocus
+              type="number"
+              inputMode="numeric"
+              min={limits.min}
+              max={limits.max}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onFocus={(e) => e.currentTarget.select()}
+              onBlur={commit}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commit();
+                else if (e.key === "Escape") {
+                  // Cancel the edit without closing the dialog around it.
+                  e.preventDefault();
+                  e.stopPropagation();
+                  closing.current = true;
+                  setText(null);
+                }
+              }}
+              aria-label={`${label} in ${unit}, ${limits.min} to ${limits.max}`}
+              className="w-14 min-w-0 rounded-lg bg-background px-1 py-0.5 text-center font-mono text-2xl font-semibold tabular-nums shadow-xs outline-none ring-[3px] ring-ring/50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            />
+            <span className="ml-1 font-mono text-sm text-muted-foreground">{unit}</span>
           </span>
-        </span>
+        )}
         <StepButton
           onClick={() => onStep(1)}
           disabled={value >= limits.max}
@@ -377,7 +412,7 @@ function StepButton({
       disabled={disabled}
       title={title}
       aria-label={title}
-      className="size-8 shrink-0 rounded-lg bg-muted/60 hover:bg-muted"
+      className="size-7 shrink-0 rounded-lg bg-background shadow-xs hover:bg-background/70 sm:size-8"
     >
       {children}
     </Button>

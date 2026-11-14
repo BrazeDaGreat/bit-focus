@@ -90,6 +90,7 @@ function CalendarWorkspace() {
   const [date, setDate] = useState(() => new Date());
   const [view, setView] = useState<CalendarView>("week");
   const [zoom, setZoom] = useState<ZoomLevel>("normal");
+  const [preferencesReady, setPreferencesReady] = useState(false);
   const [filters, setFilters] = useCalendarFilters();
   const [display, setDisplay] = useState<CalendarDisplay>(DEFAULT_DISPLAY);
   const [displayReady, setDisplayReady] = useState(false);
@@ -117,6 +118,25 @@ function CalendarWorkspace() {
     queryView = params.get("view"),
     queryBlock = params.get("block");
 
+  useEffect(() => {
+    try {
+      const stored: unknown = JSON.parse(localStorage.getItem("bit-focus-calendar-preferences") || "null");
+      if (stored && typeof stored === "object") {
+        const value = stored as { view?: unknown; zoom?: unknown };
+        if (value.view === "day" || value.view === "week" || value.view === "month")
+          setView(value.view);
+        if (value.zoom === "compact" || value.zoom === "normal" || value.zoom === "expanded")
+          setZoom(value.zoom);
+      }
+    } catch { /* Calendar preferences still work without storage. */ }
+    setPreferencesReady(true);
+  }, []);
+  useEffect(() => {
+    if (!preferencesReady) return;
+    try {
+      localStorage.setItem("bit-focus-calendar-preferences", JSON.stringify({ view, zoom }));
+    } catch { /* Private mode can disable storage. */ }
+  }, [view, zoom, preferencesReady]);
   useEffect(() => {
     try {
       const stored: unknown = JSON.parse(localStorage.getItem("bit-focus-calendar-display") || "null");

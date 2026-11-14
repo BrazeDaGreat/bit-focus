@@ -17,7 +17,7 @@ import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import { common, createLowlight } from "lowlight";
-import { mergeAttributes } from "@tiptap/core";
+import { Extension, mergeAttributes } from "@tiptap/core";
 import type { DOMOutputSpec } from "@tiptap/pm/model";
 import { Callout, Column, Columns, Toggle, ToggleSummary } from "@/components/notes/extensions/blocks";
 import { NoteImage } from "@/components/notes/extensions/note-image";
@@ -35,6 +35,42 @@ function printCode(text: string, language: string): DOMOutputSpec[] {
   };
   return tree.children.map(convert);
 }
+/**
+ * Tab and Shift+Tab belong to the page while the caret is in a list item:
+ * indent or outdent when the item can move, and otherwise do nothing, so
+ * focus never leaves the editor (the first item of a list has nothing to
+ * nest under). Code blocks and tables keep their own Tab handling.
+ */
+const ListTab = Extension.create({
+  name: "listTab",
+  priority: 1000,
+  addKeyboardShortcuts() {
+    const innerItem = (): "listItem" | "taskItem" | null => {
+      if (this.editor.isActive("codeBlock") || this.editor.isActive("table")) return null;
+      const { $from } = this.editor.state.selection;
+      for (let depth = $from.depth; depth > 0; depth--) {
+        const name = $from.node(depth).type.name;
+        if (name === "listItem" || name === "taskItem") return name;
+      }
+      return null;
+    };
+    return {
+      Tab: () => {
+        const item = innerItem();
+        if (!item) return false;
+        this.editor.commands.sinkListItem(item);
+        return true;
+      },
+      "Shift-Tab": () => {
+        const item = innerItem();
+        if (!item) return false;
+        this.editor.commands.liftListItem(item);
+        return true;
+      },
+    };
+  },
+});
+
 export function validNoteLink(url: string): boolean {
   return /^(https?:\/\/|mailto:)/i.test(url.trim());
 }
@@ -55,7 +91,7 @@ export function noteExtensions(options: { editable: boolean; placeholder?: strin
         : node.type.name === "paragraph" ? "Type '/' for commands" : "",
       showOnlyCurrent: true, includeChildren: true, showOnlyWhenEditable: true,
     })] : []),
-    TaskList, TaskItem.configure({ nested: true }), CharacterCount,
+    TaskList, TaskItem.configure({ nested: true }), ListTab, CharacterCount,
     Table.extend({
       addNodeView() { return ({ node }) => new TableView(node, this.options.cellMinWidth); },
     }).configure({ resizable: options.editable && !options.headless, lastColumnResizable: true, cellMinWidth: 90 }), TableRow, TableHeader, TableCell,

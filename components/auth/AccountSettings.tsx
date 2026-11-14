@@ -1,17 +1,19 @@
 /**
  * Account Settings - Sync Control and Account Management
  *
- * The full view of a connected account in Settings: what is linked, whether the two ends
- * agree, and every lever for forcing the issue. Sync is bookkeeping, so the
- * section is built as a ledger — monospace, tabular, one fact per row — with the
- * device↔cloud rail as the only large element, because that is the one thing
- * worth seeing from across the room.
+ * The full view of a connected account in Settings: who is signed in, whether
+ * this device and the cloud agree, and the few levers worth reaching for. The
+ * device↔cloud rail is the one large element. The sync ledger folds away under
+ * Sync details, and the rarely used, one-way actions (sign out, delete the
+ * cloud copy, delete the account) live in the ⋯ menu on the identity row,
+ * which a right-click on that row also opens.
  *
  * Signed out, the section collapses to a single offer rather than an empty state.
  *
  * @fileoverview Account connection, sync status, and data controls.
  * @author BIT Focus Development Team
  * @since v0.19.0
+ * @updated v0.25.3 - Wells instead of nested cards; leaving actions in a menu.
  */
 
 "use client";
@@ -30,7 +32,19 @@ import SyncRail, {
 import ProviderButtons from "@/components/auth/ProviderButtons";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Group, Row, SettingsButton, Well } from "@/components/settings/parts";
 import {
   Dialog,
   DialogContent,
@@ -43,15 +57,16 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
   FaArrowsRotate,
+  FaChevronDown,
   FaDownload,
+  FaEllipsis,
   FaRightFromBracket,
-  FaTriangleExclamation,
 } from "react-icons/fa6";
 
 // ── Primitives ───────────────────────────────────────────────────────────────
 
-/** One ledger row: an uppercase label against a monospace value. */
-function Row({
+/** One ledger row: a plain label against a monospace value. */
+function LedgerRow({
   label,
   children,
 }: {
@@ -59,23 +74,12 @@ function Row({
   children: ReactNode;
 }): JSX.Element {
   return (
-    <div className="flex items-center justify-between gap-4 px-4 py-3">
-      <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground shrink-0">
-        {label}
-      </span>
-      <span className="font-mono text-sm tabular-nums text-right truncate">
+    <div className="flex items-center justify-between gap-4 rounded-lg px-3 py-2">
+      <span className="shrink-0 text-sm text-muted-foreground">{label}</span>
+      <span className="truncate text-right font-mono text-sm tabular-nums">
         {children}
       </span>
     </div>
-  );
-}
-
-/** Section heading in the app's eyebrow register. */
-function SectionTitle({ children }: { children: ReactNode }): JSX.Element {
-  return (
-    <h3 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-      {children}
-    </h3>
   );
 }
 
@@ -163,6 +167,7 @@ export default function AccountSettings(): JSX.Element {
   const [confirm, setConfirm] = useState<"resync" | "wipe" | "delete" | null>(
     null,
   );
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // Keeps the "synced 3 min ago" line honest without a subscription.
   const [, setTick] = useState(0);
@@ -175,20 +180,15 @@ export default function AccountSettings(): JSX.Element {
 
   if (!ready || !user) {
     return (
-      <div className="flex max-w-lg flex-col gap-6">
-        <div>
-          <h3 className="text-xl font-semibold tracking-tight">
-            One account, every device.
-          </h3>
-          <p className="mt-3 text-muted-foreground leading-relaxed">
-            BIT Focus works fine without this. Connect an account only when
-            you want the same sessions, projects, and rewards on more than one
-            device.
+      <div className="flex flex-col gap-4">
+        <div className="rounded-xl bg-muted/40 p-4">
+          <SyncRail status="off" phase={null} pending={0} className="px-1" />
+          <p className="mt-4 text-sm font-medium">Not connected</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            BIT Focus works fine without an account. Connect one when you want
+            the same sessions, projects, and rewards on more than one device.
           </p>
         </div>
-
-        <SyncRail status="off" phase={null} pending={0} />
-
         <ProviderButtons />
       </div>
     );
@@ -199,242 +199,185 @@ export default function AccountSettings(): JSX.Element {
   const busy = status === "syncing";
   const provider = PROVIDER_LABELS[user.provider] ?? user.provider ?? "—";
 
+  const downloadBackup = async () => {
+    const payload = await getBackup();
+    if (!payload) {
+      toast("No pre-sync backup was taken on this device.");
+      return;
+    }
+    const url = URL.createObjectURL(
+      new Blob([payload], { type: "application/json" }),
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `bitfocus-presync-${new Date().toISOString()}.bitf.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      {/* ── Identity ─────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-4">
-        <AccountAvatar seed={name} className="size-14 border shrink-0" />
-        <div className="min-w-0">
-          <h3 className="truncate text-xl font-semibold tracking-tight">
+      {/* ── Identity, with the rarely used actions behind ⋯ ─────────── */}
+      <div
+        className="flex items-center gap-3"
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setMenuOpen(true);
+        }}
+      >
+        <AccountAvatar seed={name} className="size-10 shrink-0 border" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold tracking-tight">
             {user.name || "Your account"}
-          </h3>
-          <p className="text-sm text-muted-foreground truncate">
-            {user.email}
+          </p>
+          <p className="truncate text-xs text-muted-foreground">
+            {user.email} · {provider}
           </p>
         </div>
+        <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Account actions"
+              title="Account actions"
+              className="size-9 shrink-0 rounded-lg text-muted-foreground hover:bg-muted/60"
+            >
+              <FaEllipsis className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56 rounded-xl p-1">
+            <DropdownMenuItem
+              className="rounded-lg"
+              onSelect={() => void downloadBackup()}
+            >
+              <FaDownload className="size-3.5" />
+              Download pre-sync backup
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="rounded-lg"
+              onSelect={() => {
+                signOut();
+                toast("Signed out. Your data stays on this device.");
+              }}
+            >
+              <FaRightFromBracket className="size-3.5" />
+              Sign out
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="rounded-lg"
+              variant="destructive"
+              onSelect={() => setConfirm("wipe")}
+            >
+              Delete the cloud copy…
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="rounded-lg"
+              variant="destructive"
+              onSelect={() => setConfirm("delete")}
+            >
+              Delete account…
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* ── The link ─────────────────────────────────────────────────── */}
-      <section className="rounded-xl border bg-card p-5 flex flex-col gap-4">
-        <SyncRail
-          status={status}
-          phase={phase}
-          pending={pending}
-          progress={progress}
-          className="px-1"
-        />
+      <Group title="Sync">
+        <div className="flex flex-col gap-4 rounded-xl bg-muted/40 p-4">
+          <SyncRail
+            status={status}
+            phase={phase}
+            pending={pending}
+            progress={progress}
+            className="px-1"
+          />
 
-        <div className="flex items-baseline justify-between gap-3">
-          <span className="text-[11px] uppercase tracking-widest text-muted-foreground truncate">
-            {deviceLabel()}
-          </span>
-          <span
-            className={cn(
-              "text-sm font-medium tracking-tight text-center",
-              status === "error" ? "text-destructive" : "text-foreground",
-            )}
-          >
-            {syncStatusLabel({ status, phase, pending, syncedAt, progress })}
-          </span>
-          <span className="text-[11px] uppercase tracking-widest text-muted-foreground truncate">
-            Cloud
-          </span>
+          <div className="flex items-baseline justify-between gap-3 text-xs text-muted-foreground">
+            <span className="truncate">{deviceLabel()}</span>
+            <span
+              className={cn(
+                "text-center text-sm font-medium tracking-tight",
+                status === "error" ? "text-destructive" : "text-foreground",
+              )}
+            >
+              {syncStatusLabel({ status, phase, pending, syncedAt, progress })}
+            </span>
+            <span className="truncate">Cloud</span>
+          </div>
+
+          {error && (
+            <p className="text-xs leading-relaxed text-destructive">{error}</p>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            <SettingsButton primary disabled={busy} onClick={() => syncNow()}>
+              <FaArrowsRotate
+                className={cn("size-3", busy && "motion-safe:animate-spin")}
+              />
+              Sync now
+            </SettingsButton>
+            <SettingsButton disabled={busy} onClick={() => setConfirm("resync")}>
+              Re-check everything
+            </SettingsButton>
+          </div>
         </div>
-
-        {error && (
-          <p className="text-xs text-destructive leading-relaxed">{error}</p>
-        )}
-
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            disabled={busy}
-            onClick={() => syncNow()}
-            className="gap-2"
-          >
-            <FaArrowsRotate
-              className={cn("size-3", busy && "motion-safe:animate-spin")}
-            />
-            Sync now
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={busy}
-            onClick={() => setConfirm("resync")}
-            className="gap-2"
-          >
-            <FaArrowsRotate className="size-3" />
-            Re-check everything
-          </Button>
-        </div>
-      </section>
+      </Group>
 
       {/* ── Rows the server would not take ───────────────────────────── */}
       {rejected.length > 0 && (
-        <section className="flex flex-col gap-2">
-          <SectionTitle>Not syncing</SectionTitle>
-          <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3.5 flex flex-col gap-2">
-            <p className="text-sm">
-              {rejected.length}{" "}
-              {rejected.length === 1 ? "item is" : "items are"} too large to
-              store in the cloud. They stay on this device and everything else
-              syncs normally.
-            </p>
-            <ul className="text-xs text-muted-foreground font-mono flex flex-col gap-0.5">
-              {rejected.slice(0, 5).map((item) => (
-                <li key={`${item.col}-${item.uid}`}>
-                  {item.col} ·{" "}
-                  {item.kind === "oversized"
-                    ? `${(item.bytes / 1_000_000).toFixed(1)} MB`
-                    : "rejected"}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
+        <div className="flex flex-col gap-1.5 rounded-xl bg-destructive/12 px-4 py-3.5">
+          <p className="text-sm font-medium">
+            {rejected.length}{" "}
+            {rejected.length === 1 ? "item is" : "items are"} not syncing
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Too large to store in the cloud. They stay on this device and
+            everything else syncs normally.
+          </p>
+          <ul className="flex flex-col gap-0.5 font-mono text-xs text-muted-foreground">
+            {rejected.slice(0, 5).map((item) => (
+              <li key={`${item.col}-${item.uid}`}>
+                {item.col} ·{" "}
+                {item.kind === "oversized"
+                  ? `${(item.bytes / 1_000_000).toFixed(1)} MB`
+                  : "rejected"}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
-      {/* ── Ledger ───────────────────────────────────────────────────── */}
-      <section className="flex flex-col gap-2">
-        <SectionTitle>Sync record</SectionTitle>
-        <div className="rounded-xl border bg-card divide-y">
-          <Row label="Last sync">{formatSyncTime(syncedAt)}</Row>
-          <Row label="Waiting to send">
-            {pending > 0 ? `${pending} ${pending === 1 ? "change" : "changes"}` : "None"}
-          </Row>
-          <Row label="Last written by">{lastWriter ?? "—"}</Row>
-          <Row label="This device">{deviceLabel()}</Row>
-          <Row label="Signed in with">{provider}</Row>
-        </div>
-      </section>
-
-      {/* ── Preferences ──────────────────────────────────────────────── */}
-      <section className="flex flex-col gap-2">
-        <SectionTitle>Behaviour</SectionTitle>
-        <div className="rounded-xl border bg-card px-4 py-3.5 flex items-center justify-between gap-4">
-          <div className="flex flex-col gap-0.5">
-            <Label htmlFor="auto-sync" className="text-sm cursor-pointer">
-              Sync in the background
-            </Label>
-            <span className="text-xs text-muted-foreground">
-              Send changes as you make them and take updates from your other
-              devices. Pausing keeps tracking them — they go out when you
-              resume.
-            </span>
-          </div>
+      {/* ── Behaviour, with the ledger folded beneath ────────────────── */}
+      <Well>
+        <Row
+          id="auto-sync"
+          label="Sync in the background"
+          hint="Sends changes as you make them and takes updates from your other devices. Paused changes go out when you resume."
+        >
           <Switch
             id="auto-sync"
             checked={!paused}
             onCheckedChange={(on) => void setPaused(!on)}
           />
-        </div>
-      </section>
+        </Row>
+        <Collapsible>
+          <CollapsibleTrigger className="group flex min-h-12 w-full items-center justify-between gap-4 rounded-lg px-3 py-2.5 text-left text-sm font-medium outline-none transition-colors duration-150 hover:bg-background/60 focus-visible:ring-[3px] focus-visible:ring-ring/50">
+            Sync details
+            <FaChevronDown className="size-3 text-muted-foreground transition-transform duration-150 group-data-[state=open]:rotate-180" />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pb-1">
+            <LedgerRow label="Last sync">{formatSyncTime(syncedAt)}</LedgerRow>
+            <LedgerRow label="Waiting to send">
+              {pending > 0 ? `${pending} ${pending === 1 ? "change" : "changes"}` : "None"}
+            </LedgerRow>
+            <LedgerRow label="Last written by">{lastWriter ?? "—"}</LedgerRow>
+            <LedgerRow label="Signed in with">{provider}</LedgerRow>
+          </CollapsibleContent>
+        </Collapsible>
+      </Well>
 
-      {/* ── Safety copy ──────────────────────────────────────────────── */}
-      <section className="flex flex-col gap-2">
-        <SectionTitle>Safety copy</SectionTitle>
-        <div className="rounded-xl border bg-card px-4 py-3.5 flex items-center justify-between gap-4">
-          <div className="flex flex-col gap-0.5 min-w-0">
-            <p className="text-sm font-medium">
-              Download the pre-sync backup
-            </p>
-            <p className="text-xs text-muted-foreground">
-              A copy of everything on this device, taken once before sync was
-              rebuilt.
-            </p>
-          </div>
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-2 shrink-0"
-            onClick={async () => {
-              const payload = await getBackup();
-              if (!payload) {
-                toast("No backup was taken on this device.");
-                return;
-              }
-              const url = URL.createObjectURL(
-                new Blob([payload], { type: "application/json" }),
-              );
-              const link = document.createElement("a");
-              link.href = url;
-              link.download = `bitfocus-presync-${new Date().toISOString()}.bitf.json`;
-              link.click();
-              URL.revokeObjectURL(url);
-            }}
-          >
-            <FaDownload className="size-3" />
-            Download
-          </Button>
-        </div>
-      </section>
-
-      {/* ── Leaving ──────────────────────────────────────────────────── */}
-      <section className="flex flex-col gap-2">
-        <SectionTitle>Leaving</SectionTitle>
-        <div className="rounded-xl border bg-card divide-y">
-          <div className="flex items-center justify-between gap-4 px-4 py-3.5">
-            <div className="flex flex-col gap-0.5 min-w-0">
-              <p className="text-sm font-medium">Sign out</p>
-              <p className="text-xs text-muted-foreground">
-                Disconnects this device. Your data stays here.
-              </p>
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-2 shrink-0"
-              onClick={() => {
-                signOut();
-                toast("Signed out. Your data stays on this device.");
-              }}
-            >
-              <FaRightFromBracket className="size-3" />
-              Sign out
-            </Button>
-          </div>
-
-          <div className="flex items-center justify-between gap-4 px-4 py-3.5">
-            <div className="flex flex-col gap-0.5 min-w-0">
-              <p className="text-sm font-medium">Delete the cloud copy</p>
-              <p className="text-xs text-muted-foreground">
-                Clears what is stored on the server. This device keeps
-                everything.
-              </p>
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="shrink-0"
-              onClick={() => setConfirm("wipe")}
-            >
-              Delete copy
-            </Button>
-          </div>
-
-          <div className="flex items-center justify-between gap-4 px-4 py-3.5">
-            <div className="flex flex-col gap-0.5 min-w-0">
-              <p className="text-sm font-medium text-destructive">
-                Delete account
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Removes the account and its cloud copy for good. This device
-                keeps everything.
-              </p>
-            </div>
-            <Button
-              size="sm"
-              variant="destructive"
-              className="gap-2 shrink-0"
-              onClick={() => setConfirm("delete")}
-            >
-              <FaTriangleExclamation className="size-3" />
-              Delete
-            </Button>
-          </div>
-        </div>
-      </section>
       {/* ── Confirmations ──────────────────────────────────────────────── */}
 
       <ConfirmDialog
