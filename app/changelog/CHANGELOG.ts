@@ -3,6 +3,20 @@
 export { VERSION } from "./version";
 
 const CHANGELOG = `
+## \`v0.25.3-beta\` (2026-11-14) — Calendar Preferences & Settings
+- Fixed: Calendar zoom (Compact, Normal, or Expanded) and the selected day, week, or month view now survive refreshes and return visits on this device. Existing Show filters and session and planned-block styles are preserved. Calendar links still open the view they specify.
+- Changed: Settings shows one section at a time. Pick Profile, Account, Timer, Rewards, Notifications, Data, or Features from the list on the left (or the chips on phones) and only that section opens, so there is no long page to scroll through. Each entry still shows how that section is set up, and links such as Settings → Data open the right section.
+- Changed: Every Settings section uses the same layout: settings grouped in soft panels, one setting per row, and one button style, with only the main action filled. The bordered boxes inside sections and the small capital headings are gone.
+- Changed: Account is quieter. Sign out, Download pre-sync backup, Delete the cloud copy, and Delete account moved into the ⋯ menu beside your name, which a right-click on that row also opens. The sync record (last sync, waiting changes, last device, sign-in provider) folds away under Sync details.
+- Changed: Reward webhook messages (Post redemptions, Post earnings, and the smallest earning to post) moved from Rewards to Notifications, next to the webhook URL they use. Post timer updates now applies as soon as you switch it, once a webhook URL is saved.
+- Changed: Settings → Data is shorter. Browser storage shows the space used, a meter, and one line on whether it is protected; Last complete backup shows when it ran. Automatic backup and the backup file controls sit together under Backups.
+- Changed: Pomodoro settings, in Settings and on the Focus page, use the same soft panels. Focus durations use the focus colour and breaks the break colour, matching the timer.
+- Added: Type any Pomodoro duration. Click a value such as 5 min, in Settings → Timer or the Focus page's Pomodoro settings, type a number like 7, and press Enter or click away to save it. Escape cancels. Values stay within each setting's limits (1 to 180 minutes for focus, for example).
+- Fixed: The Pomodoro + and − buttons step along 5-minute marks, so going down to 1 minute and back up lands on 5 again instead of 6, and a typed 7 moves to 10 or 5.
+- Fixed: Tab and Shift + Tab in a Notes list indent and outdent the item again instead of jumping to the page outline. On an item that can't move further, such as the first item of a list, Tab now does nothing rather than moving you out of the page. This works the same in bulleted, numbered, and to-do lists; Tab in code blocks and tables is unchanged.
+- Changed: The page outline on the right edge of Notes pages and shared pages opens on hover only, and Tab no longer moves to it.
+- Removed: The Shortcuts section in Settings. Press Ctrl + K for the command palette or ? for every shortcut; the Settings list shows both keys.
+
 ## \`v0.25.2 (LTS)\` (2026-11-10) — AI Chat
 - Added: Search the Projects task list by title, notes, or tag, and combine tag, priority, and overdue filters. Matching subtasks appear with their parent for context. Clear filters returns to the full list, and the controls fit on phones.
 - Added: Settings → Data shows estimated browser storage use and capacity, whether storage is protected from automatic cleanup, and an option to request protection when supported. It also shows the last complete backup download or successful Discord upload recorded on this device. Complete backups include note images and task attachments; automatic backups without files do not count. Downloads are recorded when they start, since the app cannot confirm that the file was saved.

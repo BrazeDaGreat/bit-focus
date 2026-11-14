@@ -8,12 +8,14 @@
  * plays the choice at the current volume. Dragging the volume plays the
  * focus-end sound on release so the level can be judged by ear.
  *
- * Renders no panel of its own — the Settings page owns the framing.
+ * Renders its rows in a well but no panel or title — the Settings page owns
+ * the framing.
  */
 
 import { useRef, useState, type JSX } from "react";
 import { FaPlay } from "react-icons/fa6";
 import { Label } from "@/components/ui/label";
+import { Row, Well } from "@/components/settings/parts";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -33,10 +35,7 @@ export default function SoundSettings(): JSX.Element {
     playNotificationSound(preset, { volume, gentle: gentleSound });
 
   return (
-    <div className="flex flex-col gap-1">
-      <p className="mb-1 text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
-        Phase sounds
-      </p>
+    <Well>
       <SoundRow
         id="sound-focus-end"
         label="Focus ends"
@@ -55,8 +54,8 @@ export default function SoundSettings(): JSX.Element {
         onChange={(v) => setPreference("breakEndSound", v)}
         onPreview={() => preview(breakEndSound)}
       />
-      <div className="flex min-h-11 items-center gap-3 md:min-h-9">
-        <span id="sound-volume-label" className="w-24 shrink-0 text-sm md:text-xs">
+      <div className="flex min-h-12 items-center gap-3 rounded-lg px-3 py-1.5">
+        <span id="sound-volume-label" className="w-24 shrink-0 text-sm font-medium">
           Volume
         </span>
         <VolumeSlider
@@ -68,22 +67,14 @@ export default function SoundSettings(): JSX.Element {
           }}
         />
       </div>
-      <div className="flex min-h-11 items-center justify-between gap-3 md:min-h-9">
-        <div className="flex min-w-0 flex-col">
-          <Label htmlFor="sound-gentle" className="cursor-pointer text-sm font-normal md:text-xs">
-            Fade in gently
-          </Label>
-          <span className="text-xs text-muted-foreground md:text-[11px]">
-            Starts quiet and rises over a second, with one extra strike.
-          </span>
-        </div>
+      <Row id="sound-gentle" label="Fade in gently" hint="Starts quiet and rises over a second, with one extra strike.">
         <Switch
           id="sound-gentle"
           checked={gentleSound}
           onCheckedChange={(v) => setPreference("gentleSound", v)}
         />
-      </div>
-    </div>
+      </Row>
+    </Well>
   );
 }
 
@@ -107,13 +98,13 @@ function SoundRow({
 }): JSX.Element {
   const silent = value === "none" || volume === 0;
   return (
-    <div className="flex min-h-11 items-center gap-3 md:min-h-9">
-      <Label htmlFor={id} className="flex w-24 shrink-0 cursor-pointer items-center gap-2 text-sm font-normal md:text-xs">
+    <div className="flex min-h-12 items-center gap-3 rounded-lg px-3 py-1.5">
+      <Label htmlFor={id} className="flex w-24 shrink-0 cursor-pointer items-center gap-2 text-sm font-medium">
         <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: color }} aria-hidden="true" />
         {label}
       </Label>
       <Select value={value} onValueChange={(v) => isSoundPreset(v) && onChange(v)}>
-        <SelectTrigger id={id} className="h-11 min-w-0 flex-1 rounded-lg md:h-8 md:text-xs">
+        <SelectTrigger id={id} className="h-9 min-w-0 flex-1 rounded-lg bg-background">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -130,7 +121,7 @@ function SoundRow({
         disabled={silent}
         title={silent ? "Nothing to play" : `Play the ${label.toLowerCase()} sound`}
         aria-label={`Play the ${label.toLowerCase()} sound`}
-        className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-muted/60 text-muted-foreground outline-none transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-40 md:size-8"
+        className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-background text-muted-foreground shadow-xs outline-none transition-colors duration-150 hover:bg-background/70 hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-40"
       >
         <FaPlay className="size-2.5" />
       </button>
@@ -199,9 +190,9 @@ function VolumeSlider({
           else return;
           e.preventDefault();
         }}
-        className="group relative h-11 flex-1 cursor-pointer touch-none select-none rounded-full outline-none md:h-6"
+        className="group relative h-9 flex-1 cursor-pointer touch-none select-none rounded-full outline-none"
       >
-        <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-border/70" />
+        <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-background" />
         <div
           className="absolute top-1/2 left-0 h-1.5 -translate-y-1/2 rounded-full bg-primary"
           style={{ width: `${shown}%` }}

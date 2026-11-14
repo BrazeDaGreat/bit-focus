@@ -3,8 +3,9 @@
  *
  * A row of short marks pinned to the right edge of the screen, one per
  * heading, longest for the top level. They stay faint so they never compete
- * with the page; hovering (or tabbing into) the edge opens the full outline,
- * and a click scrolls that heading to the top. The mark for the section being
+ * with the page; hovering the edge opens the full outline, and a click
+ * scrolls that heading to the top. The outline is for the mouse only and
+ * stays out of the tab order, so Tab in the editor keeps indenting lists. The mark for the section being
  * read is tinted, so the rail doubles as a quiet position indicator.
  *
  * Used by the editor and the shared-page viewer alike: it reads headings from
@@ -135,7 +136,7 @@ export function NoteOutline({ editor }: { editor: Editor }): JSX.Element | null 
     <nav aria-label="Page outline" className="group/outline fixed right-0 top-1/2 z-20 hidden -translate-y-1/2 md:block">
       <div
         aria-hidden
-        className="flex max-h-[60vh] flex-col items-end gap-2.5 overflow-hidden py-4 pl-8 pr-4 transition-opacity delay-150 duration-150 group-has-[:focus-visible]/outline:opacity-0 group-has-[:focus-visible]/outline:delay-0 group-hover/outline:opacity-0 group-hover/outline:delay-0"
+        className="flex max-h-[60vh] flex-col items-end gap-2.5 overflow-hidden py-4 pl-8 pr-4 transition-opacity delay-150 duration-150 group-hover/outline:opacity-0 group-hover/outline:delay-0"
       >
         {headings.map((heading, index) => (
           <span
@@ -148,16 +149,17 @@ export function NoteOutline({ editor }: { editor: Editor }): JSX.Element | null 
           />
         ))}
       </div>
-      <div className="pointer-events-none absolute right-3 top-1/2 w-64 -translate-y-1/2 translate-x-1 opacity-0 transition delay-150 duration-150 group-has-[:focus-visible]/outline:pointer-events-auto group-has-[:focus-visible]/outline:translate-x-0 group-has-[:focus-visible]/outline:opacity-100 group-has-[:focus-visible]/outline:delay-0 group-hover/outline:pointer-events-auto group-hover/outline:translate-x-0 group-hover/outline:opacity-100 group-hover/outline:delay-0 motion-reduce:translate-x-0 motion-reduce:transition-none">
+      <div className="pointer-events-none absolute right-3 top-1/2 w-64 -translate-y-1/2 translate-x-1 opacity-0 transition delay-150 duration-150 group-hover/outline:pointer-events-auto group-hover/outline:translate-x-0 group-hover/outline:opacity-100 group-hover/outline:delay-0 motion-reduce:translate-x-0 motion-reduce:transition-none">
         <ol className="max-h-[70vh] space-y-px overflow-y-auto overscroll-contain rounded-xl border bg-popover p-1.5 text-popover-foreground shadow-xs">
           {headings.map((heading, index) => (
             <li key={heading.pos}>
               <button
                 type="button"
+                tabIndex={-1}
                 onClick={() => jump(index)}
                 aria-current={index === active ? "location" : undefined}
                 className={cn(
-                  "block w-full truncate rounded-lg py-1.5 pr-2.5 text-left text-[13px] leading-5 transition-colors duration-150 hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-primary",
+                  "block w-full truncate rounded-lg py-1.5 pr-2.5 text-left text-[13px] leading-5 transition-colors duration-150 hover:bg-muted/60",
                   ITEM_INDENT[heading.level - 1],
                   heading.level === 1 && "font-medium",
                   index === active ? "bg-primary/12 text-primary hover:bg-primary/12" : heading.level === 1 ? "text-foreground" : "text-muted-foreground hover:text-foreground",

@@ -212,12 +212,7 @@ export default function AppShell({
       <AppSidebar />
       <GlobalShortcuts />
       <div
-        className={cn(
-          "flex min-w-0 flex-1 flex-col",
-          pathname === "/settings"
-            ? "min-h-svh"
-            : "h-dvh min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain"
-        )}
+        className="flex h-dvh min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-contain"
       >
         <TopBar />
         {showPage ? children : null}

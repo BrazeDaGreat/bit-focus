@@ -33,6 +33,16 @@ async function seedBackupWorkspace(page: Page) {
   await expect(page.getByRole("button", { name: "Export complete backup", exact: true })).toBeVisible();
 }
 
+/** Settings shows one section at a time; the visible index is chips on phones, a list on desktop. */
+async function openSection(page: Page, title: string) {
+  await page.getByRole("navigation", { name: "Settings sections" }).getByRole("button", { name: new RegExp(`^${title}`) }).click();
+}
+
+async function expectProfileName(page: Page, name: string, timeout?: number) {
+  await openSection(page, "Profile");
+  await expect(page.getByRole("textbox", { name: "Name", exact: true })).toHaveValue(name, { timeout });
+}
+
 for (const mobile of [false, true]) {
 test(`Settings exports files and confirms restore on ${mobile ? "mobile" : "desktop"}`, async ({ page }, testInfo) => {
   if (mobile) await page.setViewportSize({ width: 390, height: 844 });
@@ -64,11 +74,12 @@ test(`Settings exports files and confirms restore on ${mobile ? "mobile" : "desk
   await dialog.screenshot({ path: testInfo.outputPath("restore-preview.png") });
   await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
   await page.reload();
-  await expect(page.getByRole("textbox", { name: "Name", exact: true })).toHaveValue("Backup tester");
+  await expectProfileName(page, "Backup tester");
 
+  await openSection(page, "Data");
   await picker.setInputFiles(file);
   await dialog.getByRole("button", { name: "Replace data and restore", exact: true }).click();
-  await expect(page.getByRole("textbox", { name: "Name", exact: true })).toHaveValue("Restored tester", { timeout: 15000 });
+  await expect(async () => expectProfileName(page, "Restored tester", 1000)).toPass({ timeout: 15000 });
   const restored = await page.evaluate(async () => {
     const db = await new Promise<IDBDatabase>((resolve) => {
       const request = indexedDB.open("BitFocusDB");
@@ -97,5 +108,5 @@ test("invalid restore files are rejected before offering replacement", async ({ 
   await expect(page.getByText("That file couldn't be read as a BIT Focus backup. Your data has not changed.", { exact: true })).toBeVisible();
   await expect(page.getByRole("dialog", { name: "Restore this backup?" })).toHaveCount(0);
   await page.reload();
-  await expect(page.getByRole("textbox", { name: "Name", exact: true })).toHaveValue("Backup tester");
+  await expectProfileName(page, "Backup tester");
 });
