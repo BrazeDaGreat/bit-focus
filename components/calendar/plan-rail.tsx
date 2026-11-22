@@ -19,7 +19,7 @@ import { toast } from "sonner";
 import { useTimeblocks } from "@/hooks/useTimeblocks";
 import { useProjects } from "@/hooks/useProjects";
 import { ProjectIcon } from "@/components/tasks/ProjectIcon";
-import type { Task } from "@/lib/tasks";
+import { taskDeadline, type Task } from "@/lib/tasks";
 import { dayKey } from "@/lib/timeblocks";
 import { cn } from "@/lib/utils";
 import {
@@ -144,13 +144,10 @@ export function PlanRail({
   const [query, setQuery] = useState("");
   const [shifting, setShifting] = useState(false);
   const shiftRestOfDay = useTimeblocks((state) => state.shiftRestOfDay);
-  const filtered = tasks
-    .filter((task) => task.title.toLowerCase().includes(query.toLowerCase()))
-    .sort(
-      (a, b) =>
-        Number(plannedTasks.has(a.uid || "")) -
-        Number(plannedTasks.has(b.uid || "")),
-    );
+  const unscheduled = tasks.filter((task) => !plannedTasks.has(task.uid || ""));
+  const filtered = unscheduled.filter((task) =>
+    task.title.toLowerCase().includes(query.toLowerCase()),
+  );
   return (
     <div className="space-y-6">
       <Zone>Plan</Zone>
@@ -159,10 +156,10 @@ export function PlanRail({
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold">Unscheduled</h3>
           <span className="font-mono text-xs tabular-nums text-muted-foreground">
-            {tasks.length}
+            {unscheduled.length}
           </span>
         </div>
-        {tasks.length > 6 && (
+        {unscheduled.length > 6 && (
           <input
             aria-label="Search unscheduled tasks"
             placeholder="Find a task…"
@@ -174,6 +171,7 @@ export function PlanRail({
         <div className="max-h-64 space-y-1 overflow-y-auto">
           {filtered.map((task) => {
             const project = projects.find((item) => item.id === task.projectId);
+            const deadline = taskDeadline(task);
             return (
             <div
               key={task.uid || task.id}
@@ -211,8 +209,12 @@ export function PlanRail({
                     <ProjectIcon name={project.icon} className="size-3 shrink-0" />
                     <span className="truncate">{project.title}</span>
                   </span>}
-                  {plannedTasks.has(task.uid || "") && <span className="shrink-0">· Planned</span>}
                 </div>
+                {deadline && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Due {format(deadline, task.dueTime ? "MMM d, yyyy · h:mm a" : "MMM d, yyyy")}
+                  </p>
+                )}
               </div>
             </div>
             );
@@ -220,7 +222,7 @@ export function PlanRail({
           {!filtered.length && (
             <div className="rounded-xl bg-muted/40 p-3">
               <p className="text-sm font-medium">
-                {query ? "No matching tasks" : "No open tasks"}
+                {query ? "No matching tasks" : "No unscheduled tasks"}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {query
